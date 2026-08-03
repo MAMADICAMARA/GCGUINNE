@@ -1,0 +1,41 @@
+name: gestion_commerciale_mobile
+description: >
+  Application mobile de la plateforme de gestion commerciale multi-boutiques.
+  Miroir Flutter du frontend web (React) — même API backend, même
+  architecture compte/boutique.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Navigation déclarative avec gestion des redirections (équivalent de
+  # react-router-dom + nos gardes ProtectedRoute / RequireStoreRoute).
+  go_router: ^14.2.0
+
+  # Gestion d'état globale (équivalent de Zustand côté web).
+  provider: ^6.1.2
+
+  # Client HTTP avec intercepteurs (équivalent de l'instance axios de
+  # frontend/src/services/apiClient.js).
+  dio: ^5.4.3+1
+
+  # Stockage sécurisé du jeton de session (Keychain iOS / Keystore Android).
+  flutter_secure_storage: ^9.2.2
+
+  # Formatage des montants (GNF) et des dates.
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
