@@ -13,6 +13,22 @@ function required(name) {
   return value;
 }
 
+// Avertissement bruyant si NODE_ENV n'est pas explicitement défini (§A6
+// SOLUTIONS_AUDIT_PRODUCTION.md) : le repli silencieux vers 'development'
+// ci-dessous retombe précisément sur le mode le MOINS sûr (CORS ouvert à
+// toute origine, traces d'erreur détaillées renvoyées au client — voir
+// app.js et middlewares/errorHandler.js). Un oubli de cette variable au
+// déploiement ne doit jamais passer inaperçu dans les logs de démarrage.
+if (!process.env.NODE_ENV) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '\n⚠️  NODE_ENV non défini — démarrage en mode "development" par défaut ' +
+      '(CORS ouvert à toute origine, erreurs détaillées renvoyées au client).\n' +
+      '   Ne jamais lancer ainsi en production : définissez NODE_ENV=production ' +
+      'dans le .env du serveur.\n'
+  );
+}
+
 module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 4000,
@@ -27,7 +43,11 @@ module.exports = {
   databaseUrl: process.env.DATABASE_URL,
 
   jwt: {
-    secret: process.env.JWT_SECRET || 'dev_secret_do_not_use_in_production',
+    // Jamais de repli silencieux ici (§A2 SOLUTIONS_AUDIT_PRODUCTION.md) :
+    // un secret JWT connu à l'avance permettrait de forger un jeton valide
+    // pour n'importe quel compte, y compris Super Admin. Mieux vaut un
+    // échec bruyant au démarrage qu'une faille silencieuse en production.
+    secret: required('JWT_SECRET'),
     expiresIn: process.env.JWT_EXPIRES_IN || '8h',
   },
 

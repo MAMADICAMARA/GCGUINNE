@@ -14,7 +14,16 @@ const ROLE_LABELS = { SELLER: 'Vendeur', OWNER: 'Propriétaire' };
 export const ACTION_GROUPS = [
   {
     label: 'Équipe',
-    actions: ['INVITE_EMPLOYEE', 'ADD_EMPLOYEE_EXISTING_ACCOUNT', 'REMOVE_EMPLOYEE'],
+    actions: [
+      'INVITE_EMPLOYEE',
+      'ADD_EMPLOYEE_EXISTING_ACCOUNT',
+      'REMOVE_EMPLOYEE',
+      'SET_SELLER_VOID_RETURN_PERMISSION',
+    ],
+  },
+  {
+    label: 'Ventes',
+    actions: ['VOID_ORDER', 'RETURN_ORDER_ITEM', 'UPDATE_VOID_RETURN_SETTINGS'],
   },
   {
     label: 'Abonnement',
@@ -44,6 +53,10 @@ export const ACTION_LABELS = {
   ADMIN_ACTIVATE_PLAN: 'Abonnement activé',
   ADMIN_RENEW_PLAN: 'Abonnement renouvelé',
   ADMIN_DEACTIVATE_PLAN: 'Abonnement désactivé',
+  VOID_ORDER: 'Vente annulée',
+  RETURN_ORDER_ITEM: 'Article retourné',
+  UPDATE_VOID_RETURN_SETTINGS: "Réglage d'autorisation modifié",
+  SET_SELLER_VOID_RETURN_PERMISSION: 'Autorisation vendeur modifiée',
 };
 
 export function actionLabel(action) {
@@ -65,6 +78,16 @@ export function formatLogDetails(action, details) {
         .join(' — ');
     case 'ADMIN_RENEW_PLAN':
       return details.expiresAt ? `jusqu'au ${formatDate(details.expiresAt)}` : null;
+    case 'VOID_ORDER':
+      return details.orderNumber || null;
+    case 'RETURN_ORDER_ITEM':
+      return [details.orderNumber, details.returnedQty ? `${details.returnedQty} article(s)` : null]
+        .filter(Boolean)
+        .join(' — ');
+    case 'UPDATE_VOID_RETURN_SETTINGS':
+      return details.allowAllSellers ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
+    case 'SET_SELLER_VOID_RETURN_PERMISSION':
+      return details.canVoidReturn ? 'Vendeur autorisé' : 'Autorisation retirée';
     default:
       return null;
   }

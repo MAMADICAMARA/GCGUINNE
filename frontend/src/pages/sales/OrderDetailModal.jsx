@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDateTime } from '@/utils/format';
+import { useAuthStore } from '@/store/authStore';
+import ReturnOrderModal from './ReturnOrderModal';
 
 const STATUS_LABELS = {
   PAID: 'Payée',
@@ -22,34 +24,81 @@ const PAYMENT_STATUS_LABELS = {
   PENDING: 'Non payé',
 };
 
-export default function OrderDetailModal({ orderId, onClose }) {
+/**
+ * Détail d'une vente (Historique des ventes) — actions (Annuler/Retourner)
+ * réservées à l'Owner, ou à un Vendeur explicitement autorisé par le Owner
+ * (§25_autorisation_annulation_retour.sql, décidé en conversation), et
+ * dans ce dernier cas uniquement sur ses propres ventes (déjà garanti côté
+ * backend : un Vendeur ne peut même pas charger la commande d'un
+ * collègue). § décidé en conversation (B1) : "Annuler" annule la commande
+ * en entier (stock remis, dette client annulée si elle en avait une) ;
+ * "Retourner" ouvre un second modal pour un retour total ou partiel,
+ * article par article. Les deux s'appuient sur des routes déjà
+ * fonctionnelles (POST /orders/:id/void, POST /orders/:id/items/:id/return).
+ */
+export default function OrderDetailModal({ orderId, onClose, onChanged }) {
+  const roleCode = useAuthStore((s) => s.activeStore?.roleCode);
+  const canVoidReturn = useAuthStore((s) => s.canVoidReturn);
+  const isAuthorized = roleCode === 'OWNER' || canVoidReturn;
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [voiding, setVoiding] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+
+  async function loadOrder() {
+    try {
+      const res = await apiClient.get(`/orders/${orderId}`);
+      setData(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Impossible de charger la commande.');
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await apiClient.get(`/orders/${orderId}`);
-        if (!cancelled) setData(res.data);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err.response?.data?.error?.message || 'Impossible de charger la commande.');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      setLoading(true);
+      await loadOrder();
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
+
+  async function handleVoid() {
+    if (
+      !window.confirm(
+        "Annuler cette vente ? Le stock des articles sera remis, et la dette éventuelle du client sur cette vente sera annulée. Cette action est irréversible."
+      )
+    ) {
+      return;
+    }
+    setError('');
+    setVoiding(true);
+    try {
+      await apiClient.post(`/orders/${orderId}/void`);
+      await loadOrder();
+      onChanged?.();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || "Impossible d'annuler cette vente.");
+    } finally {
+      setVoiding(false);
+    }
+  }
+
+  const canAct =
+    isAuthorized && data && data.order.status !== 'VOIDED' && data.order.status !== 'RETURNED';
+  const hasReturnableItems =
+    data && data.items.some((item) => item.quantity - item.returnedQuantity > 0);
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h2 className="font-semibold text-slate-800">Détail de la vente</h2>
           <button
             onClick={onClose}
@@ -60,13 +109,19 @@ export default function OrderDetailModal({ orderId, onClose }) {
           </button>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="px-6 py-5 overflow-y-auto flex-1 min-h-0">
           {loading ? (
             <p className="text-sm text-slate-400">Chargement...</p>
-          ) : error ? (
+          ) : error && !data ? (
             <p className="text-sm text-red-600">{error}</p>
           ) : (
             <>
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-4">
+                  {error}
+                </p>
+              )}
+
               <div className="grid grid-cols-2 gap-3 mb-5 text-sm">
                 <Info label="Numéro" value={data.order.orderNumber} />
                 <Info label="Date" value={formatDateTime(data.order.createdAt)} />
@@ -91,7 +146,14 @@ export default function OrderDetailModal({ orderId, onClose }) {
                   <tbody>
                     {data.items.map((item) => (
                       <tr key={item.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 text-slate-700">{item.productName}</td>
+                        <td className="px-3 py-2 text-slate-700">
+                          {item.productName}
+                          {item.returnedQuantity > 0 && (
+                            <span className="block text-xs text-amber-600">
+                              {item.returnedQuantity} retourné(s)
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-right">{item.quantity}</td>
                         <td className="px-3 py-2 text-right">{formatGNF(item.unitPrice)}</td>
                         <td className="px-3 py-2 text-right font-medium">
@@ -134,15 +196,45 @@ export default function OrderDetailModal({ orderId, onClose }) {
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+        <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 shrink-0">
+          {canAct && (
+            <button
+              onClick={handleVoid}
+              disabled={voiding}
+              className="rounded-lg bg-red-50 text-red-700 text-sm font-medium px-4 py-2 hover:bg-red-100 transition disabled:opacity-60"
+            >
+              {voiding ? 'Annulation...' : 'Annuler la vente'}
+            </button>
+          )}
+          {canAct && hasReturnableItems && (
+            <button
+              onClick={() => setShowReturnModal(true)}
+              className="rounded-lg bg-amber-50 text-amber-700 text-sm font-medium px-4 py-2 hover:bg-amber-100 transition"
+            >
+              Retourner
+            </button>
+          )}
           <button
             onClick={onClose}
-            className="rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-200 transition"
+            className="rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-200 transition ml-auto"
           >
             Fermer
           </button>
         </div>
       </div>
+
+      {showReturnModal && data && (
+        <ReturnOrderModal
+          orderId={orderId}
+          items={data.items}
+          onClose={() => setShowReturnModal(false)}
+          onSuccess={async () => {
+            setShowReturnModal(false);
+            await loadOrder();
+            onChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 }

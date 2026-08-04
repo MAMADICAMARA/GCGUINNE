@@ -49,4 +49,18 @@ async function remove(req, res, next) {
   }
 }
 
-module.exports = { list, listInvitations, add, cancelInvitation, remove };
+async function updatePermissions(req, res, next) {
+  try {
+    const result = await employeesService.setSellerVoidReturnPermission(
+      req.auth.storeId,
+      req.params.userId,
+      req.body.canVoidReturn,
+      req.auth.userId
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, listInvitations, add, cancelInvitation, remove, updatePermissions };

@@ -24,6 +24,14 @@ export const useAuthStore = create((set) => ({
   // séparément (cf. GET /stores/plan-banner).
   planBanner: null,
 
+  // boolean — un Vendeur (jamais consulté pour l'Owner, toujours
+  // implicitement vrai) peut-il annuler/retourner SES PROPRES ventes ?
+  // (§25_autorisation_annulation_retour.sql, décidé en conversation).
+  // Peuplé une fois par VoidReturnPermissionSync au montage de
+  // DashboardLayout (cf. GET /stores/my-void-return-permission), même
+  // précédent que planBanner ci-dessus.
+  canVoidReturn: false,
+
   setSession: ({ token, user, stores }) =>
     set({
       token,
@@ -38,6 +46,8 @@ export const useAuthStore = create((set) => ({
 
   setPlanBanner: (planBanner) => set({ planBanner }),
 
+  setCanVoidReturn: (canVoidReturn) => set({ canVoidReturn }),
+
   /**
    * Applique le résultat d'une création de boutique ou d'un changement de
    * boutique active (réponses de POST /stores ou POST /auth/switch-store) :
@@ -50,10 +60,18 @@ export const useAuthStore = create((set) => ({
       activeStore,
       stores: stores || state.stores,
       planBanner: null,
+      canVoidReturn: false,
     })),
 
   logout: () =>
-    set({ token: null, user: null, stores: [], activeStore: null, planBanner: null }),
+    set({
+      token: null,
+      user: null,
+      stores: [],
+      activeStore: null,
+      planBanner: null,
+      canVoidReturn: false,
+    }),
 
   isAuthenticated: () => {
     return Boolean(useAuthStore.getState().token);

@@ -28,7 +28,6 @@ router.use('/suppliers', require('../modules/suppliers/suppliers.routes'));
 router.use('/notes', require('../modules/notes/notes.routes'));
 
 // router.use('/users', require('../modules/users/users.routes'));
-// router.use('/stock', require('../modules/stock/stock.routes'));
 // ----------------------------------------------------------------------
 
 module.exports = router;

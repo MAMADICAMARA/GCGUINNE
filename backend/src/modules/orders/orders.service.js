@@ -394,9 +394,20 @@ async function getOrders(storeId, options = {}) {
  * Récupérer une commande avec ses lignes — champs en camelCase.
  * @param {number} storeId
  * @param {number} orderId
+ * @param {number|null} ownSellerId - Si fourni (Vendeur non-Owner), la
+ *   commande n'est renvoyée que si elle lui appartient — sinon 404 (jamais
+ *   403, pour ne pas révéler qu'une commande d'un collègue existe). `null`
+ *   pour l'Owner : aucune restriction.
  * @returns {object} {order, items}
  */
-async function getOrderById(storeId, orderId) {
+async function getOrderById(storeId, orderId, ownSellerId = null) {
+  const conditions = ['o.store_id = $1', 'o.id = $2'];
+  const params = [storeId, orderId];
+  if (ownSellerId) {
+    conditions.push(`o.seller_id = $${params.length + 1}`);
+    params.push(ownSellerId);
+  }
+
   const orderResult = await pool.query(
     `SELECT o.id, o.order_number AS "orderNumber", o.total_amount AS "totalAmount",
             o.discount_amount AS "discountAmount", o.tax_amount AS "taxAmount",
@@ -407,8 +418,8 @@ async function getOrderById(storeId, orderId) {
      FROM orders o
      LEFT JOIN customers c ON o.customer_id = c.id
      LEFT JOIN users u ON o.seller_id = u.id
-     WHERE o.store_id = $1 AND o.id = $2`,
-    [storeId, orderId]
+     WHERE ${conditions.join(' AND ')}`,
+    params
   );
 
   if (orderResult.rows.length === 0) {
@@ -435,17 +446,41 @@ async function getOrderById(storeId, orderId) {
 }
 
 /**
- * Annuler une commande (void) — reverse les mouvements de stock
+ * Annuler une commande (void) — reverse les mouvements de stock et,
+ * décidé en conversation (§B1), la contribution de cette commande à la
+ * fiche du client si elle en avait un.
+ *
+ * Une commande `PARTIALLY_RETURNED` peut être annulée (seules `VOIDED` et
+ * `RETURNED` sont bloquées, cf. plus bas) — il faut donc composer avec ce
+ * qui a déjà été retourné AVANT cette annulation, sur les deux plans :
+ *  - Stock : ne remettre que ce qui n'était PAS déjà revenu
+ *    (`quantity - returned_quantity`), jamais la quantité d'origine en
+ *    entier — sinon les articles déjà restockés par un retour précédent
+ *    seraient comptés deux fois.
+ *  - Client : `remainingEffectiveTotal` = total d'origine moins la valeur
+ *    déjà retournée (`SUM(returned_quantity * unit_price)`) — c'est ce qui
+ *    "restait" sur cette commande juste avant l'annulation. `total_spent`
+ *    perd exactement cette valeur (le retour précédent avait déjà retiré
+ *    sa propre part) ; `balance_due` perd ce qui restait dû dessus
+ *    (`remainingEffectiveTotal - amountPaid`, jamais négatif). Sans retour
+ *    préalable, `remainingEffectiveTotal` vaut simplement le total
+ *    d'origine — le calcul se réduit alors au cas simple.
  * @param {number} storeId
  * @param {number} orderId
  * @param {number} userId - Utilisateur qui annule
+ * @param {string} roleCode - 'OWNER' ou 'SELLER' ; un Vendeur ne peut
+ *   annuler que SES PROPRES ventes, même s'il est autorisé
+ *   (§25_autorisation_annulation_retour.sql, décidé en conversation) —
+ *   vérifié ici, jamais uniquement côté route.
  * @returns {object} {orderId, status}
  */
-async function voidOrder(storeId, orderId, userId) {
+async function voidOrder(storeId, orderId, userId, roleCode) {
   const client = await pool.connect();
   try {
     const orderResult = await client.query(
-      `SELECT id, status FROM orders WHERE store_id = $1 AND id = $2`,
+      `SELECT id, status, order_number AS "orderNumber", customer_id AS "customerId",
+              total_amount AS "totalAmount", amount_paid AS "amountPaid", seller_id AS "sellerId"
+       FROM orders WHERE store_id = $1 AND id = $2`,
       [storeId, orderId]
     );
 
@@ -454,6 +489,9 @@ async function voidOrder(storeId, orderId, userId) {
     }
 
     const order = orderResult.rows[0];
+    if (roleCode !== 'OWNER' && order.sellerId !== userId) {
+      throw new AppError('Vous ne pouvez annuler que vos propres ventes.', 403, 'FORBIDDEN');
+    }
     if (order.status === 'VOIDED') {
       throw new AppError('Cette commande a déjà été annulée', 400);
     }
@@ -464,25 +502,52 @@ async function voidOrder(storeId, orderId, userId) {
     await client.query('BEGIN');
     try {
       const itemsResult = await client.query(
-        'SELECT product_id, quantity FROM order_items WHERE order_id = $1',
+        `SELECT product_id, quantity, returned_quantity AS "returnedQuantity",
+                unit_price AS "unitPrice"
+         FROM order_items WHERE order_id = $1`,
         [orderId]
       );
 
+      const note = `Annulation de la commande ${order.orderNumber}`;
+      let alreadyReturnedValue = 0;
       for (const item of itemsResult.rows) {
-        await client.query(
-          `INSERT INTO stock_movements
-           (product_id, type, quantity, reference_table, reference_id, user_id)
-           VALUES ($1, 'RETURN_IN', $2, 'orders', $3, $4)`,
-          [item.product_id, item.quantity, orderId, userId]
-        );
+        const remainingQty = item.quantity - item.returnedQuantity;
+        alreadyReturnedValue += item.returnedQuantity * item.unitPrice;
 
-        await client.query(
-          `UPDATE products SET quantity = quantity + $1 WHERE id = $2`,
-          [item.quantity, item.product_id]
-        );
+        if (remainingQty > 0) {
+          await client.query(
+            `INSERT INTO stock_movements
+             (product_id, type, quantity, reference_table, reference_id, user_id, note)
+             VALUES ($1, 'RETURN_IN', $2, 'orders', $3, $4, $5)`,
+            [item.product_id, remainingQty, orderId, userId, note]
+          );
+
+          await client.query(
+            `UPDATE products SET quantity = quantity + $1 WHERE id = $2`,
+            [remainingQty, item.product_id]
+          );
+        }
       }
 
       await client.query(`UPDATE orders SET status = 'VOIDED' WHERE id = $1`, [orderId]);
+
+      if (order.customerId) {
+        const remainingEffectiveTotal = order.totalAmount - alreadyReturnedValue;
+        const stillOwedOnOrder = Math.max(0, remainingEffectiveTotal - order.amountPaid);
+        await client.query(
+          `UPDATE customers
+           SET total_spent = GREATEST(0, total_spent - $1),
+               balance_due = GREATEST(0, balance_due - $2)
+           WHERE id = $3`,
+          [remainingEffectiveTotal, stillOwedOnOrder, order.customerId]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO system_logs (user_id, store_id, action, details)
+         VALUES ($1, $2, 'VOID_ORDER', $3::jsonb)`,
+        [userId, storeId, JSON.stringify({ orderId, orderNumber: order.orderNumber })]
+      );
 
       await client.query('COMMIT');
 
@@ -497,19 +562,31 @@ async function voidOrder(storeId, orderId, userId) {
 }
 
 /**
- * Enregistrer un retour partiel d'item
+ * Enregistrer un retour partiel d'item — décidé en conversation (§B1) :
+ * ajuste aussi la fiche du client s'il y en a un. `total_spent` perd la
+ * valeur retournée (quantité × prix unitaire d'origine) ; `balance_due`
+ * perd la même valeur, mais jamais plus que ce qui restait dû SUR CETTE
+ * COMMANDE précisément (`LEAST`) — une cliente qui avait déjà tout payé et
+ * retourne un article ne se retrouve jamais avec un solde négatif, elle
+ * garde simplement 0 (ce système ne modélise pas les remboursements en
+ * espèces, seule la dette peut s'annuler).
  * @param {number} storeId
  * @param {number} orderId
  * @param {number} itemId
  * @param {number} returnedQty
  * @param {number} userId
+ * @param {string} roleCode - 'OWNER' ou 'SELLER' ; un Vendeur ne peut
+ *   retourner que SES PROPRES ventes, même s'il est autorisé
+ *   (§25_autorisation_annulation_retour.sql, décidé en conversation).
  * @returns {object} {itemId, returnedQty, remainingQty, orderStatus}
  */
-async function returnOrderItem(storeId, orderId, itemId, returnedQty, userId) {
+async function returnOrderItem(storeId, orderId, itemId, returnedQty, userId, roleCode) {
   const client = await pool.connect();
   try {
     const itemResult = await client.query(
-      `SELECT oi.id, oi.quantity, oi.returned_quantity, oi.product_id, o.store_id
+      `SELECT oi.id, oi.quantity, oi.returned_quantity, oi.product_id, oi.unit_price AS "unitPrice",
+              o.store_id, o.order_number AS "orderNumber", o.customer_id AS "customerId",
+              o.total_amount AS "totalAmount", o.amount_paid AS "amountPaid", o.seller_id AS "sellerId"
        FROM order_items oi
        JOIN orders o ON oi.order_id = o.id
        WHERE oi.id = $1 AND o.id = $2`,
@@ -524,6 +601,9 @@ async function returnOrderItem(storeId, orderId, itemId, returnedQty, userId) {
     if (item.store_id !== storeId) {
       throw new AppError('Non autorisé', 403);
     }
+    if (roleCode !== 'OWNER' && item.sellerId !== userId) {
+      throw new AppError('Vous ne pouvez retourner que vos propres ventes.', 403, 'FORBIDDEN');
+    }
 
     const availableForReturn = item.quantity - item.returned_quantity;
     if (returnedQty > availableForReturn) {
@@ -537,9 +617,9 @@ async function returnOrderItem(storeId, orderId, itemId, returnedQty, userId) {
     try {
       await client.query(
         `INSERT INTO stock_movements
-         (product_id, type, quantity, reference_table, reference_id, user_id)
-         VALUES ($1, 'RETURN_IN', $2, 'order_items', $3, $4)`,
-        [item.product_id, returnedQty, itemId, userId]
+         (product_id, type, quantity, reference_table, reference_id, user_id, note)
+         VALUES ($1, 'RETURN_IN', $2, 'order_items', $3, $4, $5)`,
+        [item.product_id, returnedQty, itemId, userId, `Retour sur la commande ${item.orderNumber}`]
       );
 
       await client.query(
@@ -571,6 +651,24 @@ async function returnOrderItem(storeId, orderId, itemId, returnedQty, userId) {
       }
 
       await client.query(`UPDATE orders SET status = $1 WHERE id = $2`, [newStatus, orderId]);
+
+      if (item.customerId) {
+        const returnedValue = returnedQty * item.unitPrice;
+        const stillOwedOnOrder = item.totalAmount - item.amountPaid;
+        await client.query(
+          `UPDATE customers
+           SET total_spent = GREATEST(0, total_spent - $1),
+               balance_due = GREATEST(0, balance_due - LEAST($1, $2))
+           WHERE id = $3`,
+          [returnedValue, stillOwedOnOrder, item.customerId]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO system_logs (user_id, store_id, action, details)
+         VALUES ($1, $2, 'RETURN_ORDER_ITEM', $3::jsonb)`,
+        [userId, storeId, JSON.stringify({ orderId, itemId, orderNumber: item.orderNumber, returnedQty })]
+      );
 
       await client.query('COMMIT');
 

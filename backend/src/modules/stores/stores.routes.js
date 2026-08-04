@@ -222,6 +222,61 @@ router.get(
   }
 );
 
+// --- Autorisation d'annulation/retour de vente par un Vendeur
+// (§25_autorisation_annulation_retour.sql, décidé en conversation) ---
+router.get(
+  '/void-return-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.getVoidReturnSettings(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.put(
+  '/void-return-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [body('allowAllSellers').isBoolean().withMessage('Valeur invalide.')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updateVoidReturnSettings(
+        req.auth.storeId,
+        req.body.allowAllSellers,
+        req.auth.userId
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Accessible à TOUTE l'équipe (pas requireRole('OWNER')) — c'est ce que le
+// Vendeur interroge lui-même pour savoir s'il voit "Historique des ventes"
+// dans son menu. Ne renvoie qu'un booléen, jamais le détail du réglage.
+router.get('/my-void-return-permission', requireActiveStore, async (req, res, next) => {
+  try {
+    const allowed = await storesService.canUserVoidReturn(
+      req.auth.storeId,
+      req.auth.userId,
+      req.auth.roleCode
+    );
+    res.json({ allowed });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Journal d'activité de la boutique ACTIVE (§ décidé en conversation,
 // en même temps que la supervision enrichie) --- Réservé au Owner : voir
 // ce que font ses employés (ventes, annulations, ajustements de stock...),

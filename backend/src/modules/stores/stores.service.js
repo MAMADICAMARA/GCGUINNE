@@ -469,6 +469,63 @@ async function updateReceiptSettings(storeId, settings) {
   return merged;
 }
 
+/**
+ * Réglage global "autoriser TOUS les vendeurs à annuler/retourner leurs
+ * propres ventes" (§25_autorisation_annulation_retour.sql, décidé en
+ * conversation). Vendeur par vendeur, voir plutôt
+ * employees.service.js#setSellerVoidReturnPermission.
+ */
+async function getVoidReturnSettings(storeId) {
+  const { rows } = await pool.query(
+    'SELECT allow_all_sellers_void_return AS "allowAllSellers" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updateVoidReturnSettings(storeId, allowAllSellers, actingUserId) {
+  const { rows } = await pool.query(
+    'UPDATE stores SET allow_all_sellers_void_return = $1 WHERE id = $2 RETURNING id',
+    [Boolean(allowAllSellers), storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'UPDATE_VOID_RETURN_SETTINGS', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ allowAllSellers: Boolean(allowAllSellers) })]
+  );
+  return { allowAllSellers: Boolean(allowAllSellers) };
+}
+
+/**
+ * Est-ce que cet utilisateur peut annuler/retourner (ses propres) ventes
+ * dans cette boutique ? Owner : toujours. Vendeur : soit le flag global
+ * ci-dessus, soit sa permission individuelle
+ * (`user_store.permissions->>'canVoidReturn'`). Utilisé à la fois par le
+ * contrôle d'accès réel (orders.routes.js) et par l'endpoint que le
+ * Vendeur interroge lui-même pour savoir s'il voit "Historique des ventes"
+ * dans son menu (GET /stores/my-void-return-permission).
+ */
+async function canUserVoidReturn(storeId, userId, roleCode) {
+  if (roleCode === 'OWNER') return true;
+
+  const { rows } = await pool.query(
+    `SELECT s.allow_all_sellers_void_return AS "allowAllSellers",
+            COALESCE((us.permissions->>'canVoidReturn')::boolean, false) AS "individualPermission"
+     FROM stores s
+     JOIN user_store us ON us.store_id = s.id
+     WHERE s.id = $1 AND us.user_id = $2`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) return false;
+  return rows[0].allowAllSellers || rows[0].individualPermission;
+}
+
 module.exports = {
   listMyStores,
   createStore,
@@ -482,4 +539,7 @@ module.exports = {
   getReceiptSettings,
   updateReceiptSettings,
   getStoreContactInfo,
+  getVoidReturnSettings,
+  updateVoidReturnSettings,
+  canUserVoidReturn,
 };

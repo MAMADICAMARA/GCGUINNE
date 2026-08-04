@@ -14,22 +14,47 @@ const pool = require('../../config/db');
  * la boutique. Seul `lowStockCount` reste toujours à l'échelle de la
  * boutique : c'est un état du stock, pas une activité personnelle, il n'y
  * a pas de notion de "rupture de stock d'un vendeur en particulier".
+ *
+ * Décidé en conversation (§B1, annulation/retour de vente) : une commande
+ * `VOIDED` est déjà exclue partout (elle n'a jamais compté). Mais une
+ * commande `RETURNED`/`PARTIALLY_RETURNED` restait comptée EN ENTIER avant
+ * ce correctif — un vrai trou, pas juste cosmétique : le chiffre d'affaires,
+ * le bénéfice et les articles vendus doivent refléter uniquement ce que le
+ * client a réellement gardé. `order_items.returned_quantity` (jamais
+ * touché par une simple vente, incrémenté uniquement par un retour) porte
+ * cette information ligne par ligne ; `orders.total_amount` n'est lui
+ * jamais modifié (reste l'historique fidèle de la vente d'origine, cohérent
+ * avec l'immuabilité déjà appliquée ailleurs — triggers prevent_delete /
+ * prevent_order_item_core_update). Le montant retourné est donc toujours
+ * recalculé à la volée (jamais stocké), en soustrayant la valeur retournée
+ * (`returned_quantity * unit_price`) du total d'origine.
  */
 async function getDashboardStats(storeId, roleCode, userId) {
   const includeProfit = roleCode === 'OWNER';
   const sellerFilter = roleCode === 'OWNER' ? '' : 'AND o.seller_id = $2';
   const sellerParams = roleCode === 'OWNER' ? [storeId] : [storeId, userId];
 
+  // Sous-requête réutilisée par toutes les statistiques agrégées AU NIVEAU
+  // COMMANDE (chiffre d'affaires) : valeur retournée par commande, 0 si
+  // rien n'a jamais été retourné dessus.
+  const returnedValueJoin = `
+    LEFT JOIN (
+      SELECT order_id, SUM(returned_quantity * unit_price) AS "returnedValue"
+      FROM order_items GROUP BY order_id
+    ) ret ON ret.order_id = o.id`;
+
   const [todayResult, itemsSoldResult, lowStockResult, topProductsResult, revenueTrendResult] =
     await Promise.all([
       pool.query(
-        `SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS "ordersCount"
+        `SELECT COALESCE(SUM(o.total_amount - COALESCE(ret."returnedValue", 0)), 0) AS revenue,
+                COUNT(*) AS "ordersCount"
          FROM orders o
+         ${returnedValueJoin}
          WHERE o.store_id = $1 AND o.status != 'VOIDED' AND o.created_at >= CURRENT_DATE ${sellerFilter}`,
         sellerParams
       ),
       pool.query(
-        `SELECT COALESCE(SUM(oi.quantity), 0) AS "itemsSold"
+        `SELECT COALESCE(SUM(oi.quantity - oi.returned_quantity), 0) AS "itemsSold"
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id
          WHERE o.store_id = $1 AND o.status != 'VOIDED' AND o.created_at >= CURRENT_DATE ${sellerFilter}`,
@@ -41,20 +66,23 @@ async function getDashboardStats(storeId, roleCode, userId) {
         [storeId]
       ),
       pool.query(
-        `SELECT p.id, p.name, SUM(oi.quantity) AS "totalSold"
+        `SELECT p.id, p.name, SUM(oi.quantity - oi.returned_quantity) AS "totalSold"
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id
          JOIN products p ON p.id = oi.product_id
          WHERE o.store_id = $1 AND o.status != 'VOIDED'
            AND o.created_at >= NOW() - INTERVAL '30 days' ${sellerFilter}
          GROUP BY p.id, p.name
+         HAVING SUM(oi.quantity - oi.returned_quantity) > 0
          ORDER BY "totalSold" DESC
          LIMIT 5`,
         sellerParams
       ),
       pool.query(
-        `SELECT DATE(o.created_at) AS day, COALESCE(SUM(o.total_amount), 0) AS revenue
+        `SELECT DATE(o.created_at) AS day,
+                COALESCE(SUM(o.total_amount - COALESCE(ret."returnedValue", 0)), 0) AS revenue
          FROM orders o
+         ${returnedValueJoin}
          WHERE o.store_id = $1 AND o.status != 'VOIDED'
            AND o.created_at >= NOW() - INTERVAL '6 days' ${sellerFilter}
          GROUP BY DATE(o.created_at)
@@ -66,7 +94,7 @@ async function getDashboardStats(storeId, roleCode, userId) {
   let profitToday = null;
   if (includeProfit) {
     const profitResult = await pool.query(
-      `SELECT COALESCE(SUM((oi.unit_price - p.purchase_price) * oi.quantity), 0) AS profit
+      `SELECT COALESCE(SUM((oi.unit_price - p.purchase_price) * (oi.quantity - oi.returned_quantity)), 0) AS profit
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        JOIN products p ON p.id = oi.product_id
@@ -101,9 +129,11 @@ async function getDashboardStats(storeId, roleCode, userId) {
   if (roleCode === 'OWNER') {
     const bySellerResult = await pool.query(
       `SELECT u.id AS "sellerId", u.full_name AS "sellerName",
-              COUNT(o.id) AS "ordersCount", COALESCE(SUM(o.total_amount), 0) AS revenue
+              COUNT(o.id) AS "ordersCount",
+              COALESCE(SUM(o.total_amount - COALESCE(ret."returnedValue", 0)), 0) AS revenue
        FROM orders o
        JOIN users u ON u.id = o.seller_id
+       ${returnedValueJoin}
        WHERE o.store_id = $1 AND o.status != 'VOIDED'
          AND o.created_at >= NOW() - INTERVAL '30 days'
        GROUP BY u.id, u.full_name

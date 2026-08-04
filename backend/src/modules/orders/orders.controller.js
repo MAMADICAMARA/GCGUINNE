@@ -29,7 +29,16 @@ async function createOrder(req, res, next) {
 
 async function listOrders(req, res, next) {
   try {
-    const result = await ordersService.getOrders(req.auth.storeId, req.query);
+    // Un Vendeur (même autorisé à annuler/retourner) ne voit que SES
+    // PROPRES ventes ici — jamais celles de ses collègues, décidé en
+    // conversation (§25_autorisation_annulation_retour.sql). Le paramètre
+    // sellerId éventuellement fourni par le client est ignoré dans ce cas,
+    // jamais fait confiance.
+    const options =
+      req.auth.roleCode === 'OWNER'
+        ? req.query
+        : { ...req.query, sellerId: req.auth.userId };
+    const result = await ordersService.getOrders(req.auth.storeId, options);
     res.json(result);
   } catch (err) {
     next(err);
@@ -38,7 +47,8 @@ async function listOrders(req, res, next) {
 
 async function getOrder(req, res, next) {
   try {
-    const result = await ordersService.getOrderById(req.auth.storeId, req.params.id);
+    const ownSellerId = req.auth.roleCode === 'OWNER' ? null : req.auth.userId;
+    const result = await ordersService.getOrderById(req.auth.storeId, req.params.id, ownSellerId);
     res.json(result);
   } catch (err) {
     next(err);
@@ -47,7 +57,13 @@ async function getOrder(req, res, next) {
 
 async function voidOrder(req, res, next) {
   try {
-    const result = await ordersService.voidOrder(req.auth.storeId, req.params.id, req.auth.userId);
+    checkValidation(req);
+    const result = await ordersService.voidOrder(
+      req.auth.storeId,
+      req.params.id,
+      req.auth.userId,
+      req.auth.roleCode
+    );
     res.json(result);
   } catch (err) {
     next(err);
@@ -62,7 +78,8 @@ async function returnOrderItem(req, res, next) {
       req.params.orderId,
       req.params.itemId,
       req.body.returnedQty,
-      req.auth.userId
+      req.auth.userId,
+      req.auth.roleCode
     );
     res.json(result);
   } catch (err) {

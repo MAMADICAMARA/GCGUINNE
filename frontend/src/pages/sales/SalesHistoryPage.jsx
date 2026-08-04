@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDateTime } from '@/utils/format';
+import { useAuthStore } from '@/store/authStore';
 import OrderDetailModal from './OrderDetailModal';
 
 const STATUS_LABELS = {
@@ -24,12 +25,15 @@ const PAYMENT_LABELS = {
 };
 
 /**
- * Historique des ventes (§5.4 du cahier des charges). Réservée à
- * Owner côté navigation (routes/navigation.js) — un Vendeur voit
- * déjà le reçu de chacune de ses ventes juste après validation en caisse,
- * mais pas cette vue d'ensemble/supervision.
+ * Historique des ventes (§5.4 du cahier des charges). Visible à l'Owner en
+ * permanence ; visible à un Vendeur uniquement si le Owner l'a autorisé à
+ * annuler/retourner ses propres ventes (§25_autorisation_annulation_retour.sql,
+ * décidé en conversation — voir routes/navigation.js). Dans ce dernier cas,
+ * le Vendeur ne voit QUE ses propres ventes (scoping fait côté backend,
+ * orders.controller.js#listOrders), jamais celles de ses collègues.
  */
 export default function SalesHistoryPage() {
+  const roleCode = useAuthStore((s) => s.activeStore?.roleCode);
   const [orders, setOrders] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -73,7 +77,11 @@ export default function SalesHistoryPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-slate-800 mb-1">Historique des ventes</h1>
-      <p className="text-sm text-slate-500 mb-6">Toutes les ventes enregistrées dans cette boutique.</p>
+      <p className="text-sm text-slate-500 mb-6">
+        {roleCode === 'OWNER'
+          ? 'Toutes les ventes enregistrées dans cette boutique.'
+          : 'Vos ventes enregistrées dans cette boutique.'}
+      </p>
 
       {/* Filtres */}
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:flex-wrap">
@@ -213,7 +221,11 @@ export default function SalesHistoryPage() {
       )}
 
       {selectedOrderId && (
-        <OrderDetailModal orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
+        <OrderDetailModal
+          orderId={selectedOrderId}
+          onClose={() => setSelectedOrderId(null)}
+          onChanged={loadOrders}
+        />
       )}
     </div>
   );

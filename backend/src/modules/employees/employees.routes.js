@@ -45,4 +45,17 @@ router.delete(
   controller.remove
 );
 
+// Autorisation individuelle d'annulation/retour de vente
+// (§25_autorisation_annulation_retour.sql, décidé en conversation) —
+// indépendant du flag global "tous les vendeurs" (stores.routes.js).
+router.patch(
+  '/:userId/permissions',
+  [
+    param('userId').isInt().withMessage('Identifiant invalide.'),
+    body('canVoidReturn').isBoolean().withMessage('Valeur invalide.'),
+  ],
+  checkValidation,
+  controller.updatePermissions
+);
+
 module.exports = router;

@@ -4,10 +4,11 @@ import { Menu, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { getNavForRole } from '@/routes/navigation';
 import PlanStatusBanner from '@/components/PlanStatusBanner';
+import VoidReturnPermissionSync from '@/components/VoidReturnPermissionSync';
 
 export default function DashboardLayout() {
-  const { user, activeStore, stores, logout } = useAuthStore();
-  const navItems = getNavForRole(activeStore?.roleCode);
+  const { user, activeStore, stores, logout, canVoidReturn } = useAuthStore();
+  const navItems = getNavForRole(activeStore?.roleCode, canVoidReturn);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -102,6 +103,7 @@ export default function DashboardLayout() {
         </header>
 
         <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+          <VoidReturnPermissionSync roleCode={activeStore?.roleCode} />
           <PlanStatusBanner roleCode={activeStore?.roleCode} />
           <Outlet />
         </main>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import { formatDateTime } from '@/utils/format';
 import ReceiptSettingsSection from './ReceiptSettingsSection';
+import SalesVoidReturnPermissionSection from './SalesVoidReturnPermissionSection';
 
 /**
  * Paramètres de la boutique active (§8 du cahier des charges).
@@ -346,6 +347,8 @@ export default function SettingsPage() {
           </form>
         )}
       </section>
+
+      <SalesVoidReturnPermissionSection />
 
       <ReceiptSettingsSection />
 

@@ -23,7 +23,8 @@ async function listEmployees(storeId) {
   const { rows } = await pool.query(
     `SELECT u.id AS "userId", u.full_name AS "fullName", u.email, u.phone,
             r.code AS "roleCode", us.is_default_store AS "isDefaultStore",
-            us.created_at AS "joinedAt"
+            us.created_at AS "joinedAt",
+            COALESCE((us.permissions->>'canVoidReturn')::boolean, false) AS "canVoidReturn"
      FROM user_store us
      JOIN users u ON u.id = us.user_id
      JOIN roles r ON r.id = us.role_id
@@ -248,10 +249,51 @@ async function removeEmployee(storeId, targetUserId, actingUserId) {
   return { userId: targetUserId, removed: true };
 }
 
+/**
+ * Autorise (ou pas) UN vendeur précis à annuler/retourner ses propres
+ * ventes (§25_autorisation_annulation_retour.sql, décidé en conversation)
+ * — indépendant du flag global "tous les vendeurs"
+ * (stores.service.js#updateVoidReturnSettings). Stocké dans la colonne
+ * `permissions` JSONB de `user_store`, déjà présente mais jamais utilisée
+ * jusqu'ici. Réservé aux comptes Vendeur de cette boutique — jamais
+ * applicable à l'Owner (déjà tout-puissant) ni à un compte d'une autre
+ * boutique.
+ */
+async function setSellerVoidReturnPermission(storeId, targetUserId, canVoidReturn, actingUserId) {
+  const membership = await pool.query(
+    `SELECT r.code AS "roleCode"
+     FROM user_store us JOIN roles r ON r.id = us.role_id
+     WHERE us.user_id = $1 AND us.store_id = $2`,
+    [targetUserId, storeId]
+  );
+  if (membership.rows.length === 0) {
+    throw new AppError('Employé introuvable dans cette boutique.', 404, 'EMPLOYEE_NOT_FOUND');
+  }
+  if (membership.rows[0].roleCode !== 'SELLER') {
+    throw new AppError("Cette autorisation ne s'applique qu'aux vendeurs.", 400, 'NOT_A_SELLER');
+  }
+
+  await pool.query(
+    `UPDATE user_store
+     SET permissions = jsonb_set(permissions, '{canVoidReturn}', $1::jsonb)
+     WHERE user_id = $2 AND store_id = $3`,
+    [JSON.stringify(Boolean(canVoidReturn)), targetUserId, storeId]
+  );
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'SET_SELLER_VOID_RETURN_PERMISSION', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ targetUserId, canVoidReturn: Boolean(canVoidReturn) })]
+  );
+
+  return { userId: targetUserId, canVoidReturn: Boolean(canVoidReturn) };
+}
+
 module.exports = {
   listEmployees,
   listPendingInvitations,
   addEmployee,
   cancelInvitation,
   removeEmployee,
+  setSellerVoidReturnPermission,
 };
