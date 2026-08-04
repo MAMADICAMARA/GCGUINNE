@@ -26,6 +26,7 @@ router.use('/supervision', require('../modules/supervision/supervision.routes'))
 router.use('/customers', require('../modules/customers/customers.routes'));
 router.use('/suppliers', require('../modules/suppliers/suppliers.routes'));
 router.use('/notes', require('../modules/notes/notes.routes'));
+router.use('/subscription-payments', require('../modules/subscriptionPayments/subscriptionPayments.routes'));
 
 // router.use('/users', require('../modules/users/users.routes'));
 // ----------------------------------------------------------------------

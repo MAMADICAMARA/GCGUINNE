@@ -264,10 +264,20 @@ async function transferStoreOwnership(storeId, newOwnerUserId, adminUserId) {
 
     // L'ancien propriétaire perd tout rattachement à CETTE boutique
     // précise (mais garde ses éventuels rattachements à d'autres).
-    await client.query(
-      'DELETE FROM user_store WHERE store_id = $1 AND role_id = $2',
+    const oldOwnerResult = await client.query(
+      'DELETE FROM user_store WHERE store_id = $1 AND role_id = $2 RETURNING user_id AS "userId"',
       [storeId, ownerRoleId]
     );
+
+    // Son jeton déjà émis porte encore storeId=cette boutique, roleCode=OWNER
+    // — désormais faux. Invalidation immédiate (§A5 SOLUTIONS_AUDIT_PRODUCTION.md,
+    // décidé en conversation) plutôt que d'attendre l'expiration naturelle
+    // (jusqu'à 8h) : il devra se reconnecter pour obtenir un jeton à jour.
+    if (oldOwnerResult.rows.length > 0) {
+      await client.query('UPDATE users SET token_version = token_version + 1 WHERE id = $1', [
+        oldOwnerResult.rows[0].userId,
+      ]);
+    }
 
     // Le nouveau devient Owner — s'il avait déjà un rôle (Vendeur)
     // dans cette même boutique, on le remplace par OWNER plutôt que de
@@ -317,8 +327,13 @@ async function transferStoreOwnership(storeId, newOwnerUserId, adminUserId) {
  */
 async function promoteToSuperAdmin(userId) {
   try {
+    // token_version incrémenté aussi ici (§A5 SOLUTIONS_AUDIT_PRODUCTION.md,
+    // décidé en conversation) : le trigger PostgreSQL de promotion (voir
+    // 17_transfert_et_promotion.sql) vide immédiatement user_store pour ce
+    // compte — son jeton déjà émis, s'il en a un, porterait encore un
+    // storeId/roleCode désormais inexistants.
     const { rows } = await pool.query(
-      `UPDATE users SET is_super_admin = TRUE WHERE id = $1
+      `UPDATE users SET is_super_admin = TRUE, token_version = token_version + 1 WHERE id = $1
        RETURNING id, full_name AS "fullName", email, is_super_admin AS "isSuperAdmin"`,
       [userId]
     );
@@ -365,8 +380,13 @@ async function revokeSuperAdmin(userId, adminUserId) {
     );
   }
 
+  // token_version incrémenté (§A5 SOLUTIONS_AUDIT_PRODUCTION.md, décidé en
+  // conversation) : c'est précisément le cas d'usage visé — un compte dont
+  // on retire la confiance doit perdre l'accès immédiatement, pas dans
+  // jusqu'à 8h à l'expiration naturelle de son jeton déjà émis.
   const { rows } = await pool.query(
-    `UPDATE users SET is_super_admin = FALSE WHERE id = $1 AND is_super_admin = TRUE
+    `UPDATE users SET is_super_admin = FALSE, token_version = token_version + 1
+     WHERE id = $1 AND is_super_admin = TRUE
      RETURNING id, full_name AS "fullName", email, is_super_admin AS "isSuperAdmin"`,
     [targetId]
   );

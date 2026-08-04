@@ -49,7 +49,8 @@ async function register({ fullName, email, password, phone, gender, birthDate })
     `INSERT INTO users (full_name, email, password_hash, phone, gender, birth_date, status)
      VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
      RETURNING id, full_name AS "fullName", email, phone, gender,
-               birth_date AS "birthDate", is_super_admin AS "isSuperAdmin"`,
+               birth_date AS "birthDate", is_super_admin AS "isSuperAdmin",
+               token_version AS "tokenVersion"`,
     [fullName, email, passwordHash, phone, gender, birthDate]
   );
   const user = userResult.rows[0];
@@ -106,6 +107,7 @@ async function register({ fullName, email, password, phone, gender, birthDate })
     storeId: activeStore?.id || null,
     roleCode: activeStore?.roleCode || null,
     isSuperAdmin: user.isSuperAdmin,
+    tokenVersion: user.tokenVersion,
   });
 
   return { token, user, stores };
@@ -118,7 +120,7 @@ async function login({ email, password }) {
   const { rows } = await pool.query(
     `SELECT id, full_name AS "fullName", email, password_hash AS "passwordHash",
             phone, gender, birth_date AS "birthDate",
-            status, is_super_admin AS "isSuperAdmin"
+            status, is_super_admin AS "isSuperAdmin", token_version AS "tokenVersion"
      FROM users WHERE LOWER(email) = LOWER($1)`,
     [email]
   );
@@ -148,6 +150,7 @@ async function login({ email, password }) {
     storeId: activeStore?.id || null,
     roleCode: activeStore?.roleCode || null,
     isSuperAdmin: user.isSuperAdmin,
+    tokenVersion: user.tokenVersion,
   });
 
   await pool.query(
@@ -195,7 +198,7 @@ async function switchStore({ userId, storeId }) {
   }
 
   const { rows } = await pool.query(
-    'SELECT is_super_admin AS "isSuperAdmin" FROM users WHERE id = $1',
+    'SELECT is_super_admin AS "isSuperAdmin", token_version AS "tokenVersion" FROM users WHERE id = $1',
     [userId]
   );
 
@@ -204,6 +207,7 @@ async function switchStore({ userId, storeId }) {
     storeId: target.id,
     roleCode: target.roleCode,
     isSuperAdmin: rows[0]?.isSuperAdmin || false,
+    tokenVersion: rows[0]?.tokenVersion,
   });
 
   return { token, activeStore: target };

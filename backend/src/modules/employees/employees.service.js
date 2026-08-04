@@ -240,6 +240,15 @@ async function removeEmployee(storeId, targetUserId, actingUserId) {
     storeId,
   ]);
 
+  // token_version incrémenté (§A5 SOLUTIONS_AUDIT_PRODUCTION.md, décidé en
+  // conversation) : sans ça, l'employé retiré garderait un accès valide à
+  // cette boutique jusqu'à l'expiration naturelle de son jeton déjà émis
+  // (jusqu'à 8h) — précisément le scénario qu'un retrait est censé
+  // empêcher immédiatement.
+  await pool.query('UPDATE users SET token_version = token_version + 1 WHERE id = $1', [
+    targetUserId,
+  ]);
+
   await pool.query(
     `INSERT INTO system_logs (user_id, store_id, action, details)
      VALUES ($1, $2, 'REMOVE_EMPLOYEE', $3::jsonb)`,

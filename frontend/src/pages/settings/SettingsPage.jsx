@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
-import { formatDateTime } from '@/utils/format';
 import ReceiptSettingsSection from './ReceiptSettingsSection';
 import SalesVoidReturnPermissionSection from './SalesVoidReturnPermissionSection';
+import SubscriptionSection from './SubscriptionSection';
 
 /**
  * Paramètres de la boutique active (§8 du cahier des charges).
@@ -15,10 +15,6 @@ import SalesVoidReturnPermissionSection from './SalesVoidReturnPermissionSection
  * reste à construire.
  */
 export default function SettingsPage() {
-  const [plan, setPlan] = useState(null);
-  const [planLoading, setPlanLoading] = useState(true);
-  const [planError, setPlanError] = useState('');
-
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,19 +61,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function loadPlan() {
-    setPlanLoading(true);
-    setPlanError('');
-    try {
-      const { data } = await apiClient.get('/stores/plan-status');
-      setPlan(data);
-    } catch (err) {
-      setPlanError(err.response?.data?.error?.message || 'Impossible de charger le statut de l\'abonnement.');
-    } finally {
-      setPlanLoading(false);
-    }
-  }
-
   async function loadStoreType() {
     setStoreTypeLoading(true);
     setStoreTypeError('');
@@ -96,7 +79,6 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    loadPlan();
     loadCode();
     loadSupplierCode();
     loadStoreType();
@@ -178,54 +160,7 @@ export default function SettingsPage() {
       <h1 className="text-xl font-semibold text-slate-800 mb-1">Paramètres</h1>
       <p className="text-sm text-slate-500 mb-6">Informations boutique, abonnement, facturation.</p>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">
-        <h2 className="text-sm font-semibold text-slate-700 mb-1">Abonnement</h2>
-        <p className="text-xs text-slate-500 mb-3">
-          Géré exclusivement par la plateforme — pour activer, renouveler ou changer de plan, contactez le support.
-        </p>
-
-        {planError && <p className="text-sm text-red-600 mb-3">{planError}</p>}
-
-        {planLoading ? (
-          <p className="text-sm text-slate-400">Chargement...</p>
-        ) : plan ? (
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Plan actuel</span>
-              <span
-                className={`font-medium ${plan.isEffectivelyFreemium ? 'text-amber-700' : 'text-slate-800'}`}
-              >
-                {plan.planName}
-              </span>
-            </div>
-            {plan.planExpiresAt && (
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">
-                  {plan.isEffectivelyFreemium ? 'Expiré le' : 'Expire le'}
-                </span>
-                <span className="font-medium text-slate-800">{formatDateTime(plan.planExpiresAt)}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Utilisateurs / boutique</span>
-              <span className="font-medium text-slate-800">{plan.maxUsersPerStore}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Superviser d'autres boutiques</span>
-              <span className="font-medium text-slate-800">{plan.allowsSupervision ? 'Oui' : 'Non'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Fournisseurs</span>
-              <span className="font-medium text-slate-800">{plan.allowsSuppliers ? 'Oui' : 'Non'}</span>
-            </div>
-            {plan.isEffectivelyFreemium && plan.planName !== 'FREEMIUM' && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mt-2">
-                Votre abonnement {plan.planName} a expiré — la boutique fonctionne actuellement en FREEMIUM.
-              </p>
-            )}
-          </div>
-        ) : null}
-      </section>
+      <SubscriptionSection />
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">
         <h2 className="text-sm font-semibold text-slate-700 mb-1">Code de supervision</h2>

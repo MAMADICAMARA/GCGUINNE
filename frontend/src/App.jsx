@@ -35,6 +35,7 @@ import AdminStoresPage from '@/pages/admin/AdminStoresPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminAuditLogPage from '@/pages/admin/AdminAuditLogPage';
 import AdminPlansPage from '@/pages/admin/AdminPlansPage';
+import AdminPaymentRequestsPage from '@/pages/admin/AdminPaymentRequestsPage';
 import AdminStoreTypesPage from '@/pages/admin/AdminStoreTypesPage';
 
 export default function App() {
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
             <Route path="/admin/plans" element={<AdminPlansPage />} />
+            <Route path="/admin/payment-requests" element={<AdminPaymentRequestsPage />} />
             <Route path="/admin/store-types" element={<AdminStoreTypesPage />} />
           </Route>
         </Route>

@@ -212,7 +212,7 @@ async function createStore(
   const activeStore = stores.find((s) => s.name === name.trim()) || stores[0];
 
   const { rows } = await pool.query(
-    'SELECT is_super_admin AS "isSuperAdmin" FROM users WHERE id = $1',
+    'SELECT is_super_admin AS "isSuperAdmin", token_version AS "tokenVersion" FROM users WHERE id = $1',
     [userId]
   );
 
@@ -221,6 +221,7 @@ async function createStore(
     storeId: activeStore.id,
     roleCode: activeStore.roleCode,
     isSuperAdmin: rows[0]?.isSuperAdmin || false,
+    tokenVersion: rows[0]?.tokenVersion,
   });
 
   return { token, activeStore, stores };

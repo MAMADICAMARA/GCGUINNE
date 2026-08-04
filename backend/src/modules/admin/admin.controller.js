@@ -1,4 +1,5 @@
 const adminService = require('./admin.service');
+const subscriptionPaymentsService = require('../subscriptionPayments/subscriptionPayments.service');
 
 async function stats(req, res, next) {
   try {
@@ -211,6 +212,59 @@ async function deleteStoreTypeCategory(req, res, next) {
   }
 }
 
+// --- Demandes de paiement d'abonnement (§27_paiement_abonnement.sql,
+// décidé en conversation) — délègue à subscriptionPayments.service.js,
+// jamais à admin.service.js : la confirmation appelle en interne
+// adminService.activateStorePlan sans jamais la modifier.
+async function listPaymentRequests(req, res, next) {
+  try {
+    const result = await subscriptionPaymentsService.listPaymentRequests(req.query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function confirmPaymentRequest(req, res, next) {
+  try {
+    const result = await subscriptionPaymentsService.confirmPaymentRequest(req.params.id, req.auth.userId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function rejectPaymentRequest(req, res, next) {
+  try {
+    const result = await subscriptionPaymentsService.rejectPaymentRequest(
+      req.params.id,
+      req.auth.userId,
+      req.body.reason
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPaymentSettings(req, res, next) {
+  try {
+    const result = await subscriptionPaymentsService.getPaymentSettings();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePaymentSettings(req, res, next) {
+  try {
+    const result = await subscriptionPaymentsService.updatePaymentSettings(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   stats,
   listStores,
@@ -234,4 +288,9 @@ module.exports = {
   addStoreTypeCategory,
   updateStoreTypeCategory,
   deleteStoreTypeCategory,
+  listPaymentRequests,
+  confirmPaymentRequest,
+  rejectPaymentRequest,
+  getPaymentSettings,
+  updatePaymentSettings,
 };

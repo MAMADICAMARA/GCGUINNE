@@ -1,16 +1,30 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../config/db');
 const env = require('../config/env');
 const { AppError } = require('./errorHandler');
 const { getEffectivePlan } = require('../utils/planContext');
 
+const SESSION_INVALID_ERROR = () =>
+  new AppError('Session invalide ou expirée.', 401, 'INVALID_TOKEN');
+
 /**
- * Vérifie la présence et la validité du jeton de session.
+ * Vérifie la présence et la validité du jeton de session, PUIS que son
+ * numéro de version correspond toujours à celui en base
+ * (§A5 SOLUTIONS_AUDIT_PRODUCTION.md, décidé en conversation) — sans ça, un
+ * compte dont on retire la confiance (retrait Super Admin, retrait d'un
+ * employé, transfert de propriété) garderait un accès valide jusqu'à
+ * l'expiration naturelle du jeton (jusqu'à 8h, cf. JWT_EXPIRES_IN). Une
+ * lecture indexée sur la clé primaire de `users`, donc rapide — même
+ * principe que le statut de plan déjà revérifié en base à chaque requête
+ * dans requireActiveStore plus bas, jamais fait confiance à une donnée
+ * embarquée dans le jeton pour ce qui touche à l'identité/aux droits.
+ *
  * Le jeton doit porter : l'identité de l'utilisateur ET, une fois choisie,
  * la boutique active (cf. cahier des charges §6.1 et §9.1).
  *
- * req.auth sera de la forme : { userId, storeId, roleCode, isSuperAdmin }
+ * req.auth sera de la forme : { userId, storeId, roleCode, isSuperAdmin, tokenVersion }
  */
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
 
@@ -18,11 +32,25 @@ function requireAuth(req, res, next) {
     return next(new AppError('Authentification requise.', 401, 'UNAUTHENTICATED'));
   }
 
+  let payload;
   try {
-    req.auth = jwt.verify(token, env.jwt.secret);
+    payload = jwt.verify(token, env.jwt.secret);
+  } catch (err) {
+    return next(SESSION_INVALID_ERROR());
+  }
+
+  try {
+    const { rows } = await pool.query(
+      'SELECT token_version AS "tokenVersion" FROM users WHERE id = $1',
+      [payload.userId]
+    );
+    if (rows.length === 0 || rows[0].tokenVersion !== payload.tokenVersion) {
+      return next(SESSION_INVALID_ERROR());
+    }
+    req.auth = payload;
     next();
   } catch (err) {
-    next(new AppError('Session invalide ou expirée.', 401, 'INVALID_TOKEN'));
+    next(err);
   }
 }
 

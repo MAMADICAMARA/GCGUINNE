@@ -27,7 +27,13 @@ export const ACTION_GROUPS = [
   },
   {
     label: 'Abonnement',
-    actions: ['ADMIN_ACTIVATE_PLAN', 'ADMIN_RENEW_PLAN', 'ADMIN_DEACTIVATE_PLAN'],
+    actions: [
+      'ADMIN_ACTIVATE_PLAN',
+      'ADMIN_RENEW_PLAN',
+      'ADMIN_DEACTIVATE_PLAN',
+      'SUBMIT_PAYMENT_REQUEST',
+      'REJECT_PAYMENT_REQUEST',
+    ],
   },
   {
     label: 'Boutique',
@@ -57,6 +63,8 @@ export const ACTION_LABELS = {
   RETURN_ORDER_ITEM: 'Article retourné',
   UPDATE_VOID_RETURN_SETTINGS: "Réglage d'autorisation modifié",
   SET_SELLER_VOID_RETURN_PERMISSION: 'Autorisation vendeur modifiée',
+  SUBMIT_PAYMENT_REQUEST: 'Paiement déclaré',
+  REJECT_PAYMENT_REQUEST: 'Paiement refusé',
 };
 
 export function actionLabel(action) {
@@ -88,6 +96,12 @@ export function formatLogDetails(action, details) {
       return details.allowAllSellers ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
     case 'SET_SELLER_VOID_RETURN_PERMISSION':
       return details.canVoidReturn ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'SUBMIT_PAYMENT_REQUEST':
+      return [details.planName, details.amount ? `${Number(details.amount).toLocaleString('fr-FR')} GNF` : null]
+        .filter(Boolean)
+        .join(' — ');
+    case 'REJECT_PAYMENT_REQUEST':
+      return details.reason || null;
     default:
       return null;
   }

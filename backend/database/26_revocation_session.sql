@@ -1,0 +1,29 @@
+-- ============================================================================
+-- 26_revocation_session.sql
+-- Domaine : Révocation immédiate de session (§A5 SOLUTIONS_AUDIT_PRODUCTION.md)
+-- ============================================================================
+-- Problème résolu : le jeton JWT (valable jusqu'à 8h, cf. JWT_EXPIRES_IN)
+-- n'était jamais revérifié en base une fois émis. Un compte dont on retire
+-- la confiance (retrait du statut Super Admin, retrait d'un employé,
+-- transfert de propriété d'une boutique) gardait un accès valide jusqu'à
+-- l'expiration naturelle du jeton — une fenêtre de plusieurs heures, pas
+-- théorique dans un contexte où on retire précisément l'accès à quelqu'un
+-- en qui on n'a plus confiance.
+--
+-- Mécanisme : un simple compteur par utilisateur, incrémenté à chaque
+-- action qui doit invalider immédiatement ses jetons déjà émis. Le jeton
+-- porte désormais ce numéro (`tokenVersion`) au moment de sa signature ;
+-- `requireAuth` le revérifie en base à CHAQUE requête (une lecture indexée
+-- sur la clé primaire, donc rapide) et rejette tout jeton dont le numéro
+-- ne correspond plus à la valeur actuelle. Même principe déjà appliqué
+-- ailleurs dans ce projet (statut de plan effectif, ré-vérifié en base à
+-- chaque requête plutôt que fait confiance au jeton) — appliqué ici à
+-- l'identité elle-même.
+--
+-- DEFAULT 1 (jamais 0) : un jeton signé sans ce champ (impossible après ce
+-- déploiement, mais gardons le raisonnement explicite) ne doit jamais
+-- pouvoir correspondre par accident à une valeur par défaut numérique
+-- triviale.
+-- ============================================================================
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;

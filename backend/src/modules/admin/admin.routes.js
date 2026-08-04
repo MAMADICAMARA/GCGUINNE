@@ -136,4 +136,40 @@ router.delete(
   controller.deleteStoreTypeCategory
 );
 
+// --- Demandes de paiement d'abonnement (§27_paiement_abonnement.sql,
+// décidé en conversation) — la confirmation réutilise l'activation
+// manuelle existante (routes /stores/:id/plan/... ci-dessus), qui reste
+// intacte et disponible en parallèle pour toute activation directe.
+router.get('/payment-requests', controller.listPaymentRequests);
+router.post(
+  '/payment-requests/:id/confirm',
+  [param('id').isInt().withMessage('Identifiant de demande invalide.')],
+  checkValidation,
+  controller.confirmPaymentRequest
+);
+router.post(
+  '/payment-requests/:id/reject',
+  [
+    param('id').isInt().withMessage('Identifiant de demande invalide.'),
+    body('reason').trim().notEmpty().withMessage('Le motif du refus est requis.'),
+  ],
+  checkValidation,
+  controller.rejectPaymentRequest
+);
+
+router.get('/payment-settings', controller.getPaymentSettings);
+router.put(
+  '/payment-settings',
+  [
+    body('orangeMoneyNumber').optional({ checkFalsy: true }).trim(),
+    body('mobileMoneyNumber').optional({ checkFalsy: true }).trim(),
+    body('paycardInfo').optional({ checkFalsy: true }).trim(),
+    body('contactPhone').optional({ checkFalsy: true }).trim(),
+    body('contactWhatsapp').optional({ checkFalsy: true }).trim(),
+    body('contactEmail').optional({ checkFalsy: true }).isEmail().withMessage('E-mail de contact invalide.'),
+  ],
+  checkValidation,
+  controller.updatePaymentSettings
+);
+
 module.exports = router;
