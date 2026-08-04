@@ -2,7 +2,6 @@ const { Router } = require('express');
 const { body, param, validationResult } = require('express-validator');
 const controller = require('./suppliers.controller');
 const { requireAuth, requireActiveStore, requireRole } = require('../../middlewares/auth');
-const { requirePlanFeature } = require('../../middlewares/plan');
 const { AppError } = require('../../middlewares/errorHandler');
 
 const router = Router();
@@ -27,10 +26,18 @@ function checkValidation(req, res, next) {
 }
 
 // Consulter/gérer les liens déjà établis reste toujours possible, quel
-// que soit le plan — même logique que l'équipe (employees.routes.js) : on
-// ne bloque jamais l'accès à ce qui existe déjà, seulement la création de
-// nouveaux liens. Seul l'ajout d'un nouveau fournisseur exige le plan
-// (§20_plans_abonnement.sql, décidé en conversation).
+// que soit le plan — même logique que l'équipe (employees.routes.js).
+//
+// Ajouter un fournisseur est désormais ouvert à TOUS les plans, y compris
+// FREEMIUM (décidé en conversation, §29_commande_depuis_fournisseur_plateforme.sql
+// — revirement volontaire par rapport à la version précédente) : stratégie
+// à deux faces, la DEMANDE (parcourir/ajouter des fournisseurs) reste
+// gratuite pour maximiser l'usage, seule L'OFFRE (être soi-même
+// trouvable/consultable comme fournisseur) exige STANDARD/PREMIUM — déjà
+// garanti indépendamment par `getSupplierCatalog`/`getSupplierCatalogForOrder`
+// qui revérifient le plan EFFECTIF du fournisseur consulté, jamais celui de
+// l'acheteur. Passer une véritable commande reste, lui, réservé PREMIUM
+// (voir purchases.routes.js, allowsPurchaseOrders).
 router.get('/', controller.listSuppliers);
 router.get('/clients', controller.listClients);
 
@@ -38,7 +45,6 @@ router.post(
   '/',
   [body('code').trim().notEmpty().withMessage('Le code fournisseur est requis.')],
   checkValidation,
-  requirePlanFeature('allowsSuppliers'),
   controller.addSupplier
 );
 
@@ -60,6 +66,16 @@ router.get(
   [param('storeId').isInt().withMessage('Identifiant de boutique invalide.')],
   checkValidation,
   controller.getCatalog
+);
+
+// Variante avec prix de vente (référence), pour construire une commande
+// (§29_commande_depuis_fournisseur_plateforme.sql, décidé en conversation) —
+// jamais la quantité en stock, voir suppliers.service.js#getSupplierCatalogForOrder.
+router.get(
+  '/:storeId/order-catalog',
+  [param('storeId').isInt().withMessage('Identifiant de boutique invalide.')],
+  checkValidation,
+  controller.getOrderCatalog
 );
 
 module.exports = router;

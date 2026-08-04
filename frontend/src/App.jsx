@@ -25,6 +25,8 @@ import StockPage from '@/pages/stock/StockPage';
 import SalesHistoryPage from '@/pages/sales/SalesHistoryPage';
 import CustomersPage from '@/pages/customers/CustomersPage';
 import SuppliersPage from '@/pages/suppliers/SuppliersPage';
+import SupplierStorefrontPage from '@/pages/suppliers/SupplierStorefrontPage';
+import PurchasesPage from '@/pages/purchases/PurchasesPage';
 import NotesPage from '@/pages/notes/NotesPage';
 import EmployeesPage from '@/pages/employees/EmployeesPage';
 import AuditLogPage from '@/pages/audit-log/AuditLogPage';
@@ -72,6 +74,8 @@ export default function App() {
             <Route path="/sales" element={<SalesHistoryPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/suppliers" element={<SuppliersPage />} />
+            <Route path="/suppliers/:storeId/order" element={<SupplierStorefrontPage />} />
+            <Route path="/purchases" element={<PurchasesPage />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />

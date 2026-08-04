@@ -20,6 +20,11 @@ export const NAV_ITEMS = [
   { key: 'customers', label: 'Clients', path: '/customers', roles: ['OWNER', 'SELLER'] },
   { key: 'notes', label: 'Notes', path: '/notes', roles: ['OWNER', 'SELLER'] },
   { key: 'suppliers', label: 'Fournisseurs', path: '/suppliers', roles: ['OWNER'] },
+  // Toujours visible à l'Owner (même logique que Fournisseurs) — seule la
+  // création d'un fournisseur/commande à l'intérieur exige le plan PREMIUM
+  // (§28_commandes_achat_premium.sql, décidé en conversation), pas la page
+  // elle-même : un upsell s'affiche dans la page si le plan ne le permet pas.
+  { key: 'purchases', label: 'Achats', path: '/purchases', roles: ['OWNER'] },
   { key: 'employees', label: 'Équipe', path: '/employees', roles: ['OWNER'] },
   { key: 'audit-log', label: "Journal d'activité", path: '/audit-log', roles: ['OWNER'] },
   { key: 'settings', label: 'Paramètres', path: '/settings', roles: ['OWNER'] },

@@ -68,6 +68,9 @@ export default function AdminPlansPage() {
                 <li className={plan.allowsSuppliers ? 'text-slate-500' : 'text-slate-300'}>
                   {plan.allowsSuppliers ? '✓' : '✗'} Fournisseurs
                 </li>
+                <li className={plan.allowsPurchaseOrders ? 'text-slate-500' : 'text-slate-300'}>
+                  {plan.allowsPurchaseOrders ? '✓' : '✗'} Commandes d'achat
+                </li>
               </ul>
               <div className="flex items-center gap-3">
                 <button
@@ -124,6 +127,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
   const [maxUsersPerStore, setMaxUsersPerStore] = useState(String(plan.maxUsersPerStore));
   const [allowsSupervision, setAllowsSupervision] = useState(plan.allowsSupervision);
   const [allowsSuppliers, setAllowsSuppliers] = useState(plan.allowsSuppliers);
+  const [allowsPurchaseOrders, setAllowsPurchaseOrders] = useState(plan.allowsPurchaseOrders);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -138,6 +142,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
         maxUsersPerStore: Number(maxUsersPerStore),
         allowsSupervision,
         allowsSuppliers,
+        allowsPurchaseOrders,
       });
       onSaved();
     } catch (err) {
@@ -216,6 +221,14 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
                 onChange={(e) => setAllowsSuppliers(e.target.checked)}
               />
               Autorise "Fournisseurs"
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={allowsPurchaseOrders}
+                onChange={(e) => setAllowsPurchaseOrders(e.target.checked)}
+              />
+              Autorise "Commandes d'achat" (avantage PREMIUM)
             </label>
           </div>
         </div>

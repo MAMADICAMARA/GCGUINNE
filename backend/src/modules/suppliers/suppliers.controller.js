@@ -54,6 +54,15 @@ async function getCatalog(req, res, next) {
   }
 }
 
+async function getOrderCatalog(req, res, next) {
+  try {
+    const result = await suppliersService.getSupplierCatalogForOrder(req.auth.storeId, req.params.storeId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listSuppliers,
   listClients,
@@ -61,4 +70,5 @@ module.exports = {
   removeSupplier,
   removeClient,
   getCatalog,
+  getOrderCatalog,
 };

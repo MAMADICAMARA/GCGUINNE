@@ -15,7 +15,8 @@ async function getSubscriptionOptions() {
   const [plansResult, settingsResult] = await Promise.all([
     pool.query(
       `SELECT id, name, price, max_users_per_store AS "maxUsersPerStore",
-              allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers"
+              allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
+              allows_purchase_orders AS "allowsPurchaseOrders"
        FROM subscription_plans
        WHERE name != 'FREEMIUM'
        ORDER BY price ASC`

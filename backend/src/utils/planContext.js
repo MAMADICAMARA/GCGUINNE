@@ -19,7 +19,8 @@ async function getEffectivePlan(storeId) {
   const { rows } = await pool.query(
     `SELECT s.plan_expires_at AS "planExpiresAt",
             sp.name AS "planName", sp.max_users_per_store AS "maxUsersPerStore",
-            sp.allows_supervision AS "allowsSupervision", sp.allows_suppliers AS "allowsSuppliers"
+            sp.allows_supervision AS "allowsSupervision", sp.allows_suppliers AS "allowsSuppliers",
+            sp.allows_purchase_orders AS "allowsPurchaseOrders"
      FROM stores s
      LEFT JOIN subscription_plans sp ON sp.id = s.plan_id
      WHERE s.id = $1`,
@@ -34,7 +35,8 @@ async function getEffectivePlan(storeId) {
   if (!store.planName || isExpired) {
     const freemiumResult = await pool.query(
       `SELECT name, max_users_per_store AS "maxUsersPerStore",
-              allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers"
+              allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
+              allows_purchase_orders AS "allowsPurchaseOrders"
        FROM subscription_plans WHERE name = 'FREEMIUM'`
     );
     const freemium = freemiumResult.rows[0];
@@ -43,6 +45,7 @@ async function getEffectivePlan(storeId) {
       maxUsersPerStore: freemium.maxUsersPerStore,
       allowsSupervision: freemium.allowsSupervision,
       allowsSuppliers: freemium.allowsSuppliers,
+      allowsPurchaseOrders: freemium.allowsPurchaseOrders,
       planExpiresAt: store.planExpiresAt,
       isEffectivelyFreemium: true,
     };
@@ -53,6 +56,7 @@ async function getEffectivePlan(storeId) {
     maxUsersPerStore: store.maxUsersPerStore,
     allowsSupervision: store.allowsSupervision,
     allowsSuppliers: store.allowsSuppliers,
+    allowsPurchaseOrders: store.allowsPurchaseOrders,
     planExpiresAt: store.planExpiresAt,
     isEffectivelyFreemium: store.planName === 'FREEMIUM',
   };

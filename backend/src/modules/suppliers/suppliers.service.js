@@ -118,20 +118,17 @@ async function removeClient(supplierStoreId, linkId) {
 }
 
 /**
- * Catalogue en lecture seule d'un fournisseur lié — projection strictement
- * limitée : jamais le prix (achat ou vente) ni la quantité en stock, qui
- * appartiennent exclusivement à la boutique fournisseur (décidé en
- * conversation). Vérifie que le lien existe avant toute lecture : une
- * boutique ne peut consulter QUE ses fournisseurs déjà ajoutés, jamais une
- * boutique arbitraire par son ID.
- *
- * Vérifie aussi le plan EFFECTIF de la boutique fournisseur elle-même
- * (pas seulement celui de l'acheteur, déjà vérifié par le middleware de
- * route) : si le fournisseur est retombé en FREEMIUM, son catalogue
- * devient inaccessible même à un acheteur qui l'avait déjà ajoutée
- * (décidé en conversation, §20_plans_abonnement.sql).
+ * Vérifie qu'un lien fournisseur existe ET que le fournisseur a toujours un
+ * plan qui le permet — factorisé, réutilisé par les deux lectures de
+ * catalogue ci-dessous (avec et sans prix). Une boutique ne peut consulter
+ * QUE ses fournisseurs déjà ajoutés, jamais une boutique arbitraire par son
+ * ID. Le plan EFFECTIF du fournisseur (pas seulement celui de l'acheteur)
+ * est revérifié à chaque appel, jamais mis en cache : si le fournisseur est
+ * retombé en FREEMIUM, son catalogue devient inaccessible même à un
+ * acheteur qui l'avait déjà ajoutée (décidé en conversation,
+ * §20_plans_abonnement.sql).
  */
-async function getSupplierCatalog(buyerStoreId, supplierStoreId) {
+async function verifySupplierAccess(buyerStoreId, supplierStoreId) {
   const linkResult = await pool.query(
     'SELECT 1 FROM store_supplier_links WHERE buyer_store_id = $1 AND supplier_store_id = $2',
     [buyerStoreId, supplierStoreId]
@@ -148,6 +145,16 @@ async function getSupplierCatalog(buyerStoreId, supplierStoreId) {
       'SUPPLIER_PLAN_LOCKED'
     );
   }
+}
+
+/**
+ * Catalogue en lecture seule d'un fournisseur lié — projection strictement
+ * limitée : jamais le prix (achat ou vente) ni la quantité en stock, qui
+ * appartiennent exclusivement à la boutique fournisseur (décidé en
+ * conversation).
+ */
+async function getSupplierCatalog(buyerStoreId, supplierStoreId) {
+  await verifySupplierAccess(buyerStoreId, supplierStoreId);
 
   const { rows } = await pool.query(
     `SELECT p.id, p.name, p.reference, p.image_url AS "imageUrl", c.name AS "categoryName"
@@ -160,6 +167,37 @@ async function getSupplierCatalog(buyerStoreId, supplierStoreId) {
   return rows;
 }
 
+/**
+ * Variante du catalogue ci-dessus, réservée au parcours d'achat
+ * (§29_commande_depuis_fournisseur_plateforme.sql, décidé en conversation) :
+ * expose en plus le prix de vente du fournisseur, à titre de RÉFÉRENCE pour
+ * l'acheteur qui construit sa commande (exception délibérée et limitée à ce
+ * seul écran à la règle "jamais le prix" ci-dessus — jamais la quantité en
+ * stock, qui reste cachée). Retourne aussi le nom de la boutique fournisseur
+ * pour l'en-tête de la page (évite un aller-retour séparé).
+ */
+async function getSupplierCatalogForOrder(buyerStoreId, supplierStoreId) {
+  await verifySupplierAccess(buyerStoreId, supplierStoreId);
+
+  const [storeResult, productsResult] = await Promise.all([
+    pool.query('SELECT name FROM stores WHERE id = $1', [supplierStoreId]),
+    pool.query(
+      `SELECT p.id, p.name, p.reference, p.image_url AS "imageUrl", c.name AS "categoryName",
+              p.selling_price AS "sellingPrice"
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.store_id = $1 AND p.status = 'ACTIVE'
+       ORDER BY p.name ASC`,
+      [supplierStoreId]
+    ),
+  ]);
+
+  return {
+    supplierName: storeResult.rows[0]?.name || '',
+    products: productsResult.rows,
+  };
+}
+
 module.exports = {
   listMySuppliers,
   listMyClients,
@@ -167,4 +205,5 @@ module.exports = {
   removeSupplier,
   removeClient,
   getSupplierCatalog,
+  getSupplierCatalogForOrder,
 };

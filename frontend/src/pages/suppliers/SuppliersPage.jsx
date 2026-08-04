@@ -1,17 +1,34 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
-import SupplierCatalogModal from './SupplierCatalogModal';
+import { formatGNF, formatDateTime } from '@/utils/format';
+import ReceivedOrderDetailModal from './ReceivedOrderDetailModal';
+
+const RECEIVED_ORDER_STATUS_LABELS = {
+  PENDING: 'En attente',
+  RECEIVED: 'Reçue',
+  CANCELLED: 'Annulée',
+};
 
 /**
  * Page Fournisseurs (§18_fournisseurs_inter_boutiques.sql) — un Owner peut
  * ajouter une autre boutique de la plateforme comme fournisseur via son
- * code (jamais son ID brut), consulter son catalogue en lecture stricte
- * (jamais prix ni stock), et voir/retirer les boutiques qui l'ont, elle,
- * ajoutée comme fournisseur (ses "clients").
+ * code (jamais son ID brut), consulter son catalogue et y passer commande
+ * (§29_commande_depuis_fournisseur_plateforme.sql), et voir/retirer les
+ * boutiques qui l'ont, elle, ajoutée comme fournisseur (ses "clients").
+ *
+ * Ajouter/parcourir un fournisseur est ouvert à TOUS les plans, y compris
+ * FREEMIUM (décidé en conversation — revirement stratégique : la demande
+ * reste gratuite, seule l'offre — être soi-même fournisseur — exige
+ * STANDARD/PREMIUM, déjà vérifié côté serveur sur le fournisseur consulté,
+ * jamais sur l'acheteur). Seule la commande elle-même reste réservée
+ * PREMIUM (vérifié dans la page vitrine du fournisseur).
  */
 export default function SuppliersPage() {
+  const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState([]);
   const [clients, setClients] = useState([]);
+  const [receivedOrders, setReceivedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -21,21 +38,20 @@ export default function SuppliersPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [busyLinkId, setBusyLinkId] = useState(null);
-  const [viewingSupplier, setViewingSupplier] = useState(null);
-  const [planStatus, setPlanStatus] = useState(null);
+  const [viewingOrderId, setViewingOrderId] = useState(null);
 
   async function loadAll() {
     setLoading(true);
     setError('');
     try {
-      const [suppliersRes, clientsRes, planRes] = await Promise.all([
+      const [suppliersRes, clientsRes, receivedOrdersRes] = await Promise.all([
         apiClient.get('/suppliers'),
         apiClient.get('/suppliers/clients'),
-        apiClient.get('/stores/plan-status'),
+        apiClient.get('/purchases/received-orders'),
       ]);
       setSuppliers(suppliersRes.data.suppliers);
       setClients(clientsRes.data.clients);
-      setPlanStatus(planRes.data);
+      setReceivedOrders(receivedOrdersRes.data.orders);
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Impossible de charger vos fournisseurs.');
     } finally {
@@ -46,12 +62,6 @@ export default function SuppliersPage() {
   useEffect(() => {
     loadAll();
   }, []);
-
-  // Consulter/gérer les liens déjà établis reste toujours possible, quel
-  // que soit le plan (même logique que la page Équipe) — seul l'ajout
-  // d'un nouveau fournisseur exige le plan (§20_plans_abonnement.sql,
-  // décidé en conversation).
-  const canAddSupplier = Boolean(planStatus?.allowsSuppliers);
 
   async function handleAddCode(e) {
     e.preventDefault();
@@ -108,19 +118,11 @@ export default function SuppliersPage() {
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          disabled={!canAddSupplier}
-          title={!canAddSupplier ? 'Plan FREEMIUM — passez à un plan payant pour ajouter des fournisseurs' : undefined}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto"
         >
           + Ajouter via un code
         </button>
       </div>
-
-      {!loading && !canAddSupplier && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
-          Votre plan FREEMIUM ne permet pas d'ajouter de fournisseur — passez à un plan payant.
-        </p>
-      )}
 
       {successMessage && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2 mb-4">
@@ -141,7 +143,8 @@ export default function SuppliersPage() {
           <label className="block text-sm font-medium text-slate-600 mb-1">Code fournisseur</label>
           <p className="text-xs text-slate-400 mb-2">
             Demandez ce code au propriétaire de la boutique fournisseur — il se trouve dans ses Paramètres.
-            Vous ne verrez jamais ses prix ni ses quantités en stock.
+            Sa quantité en stock reste toujours privée ; son prix de vente n'est visible qu'au moment de
+            préparer une commande.
           </p>
           <input
             required
@@ -189,7 +192,7 @@ export default function SuppliersPage() {
                     </p>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => setViewingSupplier(s)}
+                        onClick={() => navigate(`/suppliers/${s.storeId}/order`)}
                         className="text-xs font-medium text-brand-500 hover:text-brand-600"
                       >
                         Voir le catalogue
@@ -208,10 +211,11 @@ export default function SuppliersPage() {
             )}
           </section>
 
-          <section>
+          <section className="mb-8">
             <h2 className="text-sm font-semibold text-slate-700 mb-1">Mes clients</h2>
             <p className="text-xs text-slate-400 mb-3">
-              Boutiques qui vous ont ajoutée comme fournisseur — elles voient votre catalogue, jamais vos prix ni votre stock.
+              Boutiques qui vous ont ajoutée comme fournisseur — elles voient votre catalogue et votre prix de
+              vente à titre de référence lorsqu'elles préparent une commande, mais jamais votre stock.
             </p>
             {clients.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400 text-sm">
@@ -250,15 +254,66 @@ export default function SuppliersPage() {
               </div>
             )}
           </section>
+
+          <section>
+            <h2 className="text-sm font-semibold text-slate-700 mb-1">Commandes reçues de mes clients</h2>
+            <p className="text-xs text-slate-400 mb-3">
+              Ce que vos clients ont commandé chez vous — votre stock est diminué automatiquement dès qu'ils
+              confirment avoir reçu la livraison, jamais avant. Lecture seule : c'est toujours votre client qui
+              contrôle sa commande.
+            </p>
+            {receivedOrders.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400 text-sm">
+                Aucune commande reçue pour l'instant.
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                    <tr>
+                      <th className="text-left px-4 py-3">Boutique cliente</th>
+                      <th className="text-left px-4 py-3">Référence</th>
+                      <th className="text-right px-4 py-3">Total</th>
+                      <th className="text-left px-4 py-3">Statut</th>
+                      <th className="text-left px-4 py-3">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receivedOrders.map((o) => (
+                      <tr
+                        key={o.id}
+                        onClick={() => setViewingOrderId(o.id)}
+                        className="border-t border-slate-100 cursor-pointer hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-3 font-medium text-brand-600">{o.buyerStoreName}</td>
+                        <td className="px-4 py-3 text-slate-500">{o.reference || '—'}</td>
+                        <td className="px-4 py-3 text-right font-medium text-slate-800">{formatGNF(o.totalAmount)}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              o.status === 'RECEIVED'
+                                ? 'bg-green-50 text-green-700'
+                                : o.status === 'CANCELLED'
+                                  ? 'bg-red-50 text-red-700'
+                                  : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            {RECEIVED_ORDER_STATUS_LABELS[o.status]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(o.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </>
       )}
 
-      {viewingSupplier && (
-        <SupplierCatalogModal
-          storeId={viewingSupplier.storeId}
-          storeName={viewingSupplier.name}
-          onClose={() => setViewingSupplier(null)}
-        />
+      {viewingOrderId && (
+        <ReceivedOrderDetailModal orderId={viewingOrderId} onClose={() => setViewingOrderId(null)} />
       )}
     </div>
   );

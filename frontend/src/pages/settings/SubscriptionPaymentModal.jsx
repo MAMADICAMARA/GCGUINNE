@@ -120,6 +120,11 @@ export default function SubscriptionPaymentModal({ onClose, onSuccess }) {
                         {plan.maxUsersPerStore} utilisateur(s) · Supervision {plan.allowsSupervision ? 'incluse' : 'non incluse'} ·
                         Fournisseurs {plan.allowsSuppliers ? 'inclus' : 'non inclus'}
                       </p>
+                      {plan.allowsPurchaseOrders && (
+                        <p className="text-xs text-brand-600 font-medium mt-1">
+                          + Commandes d'achat fournisseur (exclusif PREMIUM)
+                        </p>
+                      )}
                     </button>
                   ))}
                 </div>

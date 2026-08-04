@@ -26,6 +26,15 @@ export const ACTION_GROUPS = [
     actions: ['VOID_ORDER', 'RETURN_ORDER_ITEM', 'UPDATE_VOID_RETURN_SETTINGS'],
   },
   {
+    label: 'Achats',
+    actions: [
+      'CREATE_PURCHASE_ORDER',
+      'RECEIVE_PURCHASE_ORDER',
+      'CANCEL_PURCHASE_ORDER',
+      'SUPPLIER_STOCK_DECREASED',
+    ],
+  },
+  {
     label: 'Abonnement',
     actions: [
       'ADMIN_ACTIVATE_PLAN',
@@ -65,6 +74,10 @@ export const ACTION_LABELS = {
   SET_SELLER_VOID_RETURN_PERMISSION: 'Autorisation vendeur modifiée',
   SUBMIT_PAYMENT_REQUEST: 'Paiement déclaré',
   REJECT_PAYMENT_REQUEST: 'Paiement refusé',
+  CREATE_PURCHASE_ORDER: "Commande d'achat créée",
+  RECEIVE_PURCHASE_ORDER: "Commande d'achat reçue",
+  CANCEL_PURCHASE_ORDER: "Commande d'achat annulée",
+  SUPPLIER_STOCK_DECREASED: 'Stock diminué (commande client)',
 };
 
 export function actionLabel(action) {
@@ -102,6 +115,17 @@ export function formatLogDetails(action, details) {
         .join(' — ');
     case 'REJECT_PAYMENT_REQUEST':
       return details.reason || null;
+    case 'CREATE_PURCHASE_ORDER':
+      return [
+        details.totalAmount ? `${Number(details.totalAmount).toLocaleString('fr-FR')} GNF` : null,
+        details.itemCount ? `${details.itemCount} article(s)` : null,
+      ]
+        .filter(Boolean)
+        .join(' — ');
+    case 'RECEIVE_PURCHASE_ORDER':
+      return details.itemCount ? `${details.itemCount} article(s)` : null;
+    case 'SUPPLIER_STOCK_DECREASED':
+      return details.itemCount ? `${details.itemCount} article(s)` : null;
     default:
       return null;
   }

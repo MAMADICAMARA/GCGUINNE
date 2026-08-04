@@ -135,6 +135,7 @@ async function listPlans() {
   const { rows } = await pool.query(
     `SELECT id, name, max_users_per_store AS "maxUsersPerStore",
             allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
+            allows_purchase_orders AS "allowsPurchaseOrders",
             price, created_at AS "createdAt"
      FROM subscription_plans
      ORDER BY price ASC`
@@ -410,7 +411,11 @@ async function revokeSuperAdmin(userId, adminUserId) {
  * même principe que store_notes.updateNote) : le formulaire d'édition
  * renvoie toujours l'état complet du plan.
  */
-async function updatePlan(planId, { name, price, maxUsersPerStore, allowsSupervision, allowsSuppliers }, adminUserId) {
+async function updatePlan(
+  planId,
+  { name, price, maxUsersPerStore, allowsSupervision, allowsSuppliers, allowsPurchaseOrders },
+  adminUserId
+) {
   if (!name || !name.trim()) {
     throw new AppError('Le nom du plan est requis.', 400, 'VALIDATION_ERROR');
   }
@@ -425,12 +430,13 @@ async function updatePlan(planId, { name, price, maxUsersPerStore, allowsSupervi
     const { rows } = await pool.query(
       `UPDATE subscription_plans
        SET name = $2, price = $3, max_users_per_store = $4,
-           allows_supervision = $5, allows_suppliers = $6
+           allows_supervision = $5, allows_suppliers = $6, allows_purchase_orders = $7
        WHERE id = $1
        RETURNING id, name, max_users_per_store AS "maxUsersPerStore",
                  allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
+                 allows_purchase_orders AS "allowsPurchaseOrders",
                  price, created_at AS "createdAt"`,
-      [planId, name.trim(), price, maxUsersPerStore, !!allowsSupervision, !!allowsSuppliers]
+      [planId, name.trim(), price, maxUsersPerStore, !!allowsSupervision, !!allowsSuppliers, !!allowsPurchaseOrders]
     );
     if (rows.length === 0) {
       throw new AppError('Plan introuvable.', 404, 'PLAN_NOT_FOUND');
