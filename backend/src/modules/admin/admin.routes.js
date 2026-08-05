@@ -37,6 +37,24 @@ router.put(
 );
 router.get('/audit-log', controller.listAuditLogs);
 router.get('/users/search', controller.searchUsers);
+
+// --- Assistance compte (§2 du cahier des charges "Système d'envoi
+// d'e-mails transactionnels", décidé en conversation) ---
+router.put(
+  '/users/:id/email',
+  [
+    param('id').isInt().withMessage('Identifiant utilisateur invalide.'),
+    body('newEmail').isEmail().withMessage('E-mail invalide.'),
+  ],
+  checkValidation,
+  controller.updateUserEmail
+);
+router.post(
+  '/users/:id/relaunch-verification',
+  [param('id').isInt().withMessage('Identifiant utilisateur invalide.')],
+  checkValidation,
+  controller.relaunchUserVerification
+);
 router.post('/stores/:id/transfer', [param('id').isInt(), body('newOwnerUserId').isInt()], controller.transferStore);
 router.post('/users/:id/promote', [param('id').isInt()], controller.promoteUser);
 router.post('/users/:id/revoke', [param('id').isInt()], controller.revokeUser);

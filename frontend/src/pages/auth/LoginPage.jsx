@@ -9,14 +9,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setNeedsVerification(false);
     setLoading(true);
     try {
-      // TODO: endpoint réel à brancher sur le backend (POST /auth/login)
       const { data } = await apiClient.post('/auth/login', { email, password });
       setSession(data);
       // On atterrit toujours dans l'espace "compte" ; c'est depuis "Ma
@@ -25,6 +26,13 @@ export default function LoginPage() {
       // charges — les deux espaces sont volontairement découplés).
       navigate('/account');
     } catch (err) {
+      // Compte existant mais pas encore vérifié (§ cahier des charges
+      // "Système d'envoi d'e-mails transactionnels", décidé en
+      // conversation) — redirige directement vers l'écran de code plutôt
+      // que de laisser un message d'erreur sans issue.
+      if (err.response?.data?.error?.code === 'EMAIL_NOT_VERIFIED') {
+        setNeedsVerification(true);
+      }
       setError(
         err.response?.data?.error?.message ||
           'Connexion impossible. Vérifiez vos identifiants.'
@@ -39,9 +47,18 @@ export default function LoginPage() {
       <h2 className="text-lg font-semibold text-slate-800">Connexion</h2>
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
-          {error}
-        </p>
+        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+          <p>{error}</p>
+          {needsVerification && (
+            <Link
+              to="/verify-email"
+              state={{ email }}
+              className="font-medium underline hover:no-underline"
+            >
+              Entrer le code de vérification →
+            </Link>
+          )}
+        </div>
       )}
 
       <div>
@@ -70,6 +87,11 @@ export default function LoginPage() {
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           placeholder="••••••••"
         />
+        <div className="text-right mt-1">
+          <Link to="/forgot-password" className="text-xs text-brand-500 hover:underline">
+            Mot de passe oublié ?
+          </Link>
+        </div>
       </div>
 
       <button

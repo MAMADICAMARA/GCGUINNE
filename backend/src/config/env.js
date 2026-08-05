@@ -69,5 +69,23 @@ module.exports = {
     publicUrlBase: process.env.R2_PUBLIC_URL_BASE || null,
   },
 
+  // Envoi d'e-mails transactionnels (§ cahier des charges "Système d'envoi
+  // d'e-mails transactionnels", décidé en conversation) — même principe que
+  // le bloc r2 ci-dessus : volontairement PAS `required()`, l'absence de
+  // configuration SMTP ne doit jamais empêcher le reste de l'application de
+  // démarrer. `mailer.service.js` vérifie explicitement leur présence au
+  // moment de l'envoi, pas au démarrage. En l'absence de config, l'envoi
+  // échoue proprement et silencieusement (journalisé), jamais bloquant —
+  // notamment pour /auth/register, qui doit toujours créer le compte même
+  // si l'e-mail de vérification ne part pas.
+  smtp: {
+    host: process.env.SMTP_HOST || null,
+    port: parseInt(process.env.SMTP_PORT, 10) || null,
+    user: process.env.SMTP_USER || null,
+    password: process.env.SMTP_PASSWORD || null,
+    fromAddress: process.env.EMAIL_FROM_ADDRESS || null,
+    fromName: process.env.EMAIL_FROM_NAME || null,
+  },
+
   required,
 };

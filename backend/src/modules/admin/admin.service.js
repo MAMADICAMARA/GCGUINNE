@@ -1,5 +1,41 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
+const mailer = require('../mailer/mailer.service');
+const emailTemplates = require('../mailer/templates');
+const verificationCodes = require('../auth/verificationCodes.service');
+
+/**
+ * E-mail de confirmation au propriétaire d'une boutique après une action
+ * Super Admin sur son plan (§6.5 du cahier des charges "Système d'envoi
+ * d'e-mails transactionnels", décidé en conversation) — activate, renew ET
+ * deactivate déclenchent chacun un message adapté (nouveau plan /
+ * renouvellement / retour en FREEMIUM). `stores.owner_id` (déjà utilisé par
+ * searchUsers ci-dessous) donne directement l'e-mail du propriétaire, sans
+ * repasser par user_store/roles. Jamais awaité par les appelants (§9).
+ */
+function notifyStoreOwnerOfPlanChange(storeId, { action, planName, expiresAt }) {
+  pool
+    .query(
+      `SELECT u.email AS "ownerEmail", s.name AS "storeName"
+       FROM stores s JOIN users u ON u.id = s.owner_id
+       WHERE s.id = $1`,
+      [storeId]
+    )
+    .then(({ rows }) => {
+      if (rows.length === 0) return;
+      const { subject, html } = emailTemplates.planChangedEmail({
+        storeName: rows[0].storeName,
+        planName,
+        action,
+        expiresAt,
+      });
+      mailer.sendEmail({ to: rows[0].ownerEmail, subject, html });
+    })
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error("Échec de l'envoi de l'e-mail de changement de plan :", err.message);
+    });
+}
 
 /**
  * Toutes les fonctions de ce module opèrent SANS filtre store_id — c'est
@@ -207,7 +243,7 @@ async function listAuditLogs({ page, limit, storeId, userId, action } = {}) {
 async function searchUsers(query) {
   if (!query || !query.trim()) return [];
   const { rows } = await pool.query(
-    `SELECT u.id, u.full_name AS "fullName", u.email, u.is_super_admin AS "isSuperAdmin",
+    `SELECT u.id, u.full_name AS "fullName", u.email, u.status, u.is_super_admin AS "isSuperAdmin",
             s.id AS "ownedStoreId", s.name AS "ownedStoreName"
      FROM users u
      LEFT JOIN stores s ON s.owner_id = u.id
@@ -217,6 +253,78 @@ async function searchUsers(query) {
     [`%${query.trim()}%`]
   );
   return rows;
+}
+
+/**
+ * "Assistance compte" (§2 du cahier des charges "Système d'envoi d'e-mails
+ * transactionnels", décidé en conversation) — garde-fou contre le blocage
+ * permanent : si quelqu'un s'est trompé d'e-mail à l'inscription (ou n'y a
+ * plus accès), sans cet outil son compte resterait PENDING_VERIFICATION
+ * pour toujours, puisque `login()` refuse tout statut différent de ACTIVE
+ * et que le seul moyen normal d'en sortir est de recevoir un code sur cette
+ * même adresse. Change UNIQUEMENT l'e-mail — jamais le mot de passe, jamais
+ * le statut (utiliser `relaunchUserVerification` ensuite si besoin).
+ */
+async function updateUserEmail(userId, newEmail) {
+  const trimmedEmail = (newEmail || '').trim();
+  if (!trimmedEmail) {
+    throw new AppError("L'e-mail est requis.", 400, 'VALIDATION_ERROR');
+  }
+
+  const conflict = await pool.query(
+    'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id != $2',
+    [trimmedEmail, userId]
+  );
+  if (conflict.rows.length > 0) {
+    throw new AppError('Un autre compte utilise déjà cet e-mail.', 409, 'EMAIL_ALREADY_USED');
+  }
+
+  const { rows } = await pool.query(
+    'UPDATE users SET email = $1 WHERE id = $2 RETURNING id, full_name AS "fullName", email, status',
+    [trimmedEmail, userId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Utilisateur introuvable.', 404, 'USER_NOT_FOUND');
+  }
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, NULL, 'ADMIN_UPDATE_USER_EMAIL', $2::jsonb)`,
+    [userId, JSON.stringify({ newEmail: trimmedEmail })]
+  );
+
+  return rows[0];
+}
+
+/**
+ * Repasse un compte à PENDING_VERIFICATION et lui envoie immédiatement un
+ * nouveau code, sur son adresse ACTUELLE (donc après correction éventuelle
+ * via `updateUserEmail`) — "relance la vérification manuellement" au sens
+ * exact du §2 du cahier des charges. Un compte déjà ACTIVE peut aussi être
+ * repassé par ce chemin (cas limite mais sans risque : il suffit de
+ * revalider le code pour redevenir ACTIVE, exactement comme à l'inscription).
+ */
+async function relaunchUserVerification(userId) {
+  const { rows } = await pool.query(
+    "UPDATE users SET status = 'PENDING_VERIFICATION' WHERE id = $1 RETURNING id, full_name AS \"fullName\", email, status",
+    [userId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Utilisateur introuvable.', 404, 'USER_NOT_FOUND');
+  }
+  const user = rows[0];
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, NULL, 'ADMIN_RELAUNCH_VERIFICATION', '{}'::jsonb)`,
+    [userId]
+  );
+
+  const code = await verificationCodes.createCode(user.id, 'EMAIL_VERIFICATION');
+  const { subject, html } = emailTemplates.verificationCodeEmail({ code });
+  mailer.sendEmail({ to: user.email, subject, html });
+
+  return user;
 }
 
 /**
@@ -490,6 +598,12 @@ async function activateStorePlan(storeId, planId, expiresAt, adminUserId) {
     [adminUserId, storeId, JSON.stringify({ planId, planName: planResult.rows[0].name, expiresAt: expiryDate })]
   );
 
+  notifyStoreOwnerOfPlanChange(storeId, {
+    action: 'ACTIVATED',
+    planName: planResult.rows[0].name,
+    expiresAt: expiryDate,
+  });
+
   return rows[0];
 }
 
@@ -535,6 +649,12 @@ async function renewStorePlan(storeId, expiresAt, adminUserId) {
     [adminUserId, storeId, JSON.stringify({ expiresAt: expiryDate })]
   );
 
+  notifyStoreOwnerOfPlanChange(storeId, {
+    action: 'RENEWED',
+    planName: storeResult.rows[0].planName,
+    expiresAt: expiryDate,
+  });
+
   return rows[0];
 }
 
@@ -565,6 +685,8 @@ async function deactivateStorePlan(storeId, adminUserId) {
      VALUES ($1, $2, 'ADMIN_DEACTIVATE_PLAN', '{}'::jsonb)`,
     [adminUserId, storeId]
   );
+
+  notifyStoreOwnerOfPlanChange(storeId, { action: 'DEACTIVATED', planName: 'FREEMIUM' });
 
   return rows[0];
 }
@@ -743,6 +865,8 @@ module.exports = {
   activatePlanForAllFreemiumStores,
   listAuditLogs,
   searchUsers,
+  updateUserEmail,
+  relaunchUserVerification,
   transferStoreOwnership,
   promoteToSuperAdmin,
   revokeSuperAdmin,

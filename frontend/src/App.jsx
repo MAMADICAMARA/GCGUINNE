@@ -10,6 +10,8 @@ import RequireSuperAdminRoute from '@/routes/RequireSuperAdminRoute';
 
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
+import VerifyEmailPage from '@/pages/auth/VerifyEmailPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 
 import AccountHomePage from '@/pages/account/AccountHomePage';
 import MyStorePage from '@/pages/account/MyStorePage';
@@ -49,6 +51,8 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         </Route>
 
         {/* Espace COMPTE — nécessite une session, PAS de boutique active.

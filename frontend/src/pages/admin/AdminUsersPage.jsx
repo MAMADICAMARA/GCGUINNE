@@ -24,6 +24,13 @@ export default function AdminUsersPage() {
   const [recipientResults, setRecipientResults] = useState([]);
   const [searchingRecipient, setSearchingRecipient] = useState(false);
 
+  // --- Assistance compte (§2 du cahier des charges "Système d'envoi
+  // d'e-mails transactionnels", décidé en conversation) — garde-fou contre
+  // le blocage permanent d'un compte PENDING_VERIFICATION dont l'e-mail
+  // saisi à l'inscription était faux ou inaccessible.
+  const [emailChangeTarget, setEmailChangeTarget] = useState(null); // { userId, fullName, currentEmail }
+  const [newEmailInput, setNewEmailInput] = useState('');
+
   async function handleSearch(e) {
     e.preventDefault();
     setError('');
@@ -83,6 +90,45 @@ export default function AdminUsersPage() {
       await refreshResults();
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Révocation impossible.');
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  function openEmailChange(user) {
+    setEmailChangeTarget({ userId: user.id, fullName: user.fullName, currentEmail: user.email });
+    setNewEmailInput(user.email);
+    setError('');
+  }
+
+  async function handleUpdateEmail(e) {
+    e.preventDefault();
+    setError('');
+    setBusyUserId(emailChangeTarget.userId);
+    try {
+      await apiClient.put(`/admin/users/${emailChangeTarget.userId}/email`, { newEmail: newEmailInput });
+      setSuccessMessage(`E-mail de ${emailChangeTarget.fullName} mis à jour.`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+      setEmailChangeTarget(null);
+      await refreshResults();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || "Impossible de changer l'e-mail.");
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  async function handleRelaunchVerification(user) {
+    if (!window.confirm(`Renvoyer un code de vérification à ${user.fullName} (${user.email}) ?`)) return;
+    setError('');
+    setBusyUserId(user.id);
+    try {
+      await apiClient.post(`/admin/users/${user.id}/relaunch-verification`);
+      setSuccessMessage(`Nouveau code de vérification envoyé à ${user.email}.`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+      await refreshResults();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Renvoi impossible.');
     } finally {
       setBusyUserId(null);
     }
@@ -167,7 +213,9 @@ export default function AdminUsersPage() {
               <tr>
                 <th className="text-left px-4 py-3">Nom</th>
                 <th className="text-left px-4 py-3">E-mail</th>
+                <th className="text-left px-4 py-3">Statut</th>
                 <th className="text-left px-4 py-3">Boutique possédée</th>
+                <th className="text-right px-4 py-3">Assistance compte</th>
                 <th className="text-right px-4 py-3">Action</th>
               </tr>
             </thead>
@@ -176,7 +224,42 @@ export default function AdminUsersPage() {
                 <tr key={user.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-800">{user.fullName}</td>
                   <td className="px-4 py-3 text-slate-500">{user.email}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        user.status === 'ACTIVE'
+                          ? 'bg-green-50 text-green-700'
+                          : user.status === 'PENDING_VERIFICATION'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {user.status === 'ACTIVE'
+                        ? 'Actif'
+                        : user.status === 'PENDING_VERIFICATION'
+                          ? 'Non vérifié'
+                          : 'Inactif'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-slate-500">{user.ownedStoreName || '—'}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => openEmailChange(user)}
+                      disabled={busyUserId === user.id}
+                      className="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 mr-3"
+                    >
+                      Changer l'e-mail
+                    </button>
+                    {user.status !== 'ACTIVE' && (
+                      <button
+                        onClick={() => handleRelaunchVerification(user)}
+                        disabled={busyUserId === user.id}
+                        className="text-xs font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50"
+                      >
+                        Relancer la vérification
+                      </button>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     {user.isSuperAdmin ? (
                       <div className="flex items-center justify-end gap-2">
@@ -205,6 +288,53 @@ export default function AdminUsersPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* --- Assistance compte : changer l'e-mail d'un utilisateur --- */}
+      {emailChangeTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800">Changer l'e-mail de {emailChangeTarget.fullName}</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                À utiliser si la personne s'est trompée d'adresse à l'inscription et reste bloquée sur un
+                compte non vérifié — pensez à "Relancer la vérification" juste après.
+              </p>
+            </div>
+            <form onSubmit={handleUpdateEmail} className="px-6 py-5">
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-3">
+                  {error}
+                </p>
+              )}
+              <label className="block text-sm font-medium text-slate-600 mb-1">Nouvel e-mail</label>
+              <input
+                type="email"
+                required
+                autoFocus
+                value={newEmailInput}
+                onChange={(e) => setNewEmailInput(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={busyUserId === emailChangeTarget.userId}
+                  className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
+                >
+                  {busyUserId === emailChangeTarget.userId ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailChangeTarget(null)}
+                  className="text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

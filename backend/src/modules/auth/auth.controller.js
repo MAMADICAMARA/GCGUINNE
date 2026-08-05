@@ -42,4 +42,52 @@ async function switchStore(req, res, next) {
   }
 }
 
-module.exports = { register, login, switchStore };
+async function verifyEmail(req, res, next) {
+  try {
+    checkValidation(req);
+    const result = await authService.verifyEmail(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resendVerificationCode(req, res, next) {
+  try {
+    checkValidation(req);
+    const result = await authService.resendVerificationCode(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function requestPasswordReset(req, res, next) {
+  try {
+    checkValidation(req);
+    const result = await authService.requestPasswordReset(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    checkValidation(req);
+    const result = await authService.resetPassword(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  register,
+  login,
+  switchStore,
+  verifyEmail,
+  resendVerificationCode,
+  requestPasswordReset,
+  resetPassword,
+};

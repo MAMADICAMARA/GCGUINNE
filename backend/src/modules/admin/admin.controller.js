@@ -118,6 +118,24 @@ async function searchUsers(req, res, next) {
   }
 }
 
+async function updateUserEmail(req, res, next) {
+  try {
+    const user = await adminService.updateUserEmail(req.params.id, req.body.newEmail);
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function relaunchUserVerification(req, res, next) {
+  try {
+    const user = await adminService.relaunchUserVerification(req.params.id);
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function transferStore(req, res, next) {
   try {
     const result = await adminService.transferStoreOwnership(
@@ -278,6 +296,8 @@ module.exports = {
   activatePlanForAllFreemiumStores,
   listAuditLogs,
   searchUsers,
+  updateUserEmail,
+  relaunchUserVerification,
   transferStore,
   promoteUser,
   revokeUser,

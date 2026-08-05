@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
-import { useAuthStore } from '@/store/authStore';
 
 const initialForm = {
   fullName: '',
@@ -15,7 +14,6 @@ const initialForm = {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const setSession = useAuthStore((s) => s.setSession);
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,9 +36,13 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const { data } = await apiClient.post('/auth/register', form);
-      setSession(data);
-      navigate('/account');
+      // Le compte est créé PENDING_VERIFICATION (§6.1 du cahier des
+      // charges "Système d'envoi d'e-mails transactionnels", décidé en
+      // conversation) — /auth/register ne renvoie plus de jeton de
+      // connexion, juste une confirmation. La connexion réelle n'a lieu
+      // qu'après validation du code sur VerifyEmailPage.
+      await apiClient.post('/auth/register', form);
+      navigate('/verify-email', { state: { email: form.email } });
     } catch (err) {
       setError(
         err.response?.data?.error?.message ||

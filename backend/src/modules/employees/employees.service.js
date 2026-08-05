@@ -1,6 +1,14 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { getEffectivePlan } = require('../../utils/planContext');
+const mailer = require('../mailer/mailer.service');
+const emailTemplates = require('../mailer/templates');
+
+// Même libellé que frontend/src/pages/employees/EmployeesPage.jsx —
+// aucun rôle autre que SELLER n'est jamais utilisé par addEmployee (cf.
+// commentaire de la fonction), mais garder une table plutôt qu'un
+// littéral en dur évite une désynchronisation si un rôle est ajouté un jour.
+const ROLE_LABELS = { SELLER: 'Vendeur' };
 
 /**
  * Traduit une exception levée par les triggers PostgreSQL de la règle
@@ -195,6 +203,26 @@ async function addEmployee(storeId, actingUserId, { email }) {
      VALUES ($1, $2, 'INVITE_EMPLOYEE', $3::jsonb)`,
     [actingUserId, storeId, JSON.stringify({ email: trimmedEmail, roleCode })]
   );
+
+  // E-mail à la personne invitée (§6.3 du cahier des charges, décidé en
+  // conversation) — en complément du message manuel que l'Owner envoie
+  // déjà de son côté (WhatsApp, téléphone), jamais un remplacement. Jamais
+  // awaité (§9) : un échec d'envoi ne doit jamais faire échouer l'invitation
+  // elle-même, déjà enregistrée en base à ce stade.
+  pool
+    .query('SELECT name FROM stores WHERE id = $1', [storeId])
+    .then(({ rows }) => {
+      if (rows.length === 0) return;
+      const { subject, html } = emailTemplates.employeeInvitedEmail({
+        storeName: rows[0].name,
+        roleLabel: ROLE_LABELS[roleCode] || roleCode,
+      });
+      mailer.sendEmail({ to: trimmedEmail, subject, html });
+    })
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error("Échec de l'envoi de l'e-mail d'invitation :", err.message);
+    });
 
   return {
     email: trimmedEmail,
