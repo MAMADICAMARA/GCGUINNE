@@ -28,6 +28,8 @@ router.use('/suppliers', require('../modules/suppliers/suppliers.routes'));
 router.use('/notes', require('../modules/notes/notes.routes'));
 router.use('/subscription-payments', require('../modules/subscriptionPayments/subscriptionPayments.routes'));
 router.use('/purchases', require('../modules/purchases/purchases.routes'));
+router.use('/cash-drawers', require('../modules/cashDrawers/cashDrawers.routes'));
+router.use('/uploads', require('../modules/uploads/uploads.routes'));
 
 // router.use('/users', require('../modules/users/users.routes'));
 // ----------------------------------------------------------------------

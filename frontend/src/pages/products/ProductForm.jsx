@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import apiClient from '@/services/apiClient';
+import ImageUploadField from '@/components/ImageUploadField';
 
 const initialForm = {
   name: '',
@@ -12,6 +13,10 @@ const initialForm = {
   lowStockThreshold: '5',
   imageUrl: '',
 };
+
+// Un palier vide sert de ligne de saisie vierge dans le formulaire — il est
+// filtré avant l'envoi si l'utilisateur ne le remplit pas.
+const emptyTier = { minQuantity: '', unitPrice: '' };
 
 /**
  * Modal de création/édition d'un produit.
@@ -55,6 +60,18 @@ export default function ProductForm({ product, categories, onClose }) {
     const entries = Object.entries(initial).map(([key, value]) => ({ key, value: String(value) }));
     return entries.length > 0 ? entries : [{ key: '', value: '' }];
   });
+  // Paliers de prix dégressif par quantité (optionnel, aucune ligne par
+  // défaut — contrairement aux attributs, la plupart des produits n'en ont
+  // pas besoin).
+  const [tiersList, setTiersList] = useState(() => {
+    if (isEdit && Array.isArray(product.priceTiers) && product.priceTiers.length > 0) {
+      return product.priceTiers.map((t) => ({
+        minQuantity: String(t.minQuantity),
+        unitPrice: String(t.unitPrice),
+      }));
+    }
+    return [];
+  });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -76,6 +93,18 @@ export default function ProductForm({ product, categories, onClose }) {
     setAttributesList((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function updateTier(index, field, value) {
+    setTiersList((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
+  }
+
+  function addTierRow() {
+    setTiersList((prev) => [...prev, { ...emptyTier }]);
+  }
+
+  function removeTierRow(index) {
+    setTiersList((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -89,6 +118,16 @@ export default function ProductForm({ product, categories, onClose }) {
         .filter(([key]) => key.length > 0)
     );
 
+    // Idem pour les paliers : une ligne dont un des deux champs est vide
+    // n'est pas envoyée — le serveur reste de toute façon l'autorité finale
+    // sur la validation (paliers dupliqués, prix non décroissant, etc.).
+    const priceTiers = tiersList
+      .filter((t) => t.minQuantity.trim() !== '' && t.unitPrice.trim() !== '')
+      .map((t) => ({
+        minQuantity: parseInt(t.minQuantity, 10),
+        unitPrice: parseFloat(t.unitPrice),
+      }));
+
     const payload = {
       name: form.name,
       categoryId: form.categoryId || null,
@@ -99,6 +138,7 @@ export default function ProductForm({ product, categories, onClose }) {
       lowStockThreshold: parseInt(form.lowStockThreshold, 10) || 0,
       imageUrl: form.imageUrl.trim() || null,
       attributes,
+      priceTiers,
     };
     // La quantité n'est envoyée qu'à la création — l'API l'ignorerait de
     // toute façon en édition, mais autant ne pas prétendre l'envoyer.
@@ -280,6 +320,61 @@ export default function ProductForm({ product, categories, onClose }) {
             </div>
           </div>
 
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-slate-600">
+                Prix dégressif par quantité (optionnel)
+              </label>
+              <button
+                type="button"
+                onClick={addTierRow}
+                className="text-xs font-medium text-brand-500 hover:text-brand-600"
+              >
+                + Ajouter un palier
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mb-2">
+              Ex : à partir de 10 unités, 85 000 GNF/unité au lieu du prix de
+              vente normal. Le prix baisse à chaque palier, jamais le
+              contraire.
+            </p>
+            <div className="space-y-2">
+              {tiersList.map((tier, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 whitespace-nowrap">À partir de</span>
+                  <input
+                    type="number"
+                    min="2"
+                    step="1"
+                    value={tier.minQuantity}
+                    onChange={(e) => updateTier(index, 'minQuantity', e.target.value)}
+                    placeholder="10"
+                    className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                  <span className="text-xs text-slate-400 whitespace-nowrap">unités →</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tier.unitPrice}
+                    onChange={(e) => updateTier(index, 'unitPrice', e.target.value)}
+                    placeholder="85000"
+                    className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                  <span className="text-xs text-slate-400 whitespace-nowrap">GNF/unité</span>
+                  <button
+                    type="button"
+                    onClick={() => removeTierRow(index)}
+                    className="text-slate-300 hover:text-red-500 px-1"
+                    aria-label="Retirer ce palier"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">
@@ -336,9 +431,12 @@ export default function ProductForm({ product, categories, onClose }) {
               placeholder="https://exemple.com/mon-image.jpg"
             />
             <p className="text-xs text-slate-400 mt-1">
-              Seul le lien est enregistré — l'image elle-même reste hébergée
-              là où tu l'as mise en ligne, jamais stockée sur nos serveurs.
+              Collez un lien existant, ou envoyez directement un fichier depuis votre appareil.
             </p>
+            <ImageUploadField
+              context="products"
+              onUploaded={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
+            />
             {form.imageUrl.trim() && (
               <img
                 src={form.imageUrl}

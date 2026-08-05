@@ -53,5 +53,21 @@ module.exports = {
 
   bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 12,
 
+  // Stockage d'objets pour l'envoi direct d'images (§ cahier des charges
+  // "Upload et stockage réel des images", décidé en conversation) —
+  // volontairement PAS `required()` : contrairement au JWT_SECRET, l'envoi
+  // de fichiers est une fonctionnalité optionnelle qui ne doit jamais
+  // empêcher le reste de l'application de démarrer si elle n'est pas
+  // encore configurée (le champ "coller un lien" continue de fonctionner
+  // sans ça). `uploads.service.js` vérifie explicitement leur présence au
+  // moment de l'appel, pas au démarrage.
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID || null,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || null,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || null,
+    bucketName: process.env.R2_BUCKET_NAME || null,
+    publicUrlBase: process.env.R2_PUBLIC_URL_BASE || null,
+  },
+
   required,
 };

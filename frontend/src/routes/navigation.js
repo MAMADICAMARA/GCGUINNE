@@ -11,6 +11,10 @@
 export const NAV_ITEMS = [
   { key: 'dashboard', label: 'Tableau de bord', path: '/dashboard', roles: ['OWNER', 'SELLER'] },
   { key: 'pos', label: 'Caisse / Vente', path: '/pos', roles: ['OWNER', 'SELLER'] },
+  // Owner ET Vendeur (§30_fond_de_caisse.sql, décidé en conversation) —
+  // c'est le Vendeur qui ouvre/ferme sa propre caisse ; le Owner voit en
+  // plus l'historique de toute l'équipe (scoping fait côté serveur).
+  { key: 'cash-drawers', label: 'Historique des caisses', path: '/cash-drawers', roles: ['OWNER', 'SELLER'] },
   { key: 'products', label: 'Produits', path: '/products', roles: ['OWNER'] },
   { key: 'stock', label: 'Stock', path: '/stock', roles: ['OWNER'] },
   // Visible au Vendeur uniquement si le Owner l'a autorisé à

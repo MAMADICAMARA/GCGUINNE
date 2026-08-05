@@ -23,11 +23,12 @@ types.setTypeParser(types.builtins.INT8, (value) => (value === null ? null : par
 /**
  * Pool de connexions PostgreSQL partagé par toute l'application.
  *
- * Choix technique : utilisation du driver "pg" natif plutôt que Prisma pour
- * l'exécution des requêtes. Le schéma est déjà appliqué via les scripts SQL
- * de backend/database/ (source de vérité). Prisma reste installé et pourra
- * être synchronisé plus tard avec `prisma db pull` si l'équipe souhaite un
- * client typé, mais n'est pas requis pour faire fonctionner l'application.
+ * Choix technique : utilisation du driver "pg" natif — le schéma est
+ * appliqué via les scripts SQL de backend/database/ (seule source de
+ * vérité). Prisma a été retiré du projet (§C2 SOLUTIONS_AUDIT_PRODUCTION.md,
+ * décidé en conversation) : jamais utilisé dans le code applicatif, et son
+ * schema.prisma désynchronisé de la vraie base aurait pu induire en erreur
+ * un futur développeur qui l'aurait pris pour la source de vérité.
  */
 const pool = new Pool({
   connectionString: env.databaseUrl,

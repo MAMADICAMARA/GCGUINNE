@@ -7,8 +7,24 @@ import PosProductCard from './PosProductCard';
 import ReceiptModal from './ReceiptModal';
 import CustomerStepModal from './CustomerStepModal';
 import OrderSummaryModal from './OrderSummaryModal';
+import CashDrawerBanner from './CashDrawerBanner';
 
 const PREVIEW_COUNT = 4; // une ligne complète sur la plupart des tailles d'écran
+
+// Miroir client du calcul fait par le serveur (products.service.js#getEffectiveUnitPrice) —
+// purement pour l'aperçu affiché dans le panier. Le serveur reste seul autorité
+// sur le prix réellement facturé, recalculé indépendamment à la création de la vente.
+function getEffectiveUnitPrice(product, quantity) {
+  if (!product) return 0;
+  const tiers = Array.isArray(product.priceTiers) ? product.priceTiers : [];
+  let price = product.sellingPrice;
+  for (const tier of tiers) {
+    if (quantity >= tier.minQuantity) {
+      price = tier.unitPrice;
+    }
+  }
+  return price;
+}
 
 export default function PosPage() {
   const activeStore = useAuthStore((s) => s.activeStore);
@@ -32,6 +48,7 @@ export default function PosPage() {
   const [showCustomerStep, setShowCustomerStep] = useState(false);
   const [showSummaryStep, setShowSummaryStep] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [drawerRefreshSignal, setDrawerRefreshSignal] = useState(0);
 
   async function loadCatalog() {
     if (!activeStore) return;
@@ -88,22 +105,24 @@ export default function PosPage() {
     }
 
     setError('');
-    setCart((prev) =>
-      existing
+    setCart((prev) => {
+      const newQuantity = currentQtyInCart + requestedQty;
+      const unitPrice = getEffectiveUnitPrice(product, newQuantity);
+      return existing
         ? prev.map((item) =>
-            item.productId === product.id ? { ...item, quantity: item.quantity + requestedQty } : item
+            item.productId === product.id ? { ...item, quantity: newQuantity, unitPrice } : item
           )
         : [
             ...prev,
             {
               productId: product.id,
               productName: product.name,
-              quantity: requestedQty,
-              unitPrice: product.sellingPrice,
+              quantity: newQuantity,
+              unitPrice,
               availableStock: product.quantity,
             },
-          ]
-    );
+          ];
+    });
   }
 
   function removeFromCart(productId) {
@@ -125,7 +144,11 @@ export default function PosPage() {
     }
     setError('');
     setCart((prev) =>
-      prev.map((item) => (item.productId === productId ? { ...item, quantity: newQty } : item))
+      prev.map((item) =>
+        item.productId === productId
+          ? { ...item, quantity: newQty, unitPrice: product ? getEffectiveUnitPrice(product, newQty) : item.unitPrice }
+          : item
+      )
     );
   }
 
@@ -190,6 +213,7 @@ export default function PosPage() {
       setDiscountPercent(0);
       setTaxPercent(0);
       setPaymentMethod('CASH');
+      setDrawerRefreshSignal((s) => s + 1);
       await loadCatalog();
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Erreur lors de la validation de la vente.');
@@ -203,6 +227,8 @@ export default function PosPage() {
       {/* --- CATALOGUE --- */}
       <div className="flex-1 min-w-0">
         <h1 className="text-xl font-semibold text-slate-800 mb-4">Caisse</h1>
+
+        <CashDrawerBanner refreshSignal={drawerRefreshSignal} />
 
         {error && (
           <div className="flex items-start justify-between gap-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-4">

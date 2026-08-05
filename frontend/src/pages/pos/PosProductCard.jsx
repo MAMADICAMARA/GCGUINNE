@@ -6,6 +6,17 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
   const [quantity, setQuantity] = useState(1);
   const isOutOfStock = product.quantity === 0;
   const isLow = product.quantity <= product.lowStockThreshold;
+  const hasTiers = Array.isArray(product.priceTiers) && product.priceTiers.length > 0;
+  const cheapestTier = hasTiers ? product.priceTiers[product.priceTiers.length - 1] : null;
+
+  const tierBadge = hasTiers && (
+    <span
+      title={`À partir de ${cheapestTier.minQuantity} unités : ${formatGNF(cheapestTier.unitPrice)}/unité`}
+      className="text-xs font-medium px-2 py-0.5 rounded-full bg-brand-50 text-brand-600"
+    >
+      Prix dégressif
+    </span>
+  );
 
   const stockBadge = (
     <span
@@ -52,6 +63,7 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
         </div>
 
         <div className="flex flex-col items-end gap-1 shrink-0">
+          {tierBadge}
           <p className="text-sm font-semibold text-slate-800">{formatGNF(product.sellingPrice)}</p>
           <button
             onClick={() => onAdd(product, 1)}
@@ -84,6 +96,8 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
             <span className="text-xs font-medium text-brand-600">Panier : {cartQuantity}</span>
           )}
         </div>
+
+        {tierBadge}
 
         <p className="text-sm font-semibold text-slate-800">{formatGNF(product.sellingPrice)}</p>
 

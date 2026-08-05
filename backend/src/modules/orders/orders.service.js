@@ -1,6 +1,7 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { getReceiptSettings } = require('../stores/stores.service');
+const { getEffectiveUnitPrice } = require('../products/products.service');
 
 /**
  * Crée une commande de vente atomique
@@ -57,6 +58,21 @@ async function createOrder(storeId, userId, orderData) {
       productsMap[p.id] = p;
     });
 
+    // Prix dégressif par palier de quantité (§31_prix_degressif_grossiste.sql,
+    // décidé en conversation) — le prix appliqué est TOUJOURS recalculé ici,
+    // côté serveur, à partir des paliers réellement enregistrés pour chaque
+    // produit ; jamais fait confiance à un prix envoyé par le client (qui
+    // n'en envoie d'ailleurs aucun, seulement productId/quantity).
+    const tiersResult = await client.query(
+      `SELECT product_id AS "productId", min_quantity AS "minQuantity", unit_price AS "unitPrice"
+       FROM product_price_tiers WHERE product_id = ANY($1::int[]) ORDER BY min_quantity ASC`,
+      [productIds]
+    );
+    const tiersByProduct = {};
+    tiersResult.rows.forEach((t) => {
+      (tiersByProduct[t.productId] ||= []).push(t);
+    });
+
     let totalAmount = 0;
     const preparedItems = [];
 
@@ -72,12 +88,13 @@ async function createOrder(storeId, userId, orderData) {
         );
       }
 
-      const lineTotal = item.quantity * product.selling_price;
+      const unitPrice = getEffectiveUnitPrice(product.selling_price, tiersByProduct[item.productId], item.quantity);
+      const lineTotal = item.quantity * unitPrice;
       totalAmount += lineTotal;
       preparedItems.push({
         productId: item.productId,
         quantity: item.quantity,
-        unitPrice: product.selling_price,
+        unitPrice,
         productName: product.name,
       });
     }
@@ -177,11 +194,26 @@ async function createOrder(storeId, userId, orderData) {
       const paymentStatus =
         amountPaid >= finalTotal ? 'PAID' : amountPaid === 0 ? 'PENDING' : 'PARTIALLY_PAID';
 
+      // Rattache la vente à la caisse ouverte du vendeur, si elle existe
+      // (§30_fond_de_caisse.sql, décidé en conversation) — entièrement
+      // optionnel : une vente en espèces sans caisse ouverte fonctionne
+      // exactement comme avant (cash_drawer_id reste NULL, le trigger de
+      // calcul du solde théorique ne se déclenche alors jamais). Seul le
+      // paiement en espèces est concerné, jamais Mobile Money/carte/autre.
+      let cashDrawerId = null;
+      if (orderData.paymentMethod === 'CASH') {
+        const drawerResult = await client.query(
+          `SELECT id FROM cash_drawers WHERE store_id = $1 AND user_id = $2 AND status = 'OPEN'`,
+          [storeId, userId]
+        );
+        cashDrawerId = drawerResult.rows[0]?.id || null;
+      }
+
       // Créer l'ordre
       const orderResult = await client.query(
         `INSERT INTO orders
-         (store_id, customer_id, seller_id, order_number, total_amount, discount_amount, tax_amount, payment_method, amount_paid, payment_status, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PAID')
+         (store_id, customer_id, seller_id, order_number, total_amount, discount_amount, tax_amount, payment_method, amount_paid, payment_status, status, cash_drawer_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PAID', $11)
          RETURNING id, order_number, total_amount, amount_paid, created_at`,
         [
           storeId,
@@ -194,6 +226,7 @@ async function createOrder(storeId, userId, orderData) {
           orderData.paymentMethod,
           amountPaid,
           paymentStatus,
+          cashDrawerId,
         ]
       );
       const order = orderResult.rows[0];

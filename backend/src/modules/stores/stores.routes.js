@@ -98,6 +98,37 @@ router.put(
   }
 );
 
+// --- Logo de la boutique (§ cahier des charges "Upload et stockage réel
+// des images", décidé en conversation) — réservé au Owner, comme les
+// autres réglages de la boutique active.
+router.get('/logo', requireActiveStore, requireRole('OWNER'), async (req, res, next) => {
+  try {
+    const result = await storesService.getStoreLogo(req.auth.storeId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put(
+  '/logo',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [body('logoUrl').optional({ checkFalsy: true }).isURL().withMessage('Lien du logo invalide.')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updateStoreLogo(req.auth.storeId, req.body.logoUrl);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // --- Type de boutique de la boutique ACTIVE (§ cahier des charges types
 // de boutique) — réservé au Owner, pour les boutiques créées avant cette
 // fonctionnalité (ou pour changer d'avis ensuite).

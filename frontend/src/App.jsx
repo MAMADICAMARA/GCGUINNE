@@ -20,6 +20,7 @@ import AccountSettingsPage from '@/pages/account/AccountSettingsPage';
 
 import DashboardPage from '@/pages/dashboard/DashboardPage';
 import PosPage from '@/pages/pos/PosPage';
+import CashDrawerHistoryPage from '@/pages/cashDrawers/CashDrawerHistoryPage';
 import ProductsPage from '@/pages/products/ProductsPage';
 import StockPage from '@/pages/stock/StockPage';
 import SalesHistoryPage from '@/pages/sales/SalesHistoryPage';
@@ -69,6 +70,7 @@ export default function App() {
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/pos" element={<PosPage />} />
+            <Route path="/cash-drawers" element={<CashDrawerHistoryPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/stock" element={<StockPage />} />
             <Route path="/sales" element={<SalesHistoryPage />} />

@@ -2,6 +2,104 @@ const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 
 /**
+ * Valide et normalise une liste de paliers de prix dégressif
+ * (§31_prix_degressif_grossiste.sql, décidé en conversation) — utilisé par
+ * `createProduct`/`updateProduct` avant toute écriture en base. Vérifie :
+ * quantité minimum entière > 1, prix >= 0, jamais deux paliers à la même
+ * quantité, jamais un palier plus cher que le prix de vente normal, et
+ * surtout que le prix BAISSE strictement à mesure que la quantité minimum
+ * AUGMENTE (sinon un palier "plus grand" serait plus cher que le
+ * précédent — contraire au principe même du prix dégressif, presque
+ * certainement une erreur de saisie plutôt qu'une intention réelle).
+ * Retourne la liste triée par quantité croissante, prête à insérer.
+ */
+function validateAndNormalizeTiers(tiers, sellingPrice) {
+  if (tiers == null) return [];
+  if (!Array.isArray(tiers)) {
+    throw new AppError('Les paliers de prix sont invalides.', 400, 'VALIDATION_ERROR');
+  }
+  if (tiers.length === 0) return [];
+
+  const seenQuantities = new Set();
+  const normalized = tiers.map((t) => {
+    const minQuantity = parseInt(t.minQuantity, 10);
+    const unitPrice = Number(t.unitPrice);
+    if (!Number.isInteger(minQuantity) || minQuantity <= 1) {
+      throw new AppError(
+        "La quantité minimum d'un palier doit être un entier supérieur à 1.",
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+    if (typeof unitPrice !== 'number' || Number.isNaN(unitPrice) || unitPrice < 0) {
+      throw new AppError("Le prix d'un palier est invalide.", 400, 'VALIDATION_ERROR');
+    }
+    if (unitPrice > sellingPrice) {
+      throw new AppError(
+        'Le prix d\'un palier ne peut pas dépasser le prix de vente normal.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+    if (seenQuantities.has(minQuantity)) {
+      throw new AppError('Deux paliers ne peuvent pas avoir la même quantité minimum.', 400, 'VALIDATION_ERROR');
+    }
+    seenQuantities.add(minQuantity);
+    return { minQuantity, unitPrice };
+  });
+
+  normalized.sort((a, b) => a.minQuantity - b.minQuantity);
+  for (let i = 1; i < normalized.length; i++) {
+    if (normalized[i].unitPrice >= normalized[i - 1].unitPrice) {
+      throw new AppError(
+        'Le prix doit diminuer à chaque palier de quantité supérieure.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Prix unitaire réellement applicable pour une quantité donnée — le plus
+ * grand palier dont la quantité minimum est atteinte, sinon le prix de
+ * vente normal. `tiers` doit être trié par quantité croissante (déjà
+ * garanti par `validateAndNormalizeTiers` et par le tri en base des
+ * lectures ci-dessous). Utilisé ici ET par orders.service.js#createOrder —
+ * jamais recalculé différemment à deux endroits.
+ */
+function getEffectiveUnitPrice(basePrice, tiers, quantity) {
+  if (!tiers || tiers.length === 0) return basePrice;
+  let applicable = basePrice;
+  for (const tier of tiers) {
+    if (quantity >= tier.minQuantity) {
+      applicable = tier.unitPrice;
+    }
+  }
+  return applicable;
+}
+
+async function replaceProductPriceTiers(client, productId, tiers) {
+  await client.query('DELETE FROM product_price_tiers WHERE product_id = $1', [productId]);
+  for (const tier of tiers) {
+    await client.query(
+      `INSERT INTO product_price_tiers (product_id, min_quantity, unit_price) VALUES ($1, $2, $3)`,
+      [productId, tier.minQuantity, tier.unitPrice]
+    );
+  }
+}
+
+const PRICE_TIERS_SUBQUERY = `
+  COALESCE(
+    (SELECT json_agg(json_build_object('id', pt.id, 'minQuantity', pt.min_quantity, 'unitPrice', pt.unit_price) ORDER BY pt.min_quantity)
+     FROM product_price_tiers pt WHERE pt.product_id = p.id),
+    '[]'::json
+  ) AS "priceTiers"
+`;
+
+/**
  * Liste paginée des produits d'une boutique, avec recherche et filtres
  * (cf. §4.4 du cahier des charges — recherche rapide pensée pour la caisse).
  * @param {number} storeId
@@ -56,8 +154,9 @@ async function listProducts(storeId, options = {}) {
             purchase_price AS "purchasePrice", selling_price AS "sellingPrice",
             quantity, low_stock_threshold AS "lowStockThreshold",
             attributes, image_url AS "imageUrl", status,
-            created_at AS "createdAt", updated_at AS "updatedAt"
-     FROM products
+            created_at AS "createdAt", updated_at AS "updatedAt",
+            ${PRICE_TIERS_SUBQUERY}
+     FROM products p
      WHERE ${whereClause}
      ORDER BY name ASC
      LIMIT $${idx++} OFFSET $${idx++}`,
@@ -78,8 +177,9 @@ async function getProductById(storeId, productId) {
             purchase_price AS "purchasePrice", selling_price AS "sellingPrice",
             quantity, low_stock_threshold AS "lowStockThreshold",
             attributes, image_url AS "imageUrl", status,
-            created_at AS "createdAt", updated_at AS "updatedAt"
-     FROM products WHERE store_id = $1 AND id = $2`,
+            created_at AS "createdAt", updated_at AS "updatedAt",
+            ${PRICE_TIERS_SUBQUERY}
+     FROM products p WHERE store_id = $1 AND id = $2`,
     [storeId, productId]
   );
   if (rows.length === 0) {
@@ -98,6 +198,7 @@ async function createProduct(storeId, userId, data) {
   if (data.sellingPrice == null || data.sellingPrice < 0) {
     throw new AppError('Le prix de vente est invalide.', 400, 'VALIDATION_ERROR');
   }
+  const priceTiers = validateAndNormalizeTiers(data.priceTiers, data.sellingPrice);
 
   const initialQuantity = data.quantity || 0;
 
@@ -132,6 +233,11 @@ async function createProduct(storeId, userId, data) {
     );
     const product = rows[0];
 
+    if (priceTiers.length > 0) {
+      await replaceProductPriceTiers(client, product.id, priceTiers);
+    }
+    product.priceTiers = priceTiers;
+
     // Toute quantité initiale non nulle doit être tracée, exactement comme
     // n'importe quelle autre variation de stock (§4.5 du cahier des
     // charges) — sans ce mouvement, l'historique du produit serait vide
@@ -159,39 +265,60 @@ async function updateProduct(storeId, productId, data) {
   // qu'un UPDATE silencieusement sans effet.
   await getProductById(storeId, productId);
 
-  const { rows } = await pool.query(
-    `UPDATE products SET
-       category_id = $1,
-       name = $2,
-       reference = $3,
-       description = $4,
-       purchase_price = $5,
-       selling_price = $6,
-       low_stock_threshold = $7,
-       attributes = $8::jsonb,
-       image_url = $9
-     WHERE store_id = $10 AND id = $11
-     RETURNING id, category_id AS "categoryId", name, reference, description,
-               purchase_price AS "purchasePrice", selling_price AS "sellingPrice",
-               quantity, low_stock_threshold AS "lowStockThreshold",
-               attributes, image_url AS "imageUrl", status,
-               created_at AS "createdAt", updated_at AS "updatedAt"`,
-    [
-      data.categoryId || null,
-      data.name.trim(),
-      data.reference || null,
-      data.description || null,
-      data.purchasePrice,
-      data.sellingPrice,
-      data.lowStockThreshold ?? 5,
-      JSON.stringify(data.attributes || {}),
-      data.imageUrl || null,
-      storeId,
-      productId,
-    ]
-  );
+  const priceTiers = validateAndNormalizeTiers(data.priceTiers, data.sellingPrice);
 
-  return rows[0];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `UPDATE products SET
+         category_id = $1,
+         name = $2,
+         reference = $3,
+         description = $4,
+         purchase_price = $5,
+         selling_price = $6,
+         low_stock_threshold = $7,
+         attributes = $8::jsonb,
+         image_url = $9
+       WHERE store_id = $10 AND id = $11
+       RETURNING id, category_id AS "categoryId", name, reference, description,
+                 purchase_price AS "purchasePrice", selling_price AS "sellingPrice",
+                 quantity, low_stock_threshold AS "lowStockThreshold",
+                 attributes, image_url AS "imageUrl", status,
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
+      [
+        data.categoryId || null,
+        data.name.trim(),
+        data.reference || null,
+        data.description || null,
+        data.purchasePrice,
+        data.sellingPrice,
+        data.lowStockThreshold ?? 5,
+        JSON.stringify(data.attributes || {}),
+        data.imageUrl || null,
+        storeId,
+        productId,
+      ]
+    );
+    const product = rows[0];
+
+    // Remplace TOUJOURS l'ensemble des paliers par celui envoyé (jamais un
+    // patch partiel) — le formulaire produit gère la liste complète à
+    // chaque enregistrement, donc la base doit refléter exactement ce
+    // qu'il a soumis, y compris "aucun palier" si la liste est vide.
+    await replaceProductPriceTiers(client, productId, priceTiers);
+    product.priceTiers = priceTiers;
+
+    await client.query('COMMIT');
+    return product;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -323,4 +450,5 @@ module.exports = {
   adjustStock,
   getStoreStockMovements,
   getStockHistory,
+  getEffectiveUnitPrice,
 };

@@ -3,6 +3,7 @@ import apiClient from '@/services/apiClient';
 import ReceiptSettingsSection from './ReceiptSettingsSection';
 import SalesVoidReturnPermissionSection from './SalesVoidReturnPermissionSection';
 import SubscriptionSection from './SubscriptionSection';
+import StoreLogoSection from './StoreLogoSection';
 
 /**
  * Paramètres de la boutique active (§8 du cahier des charges).
@@ -286,6 +287,8 @@ export default function SettingsPage() {
       <SalesVoidReturnPermissionSection />
 
       <ReceiptSettingsSection />
+
+      <StoreLogoSection />
 
       <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400 text-sm">
         Le reste (facturation) reste à implémenter.

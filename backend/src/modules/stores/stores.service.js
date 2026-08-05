@@ -471,6 +471,35 @@ async function updateReceiptSettings(storeId, settings) {
 }
 
 /**
+ * Logo de la boutique (§ cahier des charges "Upload et stockage réel des
+ * images", décidé en conversation) — `logo_url` existait déjà en base
+ * depuis le tout début du projet mais n'était lu ni écrit nulle part.
+ * Même principe que `receipt_settings` juste au-dessus : un simple lien,
+ * renseigné soit collé à la main, soit via POST /uploads/image côté
+ * frontend — cette fonction ne sait pas d'où vient l'URL, elle se contente
+ * de la stocker.
+ */
+async function getStoreLogo(storeId) {
+  const { rows } = await pool.query('SELECT logo_url AS "logoUrl" FROM stores WHERE id = $1', [storeId]);
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updateStoreLogo(storeId, logoUrl) {
+  const trimmed = (logoUrl || '').trim() || null;
+  const { rows } = await pool.query('UPDATE stores SET logo_url = $1 WHERE id = $2 RETURNING logo_url AS "logoUrl"', [
+    trimmed,
+    storeId,
+  ]);
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+/**
  * Réglage global "autoriser TOUS les vendeurs à annuler/retourner leurs
  * propres ventes" (§25_autorisation_annulation_retour.sql, décidé en
  * conversation). Vendeur par vendeur, voir plutôt
@@ -540,6 +569,8 @@ module.exports = {
   getReceiptSettings,
   updateReceiptSettings,
   getStoreContactInfo,
+  getStoreLogo,
+  updateStoreLogo,
   getVoidReturnSettings,
   updateVoidReturnSettings,
   canUserVoidReturn,
