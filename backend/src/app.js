@@ -12,6 +12,18 @@ const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
 
+// L'application tourne derrière EXACTEMENT un proxy inverse en production
+// (celui de Render) — sans ce réglage, Express ignore l'en-tête
+// `X-Forwarded-For` et `req.ip` renvoie l'IP interne du proxy plutôt que
+// celle du vrai visiteur, ce qui casse silencieusement tous les
+// limiteurs de débit basés sur l'IP (express-rate-limit lève d'ailleurs
+// une erreur explicite dans ce cas précis, cf. ERR_ERL_UNEXPECTED_X_FORWARDED_FOR).
+// `1` = ne faire confiance qu'à UN SEUL niveau de proxy — jamais `true`,
+// qui ferait confiance à n'importe quel en-tête X-Forwarded-For fourni par
+// le client lui-même (usurpation d'IP possible). Sans conséquence en
+// développement local (pas de proxy, l'en-tête est simplement absent).
+app.set('trust proxy', 1);
+
 // --- Sécurité et bonnes pratiques transverses ---
 app.use(helmet());
 app.use(
