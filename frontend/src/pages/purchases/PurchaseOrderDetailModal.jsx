@@ -103,7 +103,7 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
                 <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-4">{error}</p>
               )}
 
-              <div className="grid grid-cols-2 gap-3 mb-5 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 text-sm">
                 <Info label="Fournisseur" value={data.order.supplierName} />
                 <Info label="Référence" value={data.order.reference || '—'} />
                 <Info label="Créée par" value={data.order.createdByName} />
@@ -114,29 +114,20 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
               </div>
 
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Articles</h3>
-              <div className="rounded-lg border border-slate-200 overflow-hidden mb-4">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-                    <tr>
-                      <th className="text-left px-3 py-2">Produit</th>
-                      <th className="text-right px-3 py-2">Qté</th>
-                      <th className="text-right px-3 py-2">P.U. achat</th>
-                      <th className="text-right px-3 py-2">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.map((item) => (
-                      <tr key={item.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 text-slate-700">{item.productName}</td>
-                        <td className="px-3 py-2 text-right">{item.quantity}</td>
-                        <td className="px-3 py-2 text-right">{formatGNF(item.purchasePrice)}</td>
-                        <td className="px-3 py-2 text-right font-medium">
-                          {formatGNF(item.quantity * item.purchasePrice)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 mb-4">
+                {data.items.map((item) => (
+                  <div key={item.id} className="px-3 py-2">
+                    <p className="text-sm text-slate-700">{item.productName}</p>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-xs text-slate-500">
+                        {item.quantity} × {formatGNF(item.purchasePrice)}
+                      </span>
+                      <span className="text-sm font-medium text-slate-800">
+                        {formatGNF(item.quantity * item.purchasePrice)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="flex justify-between text-base font-semibold text-slate-800 border-t border-slate-100 pt-2">

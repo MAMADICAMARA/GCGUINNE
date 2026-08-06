@@ -83,29 +83,16 @@ export default function CustomerHistoryModal({ customerId, onClose }) {
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                     Paiements reçus
                   </h3>
-                  <div className="rounded-lg border border-slate-200 overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-slate-400 text-xs uppercase tracking-wide">
-                        <tr>
-                          <th className="text-left px-4 py-2">Date</th>
-                          <th className="text-left px-4 py-2">Vendeur</th>
-                          <th className="text-right px-4 py-2">Montant</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {payments.map((p) => (
-                          <tr key={p.id} className="border-t border-slate-100">
-                            <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
-                              {formatDateTime(p.createdAt)}
-                            </td>
-                            <td className="px-4 py-2 text-slate-600">{p.sellerName}</td>
-                            <td className="px-4 py-2 text-right font-medium text-slate-800">
-                              {formatGNF(p.amount)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+                    {payments.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between px-4 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="text-slate-600">{p.sellerName}</p>
+                          <p className="text-xs text-slate-400">{formatDateTime(p.createdAt)}</p>
+                        </div>
+                        <span className="shrink-0 font-medium text-slate-800">{formatGNF(p.amount)}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -139,19 +126,18 @@ export default function CustomerHistoryModal({ customerId, onClose }) {
                     </div>
                   </div>
 
-                  <table className="w-full text-sm">
-                    <tbody>
-                      {order.items.map((item, i) => (
-                        <tr key={i} className="border-t border-slate-100">
-                          <td className="px-4 py-2 text-slate-700">{item.productName}</td>
-                          <td className="px-4 py-2 text-right text-slate-500">× {item.quantity}</td>
-                          <td className="px-4 py-2 text-right font-medium text-slate-700">
-                            {formatGNF(item.quantity * item.unitPrice)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="divide-y divide-slate-100">
+                    {order.items.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between px-4 py-2 text-sm gap-2">
+                        <span className="text-slate-700 truncate">
+                          {item.productName} <span className="text-slate-400">× {item.quantity}</span>
+                        </span>
+                        <span className="shrink-0 font-medium text-slate-700">
+                          {formatGNF(item.quantity * item.unitPrice)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
 
                   <div className="flex justify-between px-4 py-2 border-t border-slate-100 text-sm">
                     <span className="text-slate-500">

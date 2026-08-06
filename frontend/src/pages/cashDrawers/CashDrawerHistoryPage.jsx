@@ -63,8 +63,44 @@ export default function CashDrawerHistoryPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            {/* Vue mobile : cartes empilées (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {drawers.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setViewingDrawerId(d.id)}
+                  className="w-full text-left p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800 truncate">{d.userFullName}</p>
+                      <p className="text-xs text-slate-400">{formatDateTime(d.openingTime)}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        d.status === 'OPEN' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {d.status === 'OPEN' ? 'Ouverte' : 'Fermée'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-sm">
+                    <span className="text-slate-500">
+                      Théorique : <span className="font-medium text-slate-700">{formatGNF(d.expectedBalance)}</span>
+                    </span>
+                    {d.discrepancy != null && (
+                      <span className={d.discrepancy === 0 ? 'text-green-600 font-medium' : 'text-amber-600 font-medium'}>
+                        Écart : {d.discrepancy === 0 ? '0' : formatGNF(d.discrepancy)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Vue desktop : tableau complet (dès md) */}
+            <table className="hidden md:table w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="text-left px-4 py-3">Vendeur</th>

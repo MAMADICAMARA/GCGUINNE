@@ -111,8 +111,64 @@ export default function AdminPaymentRequestsPage() {
           Aucune demande {status !== 'ALL' ? STATUS_LABELS[status].toLowerCase() : ''}.
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          {/* Vue mobile : cartes empilées (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {requests.map((r) => (
+              <div key={r.id} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-800 truncate">{r.storeName}</p>
+                    <p className="text-xs text-slate-400">
+                      {r.planName} · {PAYMENT_METHOD_LABELS[r.paymentMethod]}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      r.status === 'CONFIRMED'
+                        ? 'bg-green-50 text-green-700'
+                        : r.status === 'REJECTED'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-amber-50 text-amber-700'
+                    }`}
+                  >
+                    {STATUS_LABELS[r.status]}
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-slate-800 mt-2">
+                  {Number(r.amountDeclared).toLocaleString('fr-FR')} GNF
+                </p>
+                <p className="text-xs text-slate-400 font-mono">{r.transactionReference}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {r.requestedByName} · {formatDateTime(r.createdAt)}
+                </p>
+                {r.status === 'REJECTED' && r.rejectionReason && (
+                  <p className="text-xs text-slate-400 mt-1">{r.rejectionReason}</p>
+                )}
+                {status === 'PENDING' && (
+                  <div className="flex gap-4 mt-3 text-xs font-medium">
+                    <button
+                      onClick={() => handleConfirm(r)}
+                      disabled={busyId === r.id}
+                      className="text-green-600 disabled:opacity-50"
+                    >
+                      Confirmer
+                    </button>
+                    <button
+                      onClick={() => setRejectingRequest(r)}
+                      disabled={busyId === r.id}
+                      className="text-red-500 disabled:opacity-50"
+                    >
+                      Rejeter
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Vue desktop : tableau complet (dès md) */}
+          <table className="hidden md:table w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Boutique</th>

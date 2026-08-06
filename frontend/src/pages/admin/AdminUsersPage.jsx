@@ -207,8 +207,81 @@ export default function AdminUsersPage() {
       </form>
 
       {results.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          {/* Vue mobile : cartes empilées (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {results.map((user) => (
+              <div key={user.id} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-800 truncate">{user.fullName}</p>
+                    <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                    {user.ownedStoreName && (
+                      <p className="text-xs text-slate-400">Possède : {user.ownedStoreName}</p>
+                    )}
+                  </div>
+                  <span
+                    className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      user.status === 'ACTIVE'
+                        ? 'bg-green-50 text-green-700'
+                        : user.status === 'PENDING_VERIFICATION'
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {user.status === 'ACTIVE'
+                      ? 'Actif'
+                      : user.status === 'PENDING_VERIFICATION'
+                        ? 'Non vérifié'
+                        : 'Inactif'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs font-medium">
+                  <button
+                    onClick={() => openEmailChange(user)}
+                    disabled={busyUserId === user.id}
+                    className="text-slate-500 disabled:opacity-50"
+                  >
+                    Changer l'e-mail
+                  </button>
+                  {user.status !== 'ACTIVE' && (
+                    <button
+                      onClick={() => handleRelaunchVerification(user)}
+                      disabled={busyUserId === user.id}
+                      className="text-brand-500 disabled:opacity-50"
+                    >
+                      Relancer la vérification
+                    </button>
+                  )}
+                  {user.isSuperAdmin ? (
+                    <button
+                      onClick={() => handleRevoke(user)}
+                      disabled={busyUserId === user.id}
+                      className="text-red-500 disabled:opacity-50"
+                    >
+                      {busyUserId === user.id ? 'Patientez...' : 'Retirer Super Admin'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handlePromote(user)}
+                      disabled={busyUserId === user.id}
+                      className="text-brand-500 disabled:opacity-50"
+                    >
+                      {busyUserId === user.id ? 'Patientez...' : 'Promouvoir Super Admin'}
+                    </button>
+                  )}
+                </div>
+                {user.isSuperAdmin && (
+                  <span className="inline-block mt-2 rounded-full bg-amber-50 text-amber-700 px-2.5 py-0.5 text-xs font-medium">
+                    Super Admin
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Vue desktop : tableau complet (dès md) */}
+          <table className="hidden md:table w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Nom</th>

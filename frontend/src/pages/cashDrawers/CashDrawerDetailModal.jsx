@@ -81,23 +81,13 @@ export default function CashDrawerDetailModal({ drawerId, onClose }) {
               {data.orders.length === 0 ? (
                 <p className="text-sm text-slate-400">Aucune vente en espèces enregistrée durant cette session.</p>
               ) : (
-                <div className="rounded-lg border border-slate-200 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-                      <tr>
-                        <th className="text-left px-3 py-2">Commande</th>
-                        <th className="text-right px-3 py-2">Encaissé</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.orders.map((o) => (
-                        <tr key={o.id} className="border-t border-slate-100">
-                          <td className="px-3 py-2 text-slate-700">{o.orderNumber}</td>
-                          <td className="px-3 py-2 text-right font-medium">{formatGNF(o.amountPaid)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+                  {data.orders.map((o) => (
+                    <div key={o.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <span className="text-slate-700">{o.orderNumber}</span>
+                      <span className="font-medium">{formatGNF(o.amountPaid)}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </>

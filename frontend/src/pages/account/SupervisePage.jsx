@@ -153,7 +153,7 @@ export default function SupervisePage() {
               </div>
 
               {store.supervisionAllowed ? (
-                <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+                <div className="grid grid-cols-3 gap-1.5 mb-4 text-center sm:gap-2">
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase">CA du jour</p>
                     <p className="text-sm font-semibold text-slate-800">

@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================================
+# OBSOLÈTE — NE PAS UTILISER.
+# Remplacé par `database/run-migrations.js`, qui suit les migrations déjà
+# appliquées via la table `schema_migrations` (idempotent, utilisé comme
+# Pre-Deploy Command sur Render). Ce script-ci ré-exécute tout depuis le
+# début sans suivi : l'utiliser sur une base existante casserait tout ce
+# qui n'est pas idempotent. Conservé uniquement pour référence historique.
+# ============================================================================
 # run_migrations.sh
 # Exécute l'ensemble des scripts SQL du dossier database/ dans l'ordre,
 # contre la base définie par DATABASE_URL (backend/.env).

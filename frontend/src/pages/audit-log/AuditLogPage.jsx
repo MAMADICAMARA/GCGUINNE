@@ -7,6 +7,7 @@ import AuditLogPanel from '@/components/AuditLogPanel';
  * annulations, ajustements de stock...). Lecture seule stricte, comme la
  * table system_logs elle-même (immuable au niveau base).
  */
+
 export default function AuditLogPage() {
   return (
     <div>

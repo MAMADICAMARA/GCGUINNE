@@ -222,8 +222,30 @@ export default function SuppliersPage() {
                 Aucune boutique ne vous a ajoutée comme fournisseur pour l'instant.
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                {/* Vue mobile : cartes empilées (< md) */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {clients.map((c) => (
+                    <div key={c.linkId} className="p-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800 truncate">{c.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {[c.category, c.city].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveClient(c)}
+                        disabled={busyLinkId === c.linkId}
+                        className="shrink-0 text-xs font-medium text-red-500 disabled:opacity-50"
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Vue desktop : tableau complet (dès md) */}
+                <table className="hidden md:table w-full text-sm">
                   <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                     <tr>
                       <th className="text-left px-4 py-3">Boutique</th>
@@ -267,8 +289,41 @@ export default function SuppliersPage() {
                 Aucune commande reçue pour l'instant.
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                {/* Vue mobile : cartes empilées (< md) */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {receivedOrders.map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => setViewingOrderId(o.id)}
+                      className="w-full text-left p-4"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-brand-600 truncate">{o.buyerStoreName}</p>
+                          <p className="text-xs text-slate-400">
+                            {o.reference || '—'} · {formatDateTime(o.createdAt)}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            o.status === 'RECEIVED'
+                              ? 'bg-green-50 text-green-700'
+                              : o.status === 'CANCELLED'
+                                ? 'bg-red-50 text-red-700'
+                                : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {RECEIVED_ORDER_STATUS_LABELS[o.status]}
+                        </span>
+                      </div>
+                      <p className="text-right font-medium text-slate-800 mt-2">{formatGNF(o.totalAmount)}</p>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Vue desktop : tableau complet (dès md) */}
+                <table className="hidden md:table w-full text-sm">
                   <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                     <tr>
                       <th className="text-left px-4 py-3">Boutique cliente</th>

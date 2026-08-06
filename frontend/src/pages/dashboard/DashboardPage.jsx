@@ -175,31 +175,54 @@ export default function DashboardPage() {
             {stats.bySeller.length === 0 ? (
               <p className="text-sm text-slate-400">Aucune vente sur cette période.</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="text-left py-3 font-medium">Vendeur</th>
-                    <th className="text-right py-3 font-medium">Commandes</th>
-                    <th className="text-right py-3 font-medium">Chiffre d'affaires</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Vue mobile : cartes empilées (< md) */}
+                <div className="md:hidden divide-y divide-slate-100">
                   {stats.bySeller.map((s) => (
-                    <tr key={s.sellerId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3 text-slate-700 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-semibold">
+                    <div key={s.sellerId} className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-semibold shrink-0">
                           {s.sellerName.charAt(0).toUpperCase()}
                         </div>
-                        {s.sellerName}
-                      </td>
-                      <td className="py-3 text-right text-slate-600">{s.ordersCount}</td>
-                      <td className="py-3 text-right font-medium text-slate-800">
-                        {formatGNF(s.revenue)}
-                      </td>
-                    </tr>
+                        <span className="text-slate-700 truncate">{s.sellerName}</span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-medium text-slate-800">{formatGNF(s.revenue)}</p>
+                        <p className="text-xs text-slate-400">
+                          {s.ordersCount} commande{s.ordersCount > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+
+                {/* Vue desktop : tableau complet (dès md) */}
+                <table className="hidden md:table w-full text-sm">
+                  <thead className="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="text-left py-3 font-medium">Vendeur</th>
+                      <th className="text-right py-3 font-medium">Commandes</th>
+                      <th className="text-right py-3 font-medium">Chiffre d'affaires</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.bySeller.map((s) => (
+                      <tr key={s.sellerId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3 text-slate-700 flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-semibold">
+                            {s.sellerName.charAt(0).toUpperCase()}
+                          </div>
+                          {s.sellerName}
+                        </td>
+                        <td className="py-3 text-right text-slate-600">{s.ordersCount}</td>
+                        <td className="py-3 text-right font-medium text-slate-800">
+                          {formatGNF(s.revenue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
             )}
           </section>
         )}

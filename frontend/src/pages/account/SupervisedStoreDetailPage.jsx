@@ -199,8 +199,29 @@ function ProductsStockTab({ storeId }) {
           Aucun produit pour l'instant.
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto mb-8">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden mb-8">
+          {/* Vue mobile : cartes empilées (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {products.map((p) => (
+              <div key={p.id} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-800 truncate">{p.name}</p>
+                    <p className="text-xs text-slate-400">{p.reference || '—'}</p>
+                  </div>
+                  <span className={`shrink-0 font-medium ${p.quantity <= p.lowStockThreshold ? 'text-red-600' : 'text-slate-700'}`}>
+                    Stock : {p.quantity}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-500 mt-2">
+                  Achat {formatGNF(p.purchasePrice)} · Vente <span className="font-medium text-slate-700">{formatGNF(p.sellingPrice)}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Vue desktop : tableau complet (dès md) */}
+          <table className="hidden md:table w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Produit</th>
@@ -237,8 +258,22 @@ function ProductsStockTab({ storeId }) {
           Aucun mouvement pour l'instant.
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          {/* Vue mobile : cartes empilées (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {movements.map((m) => (
+              <div key={m.id} className="p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-slate-700 truncate">{m.productName}</p>
+                  <p className="text-xs text-slate-400">{m.type} · {formatDateTime(m.createdAt)}</p>
+                </div>
+                <span className="shrink-0 font-medium text-slate-700">{m.quantity}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Vue desktop : tableau complet (dès md) */}
+          <table className="hidden md:table w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Date</th>
@@ -308,8 +343,49 @@ function SalesTab({ storeId }) {
           Aucune vente ce jour-là.
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          {/* Vue mobile : cartes empilées (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {orders.map((o) => {
+              const remaining = Number(o.totalAmount) - Number(o.amountPaid ?? o.totalAmount);
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => setSelectedOrderId(o.id)}
+                  className="w-full text-left p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-brand-600 truncate">{o.orderNumber}</p>
+                      <p className="text-xs text-slate-400">
+                        {o.customerName || 'Anonyme'} · {formatDateTime(o.createdAt)}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        o.paymentStatus === 'PAID'
+                          ? 'bg-green-50 text-green-700'
+                          : o.paymentStatus === 'PARTIALLY_PAID'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-red-50 text-red-700'
+                      }`}
+                    >
+                      {PAYMENT_STATUS_LABELS[o.paymentStatus] || o.paymentStatus}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-sm">
+                    {remaining > 0 && (
+                      <span className="text-slate-500">Reste : {formatGNF(remaining)}</span>
+                    )}
+                    <span className="font-medium text-slate-800 ml-auto">{formatGNF(o.totalAmount)}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Vue desktop : tableau complet (dès md) */}
+          <table className="hidden md:table w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">N° commande</th>

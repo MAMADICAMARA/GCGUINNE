@@ -132,8 +132,42 @@ export default function EmployeesPage() {
           {/* --- Équipe actuelle --- */}
           <section className="mb-8">
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Membres de l'équipe</h2>
-            <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              {/* Vue mobile : cartes empilées (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {employees.map((employee) => (
+                  <div key={employee.userId} className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800 truncate">{employee.fullName}</p>
+                        <p className="text-xs text-slate-400 truncate">{employee.email}</p>
+                        {employee.phone && <p className="text-xs text-slate-400">{employee.phone}</p>}
+                      </div>
+                      <span
+                        className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          employee.roleCode === 'OWNER'
+                            ? 'bg-brand-50 text-brand-700'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {ROLE_LABELS[employee.roleCode]}
+                      </span>
+                    </div>
+                    {employee.roleCode !== 'OWNER' && (
+                      <button
+                        onClick={() => handleRemove(employee)}
+                        disabled={busyId === employee.userId}
+                        className="mt-2 text-xs font-medium text-red-500 disabled:opacity-50"
+                      >
+                        Retirer
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Vue desktop : tableau complet (dès md) */}
+              <table className="hidden md:table w-full text-sm">
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                   <tr>
                     <th className="text-left px-4 py-3">Nom</th>
@@ -183,8 +217,30 @@ export default function EmployeesPage() {
           {invitations.length > 0 && (
             <section>
               <h2 className="text-sm font-semibold text-slate-700 mb-3">Invitations en attente</h2>
-              <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                {/* Vue mobile : cartes empilées (< md) */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {invitations.map((inv) => (
+                    <div key={inv.id} className="p-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-slate-700 truncate">{inv.email}</p>
+                        <p className="text-xs text-slate-400">
+                          {ROLE_LABELS[inv.roleCode]} · {formatDateTime(inv.createdAt)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleCancelInvitation(inv)}
+                        disabled={busyId === `inv-${inv.id}`}
+                        className="shrink-0 text-xs font-medium text-slate-500 disabled:opacity-50"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Vue desktop : tableau complet (dès md) */}
+                <table className="hidden md:table w-full text-sm">
                   <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                     <tr>
                       <th className="text-left px-4 py-3">E-mail</th>

@@ -84,52 +84,23 @@ export default function AdminStoresPage() {
       )}
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-            <tr>
-              <th className="text-left px-4 py-3">Boutique</th>
-              <th className="text-left px-4 py-3">Propriétaire</th>
-              <th className="text-left px-4 py-3">Plan</th>
-              <th className="text-left px-4 py-3">Statut</th>
-              <th className="text-right px-4 py-3">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  Chargement...
-                </td>
-              </tr>
-            ) : stores.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  Aucune boutique trouvée.
-                </td>
-              </tr>
-            ) : (
-              stores.map((store) => (
-                <tr key={store.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-slate-800">{store.name}</p>
-                    <p className="text-xs text-slate-400">{store.city || '—'}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="text-slate-700">{store.ownerName}</p>
-                    <p className="text-xs text-slate-400">{store.ownerEmail}</p>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    <p>{store.planName || '—'}</p>
-                    <button
-                      onClick={() => setManagingPlanStore(store)}
-                      className="text-xs font-medium text-brand-500 hover:text-brand-600"
-                    >
-                      Gérer
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
+        {loading ? (
+          <p className="px-4 py-6 text-center text-slate-400 text-sm">Chargement...</p>
+        ) : stores.length === 0 ? (
+          <p className="px-4 py-6 text-center text-slate-400 text-sm">Aucune boutique trouvée.</p>
+        ) : (
+          <>
+            {/* Vue mobile : cartes empilées (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {stores.map((store) => (
+                <div key={store.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800 truncate">{store.name}</p>
+                      <p className="text-xs text-slate-400">{store.city || '—'}</p>
+                    </div>
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         store.status === 'ACTIVE'
                           ? 'bg-green-50 text-green-700'
                           : store.status === 'SUSPENDED'
@@ -139,12 +110,23 @@ export default function AdminStoresPage() {
                     >
                       {store.status}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </div>
+                  <p className="text-sm text-slate-700 mt-2 truncate">{store.ownerName}</p>
+                  <p className="text-xs text-slate-400 truncate">{store.ownerEmail}</p>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-sm text-slate-600">
+                      {store.planName || '—'}{' '}
+                      <button
+                        onClick={() => setManagingPlanStore(store)}
+                        className="text-xs font-medium text-brand-500"
+                      >
+                        Gérer
+                      </button>
+                    </span>
                     <button
                       onClick={() => toggleStatus(store)}
                       disabled={actingId === store.id}
-                      className="text-xs font-medium text-slate-600 hover:text-slate-900 underline disabled:opacity-50"
+                      className="text-xs font-medium text-slate-600 underline disabled:opacity-50"
                     >
                       {actingId === store.id
                         ? '...'
@@ -152,12 +134,74 @@ export default function AdminStoresPage() {
                           ? 'Réactiver'
                           : 'Suspendre'}
                     </button>
-                  </td>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Vue desktop : tableau complet (dès md) */}
+            <table className="hidden md:table w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-4 py-3">Boutique</th>
+                  <th className="text-left px-4 py-3">Propriétaire</th>
+                  <th className="text-left px-4 py-3">Plan</th>
+                  <th className="text-left px-4 py-3">Statut</th>
+                  <th className="text-right px-4 py-3">Action</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {stores.map((store) => (
+                  <tr key={store.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-800">{store.name}</p>
+                      <p className="text-xs text-slate-400">{store.city || '—'}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-slate-700">{store.ownerName}</p>
+                      <p className="text-xs text-slate-400">{store.ownerEmail}</p>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <p>{store.planName || '—'}</p>
+                      <button
+                        onClick={() => setManagingPlanStore(store)}
+                        className="text-xs font-medium text-brand-500 hover:text-brand-600"
+                      >
+                        Gérer
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          store.status === 'ACTIVE'
+                            ? 'bg-green-50 text-green-700'
+                            : store.status === 'SUSPENDED'
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {store.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => toggleStatus(store)}
+                        disabled={actingId === store.id}
+                        className="text-xs font-medium text-slate-600 hover:text-slate-900 underline disabled:opacity-50"
+                      >
+                        {actingId === store.id
+                          ? '...'
+                          : store.status === 'SUSPENDED'
+                            ? 'Réactiver'
+                            : 'Suspendre'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
 
       {managingPlanStore && (

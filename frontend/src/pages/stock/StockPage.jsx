@@ -111,7 +111,34 @@ export default function StockPage() {
           </div>
         ) : (
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <table className="w-full text-sm">
+            {/* Vue mobile : cartes empilées (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {alerts.map((product) => (
+                <div key={product.id} className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-800 truncate">{product.name}</p>
+                    <p className="text-xs text-slate-400">Seuil d'alerte : {product.lowStockThreshold}</p>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-3">
+                    <span
+                      className={`font-medium ${product.quantity === 0 ? 'text-red-600' : 'text-amber-600'}`}
+                    >
+                      {product.quantity}
+                    </span>
+                    <button
+                      onClick={() => setAdjustingProduct(product)}
+                      disabled={isFrozen}
+                      className="text-xs font-medium text-brand-500 disabled:opacity-40"
+                    >
+                      Ajuster
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Vue desktop : tableau complet (dès md) */}
+            <table className="hidden md:table w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="text-left px-4 py-3">Produit</th>

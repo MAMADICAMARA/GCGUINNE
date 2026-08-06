@@ -167,8 +167,49 @@ export default function CustomersPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            {/* Vue mobile : cartes empilées (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {customers.map((customer) => (
+                <div
+                  key={customer.id}
+                  onClick={() => setSelectedCustomerId(customer.id)}
+                  className="p-4 cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800 truncate">{customer.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {customer.phone || '—'} · depuis le {formatDate(customer.createdAt)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-medium text-slate-700 text-sm">
+                      {formatGNF(customer.totalSpent)}
+                    </span>
+                  </div>
+                  {customer.balanceDue > 0 && (
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="inline-block rounded-full bg-red-50 text-red-700 px-2.5 py-0.5 text-xs font-semibold">
+                        Doit {formatGNF(customer.balanceDue)}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPayingCustomer(customer);
+                        }}
+                        disabled={isFrozen}
+                        className="text-xs font-medium text-brand-600 underline disabled:opacity-40 disabled:no-underline"
+                      >
+                        Payer le reste
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Vue desktop : tableau complet (dès md) */}
+            <table className="hidden md:table w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="text-left px-4 py-3">Nom</th>

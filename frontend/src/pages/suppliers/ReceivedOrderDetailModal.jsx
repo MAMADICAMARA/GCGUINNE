@@ -56,7 +56,7 @@ export default function ReceivedOrderDetailModal({ orderId, onClose }) {
             <p className="text-sm text-red-600">{error}</p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 mb-5 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 text-sm">
                 <Info label="Boutique cliente" value={data.order.buyerStoreName} />
                 <Info label="Référence" value={data.order.reference || '—'} />
                 <Info label="Date de la commande" value={formatDateTime(data.order.createdAt)} />
@@ -74,23 +74,13 @@ export default function ReceivedOrderDetailModal({ orderId, onClose }) {
               )}
 
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Articles commandés</h3>
-              <div className="rounded-lg border border-slate-200 overflow-hidden mb-4">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-                    <tr>
-                      <th className="text-left px-3 py-2">Produit</th>
-                      <th className="text-right px-3 py-2">Qté</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.map((item) => (
-                      <tr key={item.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 text-slate-700">{item.productName}</td>
-                        <td className="px-3 py-2 text-right">{item.quantity}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 mb-4">
+                {data.items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <span className="text-slate-700">{item.productName}</span>
+                    <span className="font-medium text-slate-700">{item.quantity}</span>
+                  </div>
+                ))}
               </div>
             </>
           )}

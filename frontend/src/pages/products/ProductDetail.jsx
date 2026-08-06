@@ -105,35 +105,21 @@ export default function ProductDetail({ product, onClose }) {
             ) : movements.length === 0 ? (
               <p className="text-sm text-slate-400">Aucun mouvement de stock.</p>
             ) : (
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-                    <tr>
-                      <th className="text-left px-3 py-2">Date</th>
-                      <th className="text-left px-3 py-2">Type</th>
-                      <th className="text-right px-3 py-2">Quantité</th>
-                      <th className="text-left px-3 py-2">Note</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {movements.map((mvt) => (
-                      <tr key={mvt.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap">
-                          {formatDateTime(mvt.createdAt)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="inline-block rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-xs font-medium">
-                            {MOVEMENT_LABELS[mvt.type] || mvt.type}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-right font-medium text-slate-700">
-                          {mvt.quantity}
-                        </td>
-                        <td className="px-3 py-2 text-slate-500">{mvt.note || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+                {movements.map((mvt) => (
+                  <div key={mvt.id} className="px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-block rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-xs font-medium">
+                        {MOVEMENT_LABELS[mvt.type] || mvt.type}
+                      </span>
+                      <span className="font-medium text-slate-700">{mvt.quantity}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {formatDateTime(mvt.createdAt)}
+                      {mvt.note ? ` · ${mvt.note}` : ''}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
           </div>

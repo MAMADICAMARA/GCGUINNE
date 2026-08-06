@@ -122,7 +122,7 @@ export default function OrderDetailModal({ orderId, onClose, onChanged }) {
                 </p>
               )}
 
-              <div className="grid grid-cols-2 gap-3 mb-5 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 text-sm">
                 <Info label="Numéro" value={data.order.orderNumber} />
                 <Info label="Date" value={formatDateTime(data.order.createdAt)} />
                 <Info label="Vendeur" value={data.order.sellerName} />
@@ -133,36 +133,27 @@ export default function OrderDetailModal({ orderId, onClose, onChanged }) {
               </div>
 
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Articles</h3>
-              <div className="rounded-lg border border-slate-200 overflow-hidden mb-4">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-                    <tr>
-                      <th className="text-left px-3 py-2">Produit</th>
-                      <th className="text-right px-3 py-2">Qté</th>
-                      <th className="text-right px-3 py-2">P.U.</th>
-                      <th className="text-right px-3 py-2">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.map((item) => (
-                      <tr key={item.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 text-slate-700">
-                          {item.productName}
-                          {item.returnedQuantity > 0 && (
-                            <span className="block text-xs text-amber-600">
-                              {item.returnedQuantity} retourné(s)
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right">{item.quantity}</td>
-                        <td className="px-3 py-2 text-right">{formatGNF(item.unitPrice)}</td>
-                        <td className="px-3 py-2 text-right font-medium">
-                          {formatGNF(item.quantity * item.unitPrice)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 mb-4">
+                {data.items.map((item) => (
+                  <div key={item.id} className="px-3 py-2">
+                    <p className="text-sm text-slate-700">
+                      {item.productName}
+                      {item.returnedQuantity > 0 && (
+                        <span className="block text-xs text-amber-600">
+                          {item.returnedQuantity} retourné(s)
+                        </span>
+                      )}
+                    </p>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-xs text-slate-500">
+                        {item.quantity} × {formatGNF(item.unitPrice)}
+                      </span>
+                      <span className="text-sm font-medium text-slate-800">
+                        {formatGNF(item.quantity * item.unitPrice)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="space-y-1 text-sm">

@@ -209,8 +209,72 @@ export default function ProductsPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            {/* Vue mobile : cartes empilées (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {products.map((product) => {
+                const isLow = product.quantity <= product.lowStockThreshold;
+                return (
+                  <div key={product.id} className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800 truncate">{product.name}</p>
+                        <p className="text-xs text-slate-400">{product.reference || '—'}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          product.status === 'ACTIVE'
+                            ? 'bg-green-50 text-green-700'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {product.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-sm">
+                      <span className="text-slate-500">
+                        Vente : <span className="font-medium text-slate-700">{formatGNF(product.sellingPrice)}</span>
+                      </span>
+                      <span className={`font-medium ${isLow ? 'text-red-600' : 'text-slate-700'}`}>
+                        Stock : {product.quantity}
+                      </span>
+                    </div>
+                    <div className="flex gap-4 mt-3 text-xs font-medium">
+                      <button onClick={() => handleViewDetail(product)} className="text-slate-500">
+                        Détails
+                      </button>
+                      <button
+                        onClick={() => handleEdit(product)}
+                        disabled={isFrozen}
+                        className="text-brand-500 disabled:opacity-40"
+                      >
+                        Modifier
+                      </button>
+                      {product.status === 'ACTIVE' ? (
+                        <button
+                          onClick={() => handleDeactivate(product)}
+                          disabled={isFrozen}
+                          className="text-red-500 disabled:opacity-40"
+                        >
+                          Désactiver
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleReactivate(product)}
+                          disabled={isFrozen}
+                          className="text-green-600 disabled:opacity-40"
+                        >
+                          Réactiver
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Vue desktop : tableau complet (dès md) */}
+            <table className="hidden md:table w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="text-left px-4 py-3">Nom</th>
@@ -222,15 +286,10 @@ export default function ProductsPage() {
                   <th className="text-right px-4 py-3">Actions</th>
                 </tr>
               </thead>
-              
               <tbody>
-                
-                { 
-                (products).map((product) => {
+                {products.map((product) => {
                   const isLow = product.quantity <= product.lowStockThreshold;
-                  const stockNull = product.quantity<1;
                   return (
-  
                     <tr key={product.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 font-medium text-slate-800">{product.name}</td>
                       <td className="px-4 py-3 text-slate-500">{product.reference || '—'}</td>
@@ -297,7 +356,6 @@ export default function ProductsPage() {
                   );
                 })}
               </tbody>
-              
             </table>
           </div>
 
