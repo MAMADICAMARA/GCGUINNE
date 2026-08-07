@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Store } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import StorePlanModal from './StorePlanModal';
 
@@ -46,7 +47,12 @@ export default function AdminStoresPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Boutiques</h1>
+      <div className="flex items-center gap-2.5 mb-1">
+        <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <Store size={18} />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-800">Boutiques</h1>
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         Toutes les boutiques de la plateforme, tous clients confondus.
       </p>

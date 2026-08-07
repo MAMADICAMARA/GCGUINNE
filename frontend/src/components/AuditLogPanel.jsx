@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import AuditLogTable from '@/components/AuditLogTable';
 import { ACTION_GROUPS, actionLabel } from '@/utils/auditLogLabels';
@@ -99,16 +100,16 @@ export default function AuditLogPanel({ endpoint }) {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 hover:bg-slate-50 transition"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 hover:bg-slate-50 transition"
             >
-              ← Précédent
+              <ChevronLeft size={16} /> Précédent
             </button>
             <button
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
               disabled={page >= pages}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 hover:bg-slate-50 transition"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 hover:bg-slate-50 transition"
             >
-              Suivant →
+              Suivant <ChevronRight size={16} />
             </button>
           </div>
         </div>

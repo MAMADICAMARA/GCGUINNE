@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import ImageUploadField from '@/components/ImageUploadField';
+import { useAuthStore } from '@/store/authStore';
 
 /**
  * Logo de la boutique (§ cahier des charges "Upload et stockage réel des
@@ -10,6 +11,8 @@ import ImageUploadField from '@/components/ImageUploadField';
  * fichier, au choix, jamais l'un sans l'autre.
  */
 export default function StoreLogoSection() {
+  const activeStore = useAuthStore((s) => s.activeStore);
+  const setActiveStore = useAuthStore((s) => s.setActiveStore);
   const [logoUrl, setLogoUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +40,12 @@ export default function StoreLogoSection() {
     try {
       const { data } = await apiClient.put('/stores/logo', { logoUrl });
       setLogoUrl(data.logoUrl || '');
+      // Reflète immédiatement le nouveau logo dans la sidebar, sans exiger
+      // une reconnexion — activeStore.logoUrl n'est autrement peuplé qu'au
+      // login/changement de boutique (cf. auth.service.js#getStoresForUser).
+      if (activeStore) {
+        setActiveStore({ ...activeStore, logoUrl: data.logoUrl || null });
+      }
       setSuccess('Logo enregistré.');
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {

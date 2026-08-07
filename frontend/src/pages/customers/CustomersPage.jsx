@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Search, Users } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDate } from '@/utils/format';
 import { useIsPlanFrozen } from '@/store/authStore';
@@ -67,17 +68,22 @@ export default function CustomersPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Clients</h1>
-          <p className="text-sm text-slate-500">Recherche, fiche client, historique d'achats.</p>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <Users size={18} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">Clients</h1>
+            <p className="text-sm text-slate-500">Recherche, fiche client, historique d'achats.</p>
+          </div>
         </div>
         <button
           onClick={() => setShowForm(true)}
           disabled={isFrozen}
           title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          + Ajouter un client
+          <Plus size={16} /> Ajouter un client
         </button>
       </div>
 
@@ -137,15 +143,18 @@ export default function CustomersPage() {
       )}
 
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center">
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          placeholder="Rechercher par nom ou téléphone..."
-          className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+        <div className="relative w-full max-w-md">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Rechercher par nom ou téléphone..."
+            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
         <label className="flex items-center gap-2 text-sm text-slate-600 whitespace-nowrap">
           <input
             type="checkbox"
@@ -163,6 +172,7 @@ export default function CustomersPage() {
         <p className="text-sm text-slate-400">Chargement...</p>
       ) : customers.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
+          <Users size={28} className="mx-auto mb-2 text-slate-300" />
           {owingOnly ? 'Aucun client ne doit d\'argent actuellement.' : 'Aucun client trouvé.'}
         </div>
       ) : (
@@ -264,9 +274,9 @@ export default function CustomersPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="disabled:opacity-40"
+              className="inline-flex items-center gap-1 disabled:opacity-40"
             >
-              ← Précédent
+              <ChevronLeft size={16} /> Précédent
             </button>
             <span>
               Page {page} / {totalPages} ({total} clients)
@@ -274,9 +284,9 @@ export default function CustomersPage() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="disabled:opacity-40"
+              className="inline-flex items-center gap-1 disabled:opacity-40"
             >
-              Suivant →
+              Suivant <ChevronRight size={16} />
             </button>
           </div>
         </>

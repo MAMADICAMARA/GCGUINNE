@@ -44,7 +44,7 @@ function generateSupplierCode() {
 async function listMyStores(userId) {
   const { rows } = await pool.query(
     `SELECT s.id, s.name, s.category, s.country, s.region, s.city, s.address, s.status,
-            r.code AS "roleCode", us.is_default_store AS "isDefaultStore"
+            s.logo_url AS "logoUrl", r.code AS "roleCode", us.is_default_store AS "isDefaultStore"
      FROM user_store us
      JOIN stores s ON s.id = us.store_id
      JOIN roles r  ON r.id = us.role_id

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Receipt } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDateTime } from '@/utils/format';
 import { useAuthStore } from '@/store/authStore';
@@ -76,7 +77,12 @@ export default function SalesHistoryPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Historique des ventes</h1>
+      <div className="flex items-center gap-2.5 mb-1">
+        <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <Receipt size={18} />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-800">Historique des ventes</h1>
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         {roleCode === 'OWNER'
           ? 'Toutes les ventes enregistrées dans cette boutique.'
@@ -129,6 +135,7 @@ export default function SalesHistoryPage() {
         <p className="text-sm text-slate-400">Chargement...</p>
       ) : orders.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
+          <Receipt size={28} className="mx-auto mb-2 text-slate-300" />
           Aucune vente trouvée pour ces filtres.
         </div>
       ) : (
@@ -249,9 +256,9 @@ export default function SalesHistoryPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="disabled:opacity-40"
+              className="inline-flex items-center gap-1 disabled:opacity-40"
             >
-              ← Précédent
+              <ChevronLeft size={16} /> Précédent
             </button>
             <span>
               Page {page} / {totalPages} ({total} ventes)
@@ -259,9 +266,9 @@ export default function SalesHistoryPage() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="disabled:opacity-40"
+              className="inline-flex items-center gap-1 disabled:opacity-40"
             >
-              Suivant →
+              Suivant <ChevronRight size={16} />
             </button>
           </div>
         </>

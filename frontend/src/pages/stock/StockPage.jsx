@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AlertTriangle, Boxes, CheckCircle2, Search } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore, useIsPlanFrozen } from '@/store/authStore';
 import AdjustStockModal from './AdjustStockModal';
@@ -84,7 +85,12 @@ export default function StockPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Stock</h1>
+      <div className="flex items-center gap-2.5 mb-1">
+        <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <Boxes size={18} />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-800">Stock</h1>
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         Surveillance des ruptures et ajustement après comptage physique.
       </p>
@@ -97,7 +103,8 @@ export default function StockPage() {
 
       {/* --- Section 1 : alertes de rupture / stock faible --- */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-3">
+          <AlertTriangle size={15} className="text-amber-500" />
           Produits en stock faible ou en rupture
         </h2>
 
@@ -107,6 +114,7 @@ export default function StockPage() {
           <p className="text-sm text-slate-400">Chargement...</p>
         ) : alerts.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-400">
+            <CheckCircle2 size={24} className="mx-auto mb-2 text-green-400" />
             Aucune alerte — tous les stocks sont au-dessus de leur seuil.
           </div>
         ) : (
@@ -186,12 +194,15 @@ export default function StockPage() {
         <h2 className="text-sm font-semibold text-slate-700 mb-3">
           Ajuster le stock d'un autre produit
         </h2>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher un produit par nom ou référence..."
-          className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+        <div className="relative w-full max-w-md mb-3">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un produit par nom ou référence..."
+            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
 
         {searching && <p className="text-sm text-slate-400">Recherche...</p>}
 

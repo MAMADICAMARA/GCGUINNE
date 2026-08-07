@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, CreditCard, X } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 
 /**
@@ -32,7 +33,12 @@ export default function AdminPlansPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Plans d'abonnement</h1>
+      <div className="flex items-center gap-2.5 mb-1">
+        <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <CreditCard size={18} />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-800">Plans d'abonnement</h1>
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         Offres commerciales disponibles .
       </p>
@@ -60,16 +66,43 @@ export default function AdminPlansPage() {
               <p className="text-2xl font-semibold text-slate-800 mb-3">
                 {plan.price === 0 ? 'Gratuit' : `${plan.price.toLocaleString('fr-FR')} GNF`}
               </p>
-              <ul className="text-sm text-slate-600 space-y-1 mb-4">
+              <ul className="text-sm text-slate-600 space-y-1.5 mb-4">
                 <li>{plan.maxUsersPerStore} utilisateur(s) / boutique</li>
-                <li className={plan.allowsSupervision ? 'text-slate-500' : 'text-slate-300'}>
-                  {plan.allowsSupervision ? '✓' : '✗'} Superviser d'autres boutiques
+                <li
+                  className={`flex items-center gap-1.5 ${
+                    plan.allowsSupervision ? 'text-slate-500' : 'text-slate-300'
+                  }`}
+                >
+                  {plan.allowsSupervision ? (
+                    <Check size={14} className="text-green-600" />
+                  ) : (
+                    <X size={14} className="text-slate-300" />
+                  )}
+                  Superviser d'autres boutiques
                 </li>
-                <li className={plan.allowsSuppliers ? 'text-slate-500' : 'text-slate-300'}>
-                  {plan.allowsSuppliers ? '✓' : '✗'} Fournisseurs
+                <li
+                  className={`flex items-center gap-1.5 ${
+                    plan.allowsSuppliers ? 'text-slate-500' : 'text-slate-300'
+                  }`}
+                >
+                  {plan.allowsSuppliers ? (
+                    <Check size={14} className="text-green-600" />
+                  ) : (
+                    <X size={14} className="text-slate-300" />
+                  )}
+                  Fournisseurs
                 </li>
-                <li className={plan.allowsPurchaseOrders ? 'text-slate-500' : 'text-slate-300'}>
-                  {plan.allowsPurchaseOrders ? '✓' : '✗'} Commandes d'achat
+                <li
+                  className={`flex items-center gap-1.5 ${
+                    plan.allowsPurchaseOrders ? 'text-slate-500' : 'text-slate-300'
+                  }`}
+                >
+                  {plan.allowsPurchaseOrders ? (
+                    <Check size={14} className="text-green-600" />
+                  ) : (
+                    <X size={14} className="text-slate-300" />
+                  )}
+                  Commandes d'achat
                 </li>
               </ul>
               <div className="flex items-center gap-3">

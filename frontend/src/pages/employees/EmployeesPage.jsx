@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Plus, UserSquare2 } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatDateTime } from '@/utils/format';
 import AddEmployeeModal from './AddEmployeeModal';
@@ -94,9 +95,14 @@ export default function EmployeesPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Équipe</h1>
-          <p className="text-sm text-slate-500">Gérez les employés de votre boutique.</p>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <UserSquare2 size={18} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">Équipe</h1>
+            <p className="text-sm text-slate-500">Gérez les employés de votre boutique.</p>
+          </div>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -106,9 +112,9 @@ export default function EmployeesPage() {
               ? `Plan ${planStatus?.planName} — passez à un plan payant pour inviter votre équipe`
               : undefined
           }
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          + Ajouter un employé
+          <Plus size={16} /> Ajouter un employé
         </button>
       </div>
 

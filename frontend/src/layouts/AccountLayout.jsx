@@ -47,13 +47,14 @@ export default function AccountLayout() {
               end={item.path === '/account'}
               onClick={() => setIsMenuOpen(false)}
               className={({ isActive }) =>
-                `block rounded-lg px-3 py-2 text-sm font-medium transition ${
+                `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   isActive
                     ? 'bg-white text-brand-700'
                     : 'text-brand-100 hover:bg-white/10'
                 }`
               }
             >
+              <item.icon size={17} className="shrink-0" />
               {item.label}
             </NavLink>
           ))}

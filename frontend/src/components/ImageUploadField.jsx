@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Upload } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp';
@@ -57,9 +58,10 @@ export default function ImageUploadField({ context, onUploaded }) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="text-xs font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50"
       >
-        {uploading ? 'Envoi en cours...' : '📤 Envoyer une image'}
+        <Upload size={14} />
+        {uploading ? 'Envoi en cours...' : 'Envoyer une image'}
       </button>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Wallet } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatDateTime } from '@/utils/format';
 
@@ -73,7 +74,12 @@ export default function AdminPaymentRequestsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Demandes de paiement</h1>
+      <div className="flex items-center gap-2.5 mb-1">
+        <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <Wallet size={18} />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-800">Demandes de paiement</h1>
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         Paiements d'abonnement déclarés par les boutiques (Orange Money, Mobile Money, PayCard) — à vérifier
         avant confirmation.

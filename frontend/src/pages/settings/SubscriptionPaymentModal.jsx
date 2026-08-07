@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF } from '@/utils/format';
 
@@ -153,8 +154,11 @@ export default function SubscriptionPaymentModal({ onClose, onSuccess }) {
                       Contacter l'admin
                     </button>
                   </div>
-                  <button onClick={() => setStep('PLAN')} className="text-xs text-slate-400 hover:text-slate-600">
-                    ← Changer de plan
+                  <button
+                    onClick={() => setStep('PLAN')}
+                    className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    <ChevronLeft size={14} /> Changer de plan
                   </button>
                 </div>
               )}
@@ -221,9 +225,9 @@ export default function SubscriptionPaymentModal({ onClose, onSuccess }) {
                       type="button"
                       onClick={() => setStep('METHOD')}
                       disabled={submitting}
-                      className="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50"
                     >
-                      ← Retour
+                      <ChevronLeft size={14} /> Retour
                     </button>
                   </div>
                 </form>
@@ -270,8 +274,11 @@ export default function SubscriptionPaymentModal({ onClose, onSuccess }) {
                       Aucune coordonnée de contact n'est configurée pour le moment.
                     </p>
                   )}
-                  <button onClick={() => setStep('METHOD')} className="text-xs text-slate-400 hover:text-slate-600">
-                    ← Retour
+                  <button
+                    onClick={() => setStep('METHOD')}
+                    className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    <ChevronLeft size={14} /> Retour
                   </button>
                 </div>
               )}

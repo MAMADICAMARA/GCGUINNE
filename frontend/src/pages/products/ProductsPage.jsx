@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Package, PackageSearch, Plus, Search } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore, useIsPlanFrozen } from '@/store/authStore';
 import { formatGNF } from '@/utils/format';
@@ -130,17 +131,22 @@ export default function ProductsPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Produits</h1>
-          <p className="text-sm text-slate-500">Catalogue, catégories et stock.</p>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <Package size={18} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">Produits</h1>
+            <p className="text-sm text-slate-500">Catalogue, catégories et stock.</p>
+          </div>
         </div>
         <button
           onClick={handleCreate}
           disabled={isFrozen}
           title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          + Ajouter un produit
+          <Plus size={16} /> Ajouter un produit
         </button>
       </div>
 
@@ -152,15 +158,18 @@ export default function ProductsPage() {
 
       {/* Filtres — empilés sur mobile, en ligne à partir de sm: */}
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:flex-wrap">
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          placeholder="Rechercher par nom ou référence..."
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+        <div className="relative w-full sm:w-64">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Rechercher par nom ou référence..."
+            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
         <select
           value={selectedCategory}
           onChange={(e) => {
@@ -205,6 +214,7 @@ export default function ProductsPage() {
         <p className="text-sm text-slate-400">Chargement...</p>
       ) : products.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
+          <PackageSearch size={28} className="mx-auto mb-2 text-slate-300" />
           Aucun produit trouvé.
         </div>
       ) : (
@@ -363,9 +373,9 @@ export default function ProductsPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="disabled:opacity-40"
+              className="inline-flex items-center gap-1 disabled:opacity-40"
             >
-              ← Précédent
+              <ChevronLeft size={16} /> Précédent
             </button>
             <span>
               Page {page} / {totalPages} ({total} produits)
@@ -373,9 +383,9 @@ export default function ProductsPage() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="disabled:opacity-40"
+              className="inline-flex items-center gap-1 disabled:opacity-40"
             >
-              Suivant →
+              Suivant <ChevronRight size={16} />
             </button>
           </div>
         </>

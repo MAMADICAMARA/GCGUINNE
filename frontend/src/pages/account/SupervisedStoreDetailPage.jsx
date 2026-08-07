@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDate, formatDateTime } from '@/utils/format';
 import AuditLogPanel from '@/components/AuditLogPanel';
@@ -45,8 +46,11 @@ export default function SupervisedStoreDetailPage() {
 
   return (
     <div>
-      <Link to="/account/supervise" className="text-sm text-brand-500 hover:underline mb-2 inline-block">
-        ← Superviser
+      <Link
+        to="/account/supervise"
+        className="inline-flex items-center gap-1 text-sm text-brand-500 hover:underline mb-2"
+      >
+        <ChevronLeft size={16} /> Superviser
       </Link>
       <h1 className="text-xl font-semibold text-slate-800 mb-1">{storeName || 'Boutique supervisée'}</h1>
       <p className="text-sm text-slate-500 mb-6">

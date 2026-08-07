@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
 import { formatGNF } from '@/utils/format';
 
 export default function PosProductCard({ product, cartQuantity, onAdd }) {
@@ -49,7 +49,7 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
           {product.imageUrl ? (
             <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
           ) : (
-            <span className="text-xl">📦</span>
+            <Package size={22} className="text-slate-300" />
           )}
         </div>
 
@@ -96,7 +96,7 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
           {product.imageUrl ? (
             <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
           ) : (
-            <span className="text-2xl">📦</span>
+            <Package size={28} className="text-slate-300" />
           )}
         </div>
 

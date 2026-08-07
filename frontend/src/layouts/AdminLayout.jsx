@@ -1,17 +1,27 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import {
+  CreditCard,
+  LayoutDashboard,
+  Menu,
+  ScrollText,
+  Store,
+  Tags,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import apiClient from '@/services/apiClient';
 
 const NAV_ITEMS = [
-  { path: '/admin', label: 'Tableau de bord' },
-  { path: '/admin/stores', label: 'Boutiques' },
-  { path: '/admin/users', label: 'Utilisateurs' },
-  { path: '/admin/audit-log', label: "Journal d'audit" },
-  { path: '/admin/plans', label: "Plans d'abonnement" },
-  { path: '/admin/payment-requests', label: 'Demandes de paiement' },
-  { path: '/admin/store-types', label: 'Types de boutique' },
+  { path: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
+  { path: '/admin/stores', label: 'Boutiques', icon: Store },
+  { path: '/admin/users', label: 'Utilisateurs', icon: Users },
+  { path: '/admin/audit-log', label: "Journal d'audit", icon: ScrollText },
+  { path: '/admin/plans', label: "Plans d'abonnement", icon: CreditCard },
+  { path: '/admin/payment-requests', label: 'Demandes de paiement', icon: Wallet },
+  { path: '/admin/store-types', label: 'Types de boutique', icon: Tags },
 ];
 
 export default function AdminLayout() {
@@ -48,7 +58,7 @@ export default function AdminLayout() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-max min-w-[14rem] max-w-[20rem] h-screen shrink-0 bg-slate-900 text-white flex flex-col
+        className={`fixed inset-y-0 left-0 z-40 w-max min-w-56 max-w-80 h-screen shrink-0 bg-slate-900 text-white flex flex-col
           transform transition-transform duration-200 ease-in-out
           md:sticky md:top-0 md:self-start md:translate-x-0
           ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
@@ -82,7 +92,10 @@ export default function AdminLayout() {
                 }`
               }
             >
-              <span>{item.label}</span>
+              <span className="flex items-center gap-2.5 min-w-0">
+                <item.icon size={17} className="shrink-0" />
+                {item.label}
+              </span>
               {item.path === '/admin/payment-requests' && pendingPaymentRequests > 0 && (
                 <span className="rounded-full bg-amber-500 text-white text-xs font-semibold px-2 py-0.5">
                   {pendingPaymentRequests}

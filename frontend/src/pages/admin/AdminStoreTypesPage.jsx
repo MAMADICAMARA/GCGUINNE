@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Plus, Tags } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 
 /**
@@ -71,17 +72,22 @@ export default function AdminStoreTypesPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Types de boutique</h1>
-          <p className="text-sm text-slate-500">
-            Proposés à la création d'une boutique, avec un jeu de catégories de produits suggérées.
-          </p>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <Tags size={18} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">Types de boutique</h1>
+            <p className="text-sm text-slate-500">
+              Proposés à la création d'une boutique, avec un jeu de catégories de produits suggérées.
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setEditingType({ isNew: true })}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto"
         >
-          + Ajouter un type
+          <Plus size={16} /> Ajouter un type
         </button>
       </div>
 

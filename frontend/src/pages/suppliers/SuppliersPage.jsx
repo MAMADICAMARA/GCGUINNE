@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PackageSearch, Plus, Truck } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDateTime } from '@/utils/format';
 import ReceivedOrderDetailModal from './ReceivedOrderDetailModal';
@@ -110,17 +111,22 @@ export default function SuppliersPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Fournisseurs</h1>
-          <p className="text-sm text-slate-500">
-            Boutiques de la plateforme dont vous consultez le catalogue, et boutiques qui vous ont ajouté.
-          </p>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <Truck size={18} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">Fournisseurs</h1>
+            <p className="text-sm text-slate-500">
+              Boutiques de la plateforme dont vous consultez le catalogue, et boutiques qui vous ont ajouté.
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto"
         >
-          + Ajouter via un code
+          <Plus size={16} /> Ajouter via un code
         </button>
       </div>
 
@@ -180,6 +186,7 @@ export default function SuppliersPage() {
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Mes fournisseurs</h2>
             {suppliers.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400 text-sm">
+                <Truck size={24} className="mx-auto mb-2 text-slate-300" />
                 Aucun fournisseur ajouté pour l'instant.
               </div>
             ) : (
@@ -219,6 +226,7 @@ export default function SuppliersPage() {
             </p>
             {clients.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400 text-sm">
+                <Truck size={24} className="mx-auto mb-2 text-slate-300" />
                 Aucune boutique ne vous a ajoutée comme fournisseur pour l'instant.
               </div>
             ) : (
@@ -286,6 +294,7 @@ export default function SuppliersPage() {
             </p>
             {receivedOrders.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400 text-sm">
+                <PackageSearch size={24} className="mx-auto mb-2 text-slate-300" />
                 Aucune commande reçue pour l'instant.
               </div>
             ) : (

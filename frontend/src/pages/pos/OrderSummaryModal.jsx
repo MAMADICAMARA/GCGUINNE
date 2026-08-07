@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { formatGNF } from '@/utils/format';
 
 const PAYMENT_LABELS = {
@@ -190,9 +191,9 @@ export default function OrderSummaryModal({
           <button
             onClick={onBack}
             disabled={submitting}
-            className="text-sm text-slate-500 hover:text-slate-700"
+            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
           >
-            ← Retour
+            <ChevronLeft size={16} /> Retour
           </button>
         </div>
       </div>

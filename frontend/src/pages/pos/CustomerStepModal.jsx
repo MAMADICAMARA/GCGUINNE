@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 
 /**
@@ -165,9 +166,9 @@ export default function CustomerStepModal({ onConfirm, onBack }) {
           <div className="px-6 py-4 border-t border-slate-100">
             <button
               onClick={onBack}
-              className="text-sm text-slate-500 hover:text-slate-700"
+              className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
             >
-              ← Retour au panier
+              <ChevronLeft size={16} /> Retour au panier
             </button>
           </div>
         )}

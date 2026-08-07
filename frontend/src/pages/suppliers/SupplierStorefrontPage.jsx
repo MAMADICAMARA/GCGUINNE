@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ShoppingCart, Trash2, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ShoppingCart, Trash2, Minus, Plus } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF } from '@/utils/format';
 import SupplierStorefrontProductCard from './SupplierStorefrontProductCard';
@@ -165,8 +165,8 @@ export default function SupplierStorefrontPage() {
   if (loadError) {
     return (
       <div>
-        <Link to="/suppliers" className="text-sm text-brand-600 hover:text-brand-700">
-          ← Retour à Fournisseurs
+        <Link to="/suppliers" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
+          <ChevronLeft size={16} /> Retour à Fournisseurs
         </Link>
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mt-4">
           {loadError}
@@ -179,8 +179,8 @@ export default function SupplierStorefrontPage() {
     <div className="flex flex-col lg:flex-row gap-6">
       {/* --- CATALOGUE --- */}
       <div className="flex-1 min-w-0">
-        <Link to="/suppliers" className="text-xs text-slate-400 hover:text-slate-600">
-          ← Retour à Fournisseurs
+        <Link to="/suppliers" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
+          <ChevronLeft size={14} /> Retour à Fournisseurs
         </Link>
         <h1 className="text-xl font-semibold text-slate-800 mt-1 mb-1">{supplierName}</h1>
         <p className="text-sm text-slate-500 mb-4">

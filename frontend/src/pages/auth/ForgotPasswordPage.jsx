@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 
 /**
@@ -141,9 +142,9 @@ export default function ForgotPasswordPage() {
         <button
           type="button"
           onClick={() => setStep('REQUEST')}
-          className="w-full text-sm text-slate-400 hover:text-slate-600"
+          className="w-full inline-flex items-center justify-center gap-1 text-sm text-slate-400 hover:text-slate-600"
         >
-          ← Utiliser un autre e-mail
+          <ChevronLeft size={16} /> Utiliser un autre e-mail
         </button>
       </form>
     );

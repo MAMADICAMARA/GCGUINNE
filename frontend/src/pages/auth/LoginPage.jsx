@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore } from '@/store/authStore';
 
@@ -53,9 +54,9 @@ export default function LoginPage() {
             <Link
               to="/verify-email"
               state={{ email }}
-              className="font-medium underline hover:no-underline"
+              className="inline-flex items-center gap-1 font-medium underline hover:no-underline"
             >
-              Entrer le code de vérification →
+              Entrer le code de vérification <ChevronRight size={14} />
             </Link>
           )}
         </div>

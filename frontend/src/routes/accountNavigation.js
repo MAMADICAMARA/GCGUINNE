@@ -1,3 +1,5 @@
+import { Eye, Home, Settings, Store, UserCircle } from 'lucide-react';
+
 /**
  * Navigation de l'espace COMPTE — distincte de la navigation "boutique"
  * (routes/navigation.js). Toujours visibles, qu'une boutique soit active
@@ -16,11 +18,11 @@
  * confort d'affichage.
  */
 export const ACCOUNT_NAV_ITEMS = [
-  { key: 'home', label: 'Accueil', path: '/account' },
-  { key: 'my-store', label: 'Ma Boutique', path: '/account/store' },
-  { key: 'supervise', label: 'Superviser', path: '/account/supervise', excludeEmployees: true },
-  { key: 'profile', label: 'Profil', path: '/account/profile' },
-  { key: 'settings', label: 'Paramètres', path: '/account/settings' },
+  { key: 'home', label: 'Accueil', path: '/account', icon: Home },
+  { key: 'my-store', label: 'Ma Boutique', path: '/account/store', icon: Store },
+  { key: 'supervise', label: 'Superviser', path: '/account/supervise', icon: Eye, excludeEmployees: true },
+  { key: 'profile', label: 'Profil', path: '/account/profile', icon: UserCircle },
+  { key: 'settings', label: 'Paramètres', path: '/account/settings', icon: Settings },
 ];
 
 /**

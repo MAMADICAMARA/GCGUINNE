@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Ban } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore } from '@/store/authStore';
 import { COUNTRIES, GUINEE_REGIONS, GUINEE_REGION_NAMES } from '@/data/guineeRegions';
@@ -449,7 +450,7 @@ export default function MyStorePage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
             <div className="px-6 py-5 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-                <span className="text-2xl">⛔</span>
+                <Ban size={22} className="text-red-500" />
               </div>
               <h2 className="font-semibold text-slate-800 mb-1">Boutique suspendue</h2>
               <p className="text-sm text-slate-500">

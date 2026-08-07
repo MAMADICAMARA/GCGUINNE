@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ClipboardList, Plus, ShoppingBag } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDateTime } from '@/utils/format';
 import SupplierContactModal from './SupplierContactModal';
@@ -76,29 +77,34 @@ export default function PurchasesPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Achats</h1>
-          <p className="text-sm text-slate-500">
-            Fournisseurs et commandes d'achat — la réception met à jour le stock automatiquement.
-          </p>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <ShoppingBag size={18} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">Achats</h1>
+            <p className="text-sm text-slate-500">
+              Fournisseurs et commandes d'achat — la réception met à jour le stock automatiquement.
+            </p>
+          </div>
         </div>
         {tab === 'orders' ? (
           <button
             onClick={() => setShowCreateOrder(true)}
             disabled={!canCreate}
             title={!canCreate ? 'Fonctionnalité PREMIUM — passez à ce plan pour créer des commandes' : undefined}
-            className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            + Nouvelle commande
+            <Plus size={16} /> Nouvelle commande
           </button>
         ) : (
           <button
             onClick={() => setShowAddSupplier(true)}
             disabled={!canCreate}
             title={!canCreate ? 'Fonctionnalité PREMIUM — passez à ce plan pour ajouter des fournisseurs' : undefined}
-            className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            + Ajouter un fournisseur
+            <Plus size={16} /> Ajouter un fournisseur
           </button>
         )}
       </div>
@@ -138,6 +144,7 @@ export default function PurchasesPage() {
       ) : tab === 'orders' ? (
         orders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
+            <ClipboardList size={28} className="mx-auto mb-2 text-slate-300" />
             Aucune commande d'achat pour l'instant.
           </div>
         ) : (
@@ -232,6 +239,7 @@ export default function PurchasesPage() {
         )
       ) : suppliers.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
+          <ShoppingBag size={28} className="mx-auto mb-2 text-slate-300" />
           Aucun fournisseur enregistré pour l'instant.
         </div>
       ) : (

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { ChevronLeft, Menu, Store, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { getNavForRole } from '@/routes/navigation';
 import PlanStatusBanner from '@/components/PlanStatusBanner';
@@ -10,6 +10,14 @@ export default function DashboardLayout() {
   const { user, activeStore, stores, logout, canVoidReturn } = useAuthStore();
   const navItems = getNavForRole(activeStore?.roleCode, canVoidReturn);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  // Repart d'un logo "valide" à chaque changement (changement de boutique,
+  // ou logo mis à jour depuis Paramètres) — sinon un échec de chargement
+  // sur une boutique resterait figé même après avoir changé de boutique.
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [activeStore?.logoUrl]);
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -27,24 +35,38 @@ export default function DashboardLayout() {
           md:sticky md:top-0 md:self-start md:translate-x-0
           ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="px-5 py-5 border-b border-white/10 flex items-start justify-between">
-          <div>
-            <p className="text-sm text-brand-100">Boutique active</p>
-            <p className="font-semibold truncate">{activeStore?.name || '—'}</p>
-            {stores.length > 1 && (
-              <Link
-                to="/account/store"
-                className="mt-1 inline-block text-xs text-brand-100 hover:text-white underline"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Changer de boutique
-              </Link>
-            )}
+        <div className="px-5 py-5 border-b border-white/10 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-11 w-11 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
+              {activeStore?.logoUrl && !logoFailed ? (
+                <img
+                  src={activeStore.logoUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  onError={() => setLogoFailed(true)}
+                />
+              ) : (
+                <Store size={20} className="text-brand-100" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-brand-100">Boutique active</p>
+              <p className="font-semibold truncate">{activeStore?.name || '—'}</p>
+              {stores.length > 1 && (
+                <Link
+                  to="/account/store"
+                  className="mt-1 inline-block text-xs text-brand-100 hover:text-white underline"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Changer de boutique
+                </Link>
+              )}
+            </div>
           </div>
           {/* Bouton fermer, visible uniquement sur mobile */}
           <button
             onClick={() => setIsMenuOpen(false)}
-            className="md:hidden text-brand-100 hover:text-white"
+            className="md:hidden shrink-0 text-brand-100 hover:text-white"
           >
             <X size={20} />
           </button>
@@ -57,13 +79,14 @@ export default function DashboardLayout() {
               to={item.path}
               onClick={() => setIsMenuOpen(false)}
               className={({ isActive }) =>
-                `block rounded-lg px-3 py-2 text-sm font-medium transition ${
+                `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   isActive
                     ? 'bg-white text-brand-700'
                     : 'text-brand-100 hover:bg-white/10'
                 }`
               }
             >
+              <item.icon size={17} className="shrink-0" />
               {item.label}
             </NavLink>
           ))}
@@ -72,10 +95,10 @@ export default function DashboardLayout() {
         <div className="px-5 py-4 border-t border-white/10">
           <Link
             to="/account"
-            className="text-xs text-brand-100 hover:text-white underline block mb-2"
+            className="inline-flex items-center gap-1 text-xs text-brand-100 hover:text-white underline mb-2"
             onClick={() => setIsMenuOpen(false)}
           >
-            ← Mon compte
+            <ChevronLeft size={14} /> Mon compte
           </Link>
           <p className="text-sm font-medium">{user?.fullName}</p>
           <p className="text-xs text-brand-100">{activeStore?.roleCode}</p>

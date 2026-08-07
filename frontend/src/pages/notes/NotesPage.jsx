@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { NotebookText, Pin, Plus, Search } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatDateTime } from '@/utils/format';
 import { useIsPlanFrozen } from '@/store/authStore';
@@ -74,19 +75,24 @@ export default function NotesPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Notes</h1>
-          <p className="text-sm text-slate-500">
-            Bloc-note partagé de la boutique — visible par toute l'équipe.
-          </p>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <NotebookText size={18} />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">Notes</h1>
+            <p className="text-sm text-slate-500">
+              Bloc-note partagé de la boutique — visible par toute l'équipe.
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setEditingNote({})}
           disabled={isFrozen}
           title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          + Nouvelle note
+          <Plus size={16} /> Nouvelle note
         </button>
       </div>
 
@@ -96,17 +102,21 @@ export default function NotesPage() {
         </p>
       )}
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Rechercher dans les notes..."
-        className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm mb-6 focus:outline-none focus:ring-2 focus:ring-brand-500"
-      />
+      <div className="relative w-full max-w-md mb-6">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher dans les notes..."
+          className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+      </div>
 
       {loading ? (
         <p className="text-sm text-slate-400">Chargement...</p>
       ) : notes.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
+          <NotebookText size={28} className="mx-auto mb-2 text-slate-300" />
           {search ? 'Aucune note ne correspond à votre recherche.' : 'Aucune note pour l\'instant.'}
         </div>
       ) : (
@@ -132,13 +142,13 @@ export default function NotesPage() {
                         ? 'Désépingler'
                         : 'Épingler'
                   }
-                  className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs leading-none transition disabled:opacity-40 ${
+                  className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-full transition disabled:opacity-40 ${
                     note.isPinned
-                      ? 'bg-slate-700'
-                      : 'bg-transparent opacity-30 grayscale hover:opacity-70 hover:grayscale-0'
+                      ? 'bg-slate-700 text-white'
+                      : 'bg-transparent text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  📌
+                  <Pin size={13} fill={note.isPinned ? 'currentColor' : 'none'} />
                 </button>
               </div>
 
