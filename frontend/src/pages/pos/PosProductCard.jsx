@@ -12,7 +12,7 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
   const tierBadge = hasTiers && (
     <span
       title={`À partir de ${cheapestTier.minQuantity} unités : ${formatGNF(cheapestTier.unitPrice)}/unité`}
-      className="text-xs font-medium px-2 py-0.5 rounded-full bg-brand-50 text-brand-600"
+      className="block truncate max-w-full text-xs font-medium px-2 py-0.5 rounded-full bg-brand-50 text-brand-600"
     >
       Prix dégressif
     </span>
@@ -38,9 +38,14 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
         cartQuantity > 0 ? 'border-brand-400 ring-1 ring-brand-100' : 'border-slate-200'
       }`}
     >
-      {/* ---- Version mobile : rangée horizontale compacte ---- */}
-      <div className="flex md:hidden items-center gap-3">
-        <div className="h-14 w-14 shrink-0 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden">
+      {/* ---- Version mobile : carte verticale, 3 par ligne (maquette fournie) ---- */}
+      <div className="flex md:hidden flex-col gap-1.5 min-w-0">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-800 leading-tight line-clamp-2">{product.name}</p>
+          <p className="text-[10px] text-slate-400 truncate">{product.reference || '—'}</p>
+        </div>
+
+        <div className="aspect-square w-full rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden">
           {product.imageUrl ? (
             <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
           ) : (
@@ -48,29 +53,39 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-800 truncate">{product.name}</p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-xs text-slate-400 truncate">{product.reference || '—'}</span>
-            <span className="text-slate-300 text-xs">•</span>
-            {stockBadge}
-          </div>
-          {cartQuantity > 0 && (
-            <span className="text-xs font-medium text-brand-600 block mt-0.5">
-              Panier : {cartQuantity}
-            </span>
-          )}
-        </div>
+        <p className="text-xs font-semibold text-slate-800 truncate">{formatGNF(product.sellingPrice)}</p>
+        <p
+          className={`text-[10px] font-medium truncate ${
+            isOutOfStock ? 'text-red-600' : isLow ? 'text-amber-700' : 'text-slate-400'
+          }`}
+        >
+          Stock : {product.quantity}
+        </p>
+        {cartQuantity > 0 && (
+          <p className="text-[10px] font-medium text-brand-600 truncate">Panier : {cartQuantity}</p>
+        )}
+        {tierBadge}
 
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          {tierBadge}
-          <p className="text-sm font-semibold text-slate-800">{formatGNF(product.sellingPrice)}</p>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            min="1"
+            value={quantity}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              setQuantity(Number.isNaN(v) ? 1 : Math.max(1, v));
+            }}
+            className="w-0 flex-1 min-w-0 rounded-lg border border-slate-300 px-1 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
           <button
-            onClick={() => onAdd(product, 1)}
+            onClick={() => {
+              onAdd(product, quantity);
+              setQuantity(1);
+            }}
             disabled={isOutOfStock}
-            className="rounded-full bg-brand-500 text-white p-1.5 hover:bg-brand-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="shrink-0 rounded-full bg-brand-500 text-white p-1.5 hover:bg-brand-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Plus size={16} />
+            <Plus size={14} />
           </button>
         </div>
       </div>

@@ -10,3 +10,5 @@ backend/prisma/migrations/
 # Export de conversations Claude.ai — données personnelles, n'a rien à
 # faire dans un dépôt de code (retiré de l'historique le 2026-08-03).
 data-32*/
+.idea/
+

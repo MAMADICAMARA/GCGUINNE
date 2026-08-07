@@ -20,9 +20,9 @@ export default function AccountLayout() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-60 shrink-0 bg-brand-700 text-white flex flex-col
+        className={`fixed inset-y-0 left-0 z-40 w-60 h-screen shrink-0 bg-brand-700 text-white flex flex-col
           transform transition-transform duration-200 ease-in-out
-          md:static md:translate-x-0
+          md:sticky md:top-0 md:self-start md:translate-x-0
           ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="px-5 py-5 border-b border-white/10 flex items-start justify-between">
@@ -39,7 +39,7 @@ export default function AccountLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.key}

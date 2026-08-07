@@ -268,7 +268,7 @@ export default function PosPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
               {visibleProducts.map((product) => {
                 const cartItem = cart.find((item) => item.productId === product.id);
                 return (
