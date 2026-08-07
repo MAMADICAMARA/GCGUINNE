@@ -99,7 +99,7 @@ async function addEmployee(storeId, actingUserId, { email }) {
   if (parseInt(countResult.rows[0].total, 10) >= plan.maxUsersPerStore) {
     throw new AppError(
       plan.isEffectivelyFreemium
-        ? 'Le plan FREEMIUM ne permet aucun employé — passez à un plan payant pour inviter votre équipe.'
+        ? `Le plan ${plan.planName} ne permet aucun employé — passez à un plan payant pour inviter votre équipe.`
         : `Le plan ${plan.planName} est limité à ${plan.maxUsersPerStore} utilisateur(s) par boutique.`,
       403,
       'PLAN_USER_LIMIT_REACHED'

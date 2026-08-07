@@ -43,7 +43,7 @@ export default function PlanStatusBanner({ roleCode }) {
     <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
       {roleCode === 'OWNER' ? (
         <>
-          Votre abonnement est en FREEMIUM — votre équipe est actuellement en lecture seule.
+          Votre abonnement est en {banner.planName} — votre équipe est actuellement en lecture seule.
           Contactez le support pour réactiver votre plan.
         </>
       ) : (

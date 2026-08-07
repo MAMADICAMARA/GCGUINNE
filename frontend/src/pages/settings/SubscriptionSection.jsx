@@ -108,9 +108,10 @@ export default function SubscriptionSection() {
             <span className="text-slate-500">Commandes d'achat (PREMIUM)</span>
             <span className="font-medium text-slate-800">{plan.allowsPurchaseOrders ? 'Oui' : 'Non'}</span>
           </div>
-          {plan.isEffectivelyFreemium && plan.planName !== 'FREEMIUM' && (
+          {plan.expired && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mt-2">
-              Votre abonnement {plan.planName} a expiré — la boutique fonctionne actuellement en FREEMIUM.
+              Votre abonnement {plan.previousPlanName} a expiré — la boutique fonctionne actuellement
+              avec le plan {plan.planName}.
             </p>
           )}
 

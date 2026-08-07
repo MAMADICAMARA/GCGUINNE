@@ -18,7 +18,7 @@ async function getSubscriptionOptions() {
               allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
               allows_purchase_orders AS "allowsPurchaseOrders"
        FROM subscription_plans
-       WHERE name != 'FREEMIUM'
+       WHERE price > 0
        ORDER BY price ASC`
     ),
     pool.query(
@@ -54,7 +54,7 @@ async function submitPaymentRequest(storeId, userId, { planId, paymentMethod, pa
   }
 
   const planResult = await pool.query(
-    "SELECT id, name, price FROM subscription_plans WHERE id = $1 AND name != 'FREEMIUM'",
+    'SELECT id, name, price FROM subscription_plans WHERE id = $1 AND price > 0',
     [planId]
   );
   if (planResult.rows.length === 0) {

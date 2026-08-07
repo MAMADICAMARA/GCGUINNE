@@ -106,7 +106,8 @@ async function listAllStores({ page, limit, status, search } = {}) {
     `SELECT s.id, s.name, s.city, s.category, s.status,
             s.created_at AS "createdAt",
             u.id AS "ownerId", u.full_name AS "ownerName", u.email AS "ownerEmail",
-            s.plan_id AS "planId", sp.name AS "planName", s.plan_expires_at AS "planExpiresAt"
+            s.plan_id AS "planId", sp.name AS "planName", sp.price AS "planPrice",
+            s.plan_expires_at AS "planExpiresAt"
      FROM stores s
      JOIN users u ON u.id = s.owner_id
      LEFT JOIN subscription_plans sp ON sp.id = s.plan_id
@@ -620,7 +621,7 @@ async function renewStorePlan(storeId, expiresAt, adminUserId) {
   }
 
   const storeResult = await pool.query(
-    `SELECT s.id, sp.name AS "planName"
+    `SELECT s.id, sp.name AS "planName", sp.price AS "planPrice"
      FROM stores s
      LEFT JOIN subscription_plans sp ON sp.id = s.plan_id
      WHERE s.id = $1`,
@@ -629,9 +630,9 @@ async function renewStorePlan(storeId, expiresAt, adminUserId) {
   if (storeResult.rows.length === 0) {
     throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
   }
-  if (!storeResult.rows[0].planName || storeResult.rows[0].planName === 'FREEMIUM') {
+  if (!storeResult.rows[0].planName || Number(storeResult.rows[0].planPrice) === 0) {
     throw new AppError(
-      'Cette boutique est en FREEMIUM — activez d\'abord un plan payant plutôt que de le renouveler.',
+      'Cette boutique n\'a pas de plan payant actif — activez-en un plutôt que de le renouveler.',
       409,
       'NOT_ON_PAID_PLAN'
     );
@@ -659,22 +660,26 @@ async function renewStorePlan(storeId, expiresAt, adminUserId) {
 }
 
 /**
- * Désactive l'abonnement payant d'une boutique — retour immédiat en
- * FREEMIUM (décidé en conversation). Ne supprime rien (employés, liens
+ * Désactive l'abonnement payant d'une boutique — retour immédiat au plan
+ * gratuit (décidé en conversation). Ne supprime rien (employés, liens
  * Superviser/Fournisseurs restent en base) : tout redevient utilisable
- * instantanément si un plan payant est réactivé plus tard.
+ * instantanément si un plan payant est réactivé plus tard. Le plan
+ * gratuit est identifié par `price = 0`, jamais par son nom (modifiable
+ * depuis Admin > Plans).
  */
 async function deactivateStorePlan(storeId, adminUserId) {
-  const freemiumResult = await pool.query("SELECT id FROM subscription_plans WHERE name = 'FREEMIUM'");
-  if (freemiumResult.rows.length === 0) {
-    throw new AppError('Plan FREEMIUM introuvable — configuration incohérente.', 500, 'FREEMIUM_MISSING');
+  const freeResult = await pool.query(
+    'SELECT id, name FROM subscription_plans WHERE price = 0 ORDER BY id ASC LIMIT 1'
+  );
+  if (freeResult.rows.length === 0) {
+    throw new AppError('Plan gratuit introuvable — configuration incohérente.', 500, 'FREE_PLAN_MISSING');
   }
-  const freemiumId = freemiumResult.rows[0].id;
+  const { id: freePlanId, name: freePlanName } = freeResult.rows[0];
 
   const { rows } = await pool.query(
     `UPDATE stores SET plan_id = $1, plan_expires_at = NULL WHERE id = $2
      RETURNING id, name, plan_id AS "planId", plan_expires_at AS "planExpiresAt"`,
-    [freemiumId, storeId]
+    [freePlanId, storeId]
   );
   if (rows.length === 0) {
     throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
@@ -686,18 +691,18 @@ async function deactivateStorePlan(storeId, adminUserId) {
     [adminUserId, storeId]
   );
 
-  notifyStoreOwnerOfPlanChange(storeId, { action: 'DEACTIVATED', planName: 'FREEMIUM' });
+  notifyStoreOwnerOfPlanChange(storeId, { action: 'DEACTIVATED', planName: freePlanName });
 
   return rows[0];
 }
 
 /**
- * Active un plan payant pour TOUTES les boutiques actuellement en
- * FREEMIUM sur la plateforme (§ décidé en conversation) — un seul clic
+ * Active un plan payant pour TOUTES les boutiques actuellement en plan
+ * gratuit sur la plateforme (§ décidé en conversation) — un seul clic
  * plutôt que boutique par boutique. Ne touche jamais une boutique qui a
- * déjà un abonnement payant en cours : "en FREEMIUM" est calculé avec la
- * même définition que getEffectivePlan (plan_id NULL, plan nommé
- * FREEMIUM, OU plan payant expiré) pour rester cohérent avec le reste de
+ * déjà un abonnement payant en cours : "gratuite" est calculée avec la
+ * même définition que getEffectivePlan (plan_id NULL, plan à price = 0,
+ * OU plan payant expiré) pour rester cohérent avec le reste de
  * la plateforme. Réutilise l'action ADMIN_ACTIVATE_PLAN existante — une
  * entrée par boutique affectée, pour que chaque Owner voie l'activation
  * dans son propre journal d'activité exactement comme une activation
@@ -720,7 +725,7 @@ async function activatePlanForAllFreemiumStores(planId, days, adminUserId) {
        UPDATE stores s
        SET plan_id = $1, plan_expires_at = $2
        WHERE s.plan_id IS NULL
-          OR s.plan_id = (SELECT id FROM subscription_plans WHERE name = 'FREEMIUM')
+          OR s.plan_id = (SELECT id FROM subscription_plans WHERE price = 0 ORDER BY id ASC LIMIT 1)
           OR (s.plan_expires_at IS NOT NULL AND s.plan_expires_at <= NOW())
        RETURNING s.id
      )

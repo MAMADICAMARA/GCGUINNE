@@ -124,7 +124,7 @@ async function createStore(
     await client.query('BEGIN');
 
     const planResult = await client.query(
-      "SELECT id FROM subscription_plans WHERE name = 'FREEMIUM' LIMIT 1"
+      'SELECT id FROM subscription_plans WHERE price = 0 ORDER BY id ASC LIMIT 1'
     );
     const planId = planResult.rows[0]?.id || null;
 

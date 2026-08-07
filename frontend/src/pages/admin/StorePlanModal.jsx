@@ -5,25 +5,34 @@ import { formatDateTime } from '@/utils/format';
 /**
  * Gestion manuelle de l'abonnement d'une boutique par le Super Admin
  * (§20_plans_abonnement.sql) — activer un plan payant avec une date
- * d'expiration, la repousser (renouveler), ou revenir en FREEMIUM
+ * d'expiration, la repousser (renouveler), ou revenir au plan gratuit
  * (désactiver). Aucun paiement automatisé : chaque action est une
  * décision manuelle, journalisée côté serveur.
+ *
+ * Le plan gratuit n'est jamais désigné par un nom en dur ("FREEMIUM") —
+ * son nom réel est lu dynamiquement en base (§20, décidé en conversation :
+ * le Super Admin peut renommer les plans depuis Admin > Plans sans que ça
+ * casse quoi que ce soit ailleurs). Seul `price === 0` identifie le plan
+ * gratuit de façon stable.
  */
 export default function StorePlanModal({ store, onClose, onChanged }) {
-  const [plans, setPlans] = useState([]);
+  const [paidPlans, setPaidPlans] = useState([]);
+  const [freePlanName, setFreePlanName] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const isFreemium = !store.planName || store.planName === 'FREEMIUM';
+  const isFreemium = !store.planName || Number(store.planPrice) === 0;
 
   useEffect(() => {
     (async () => {
       const { data } = await apiClient.get('/admin/plans');
-      const paidPlans = data.plans.filter((p) => p.name !== 'FREEMIUM');
-      setPlans(paidPlans);
-      if (paidPlans.length > 0) setSelectedPlanId(String(paidPlans[0].id));
+      const paid = data.plans.filter((p) => p.price > 0);
+      const free = data.plans.find((p) => p.price === 0);
+      setPaidPlans(paid);
+      setFreePlanName(free?.name || null);
+      if (paid.length > 0) setSelectedPlanId(String(paid[0].id));
     })();
   }, []);
 
@@ -67,7 +76,7 @@ export default function StorePlanModal({ store, onClose, onChanged }) {
   }
 
   async function handleDeactivate() {
-    if (!window.confirm(`Repasser "${store.name}" en FREEMIUM ?`)) return;
+    if (!window.confirm(`Repasser "${store.name}" en ${freePlanName || 'gratuit'} ?`)) return;
     setError('');
     setSubmitting(true);
     try {
@@ -87,7 +96,7 @@ export default function StorePlanModal({ store, onClose, onChanged }) {
           <div>
             <h2 className="font-semibold text-slate-800">Abonnement — {store.name}</h2>
             <p className="text-xs text-slate-400">
-              Plan actuel : {store.planName || 'FREEMIUM'}
+              Plan actuel : {store.planName || freePlanName || '—'}
               {store.planExpiresAt && ` (expire le ${formatDateTime(store.planExpiresAt)})`}
             </p>
           </div>
@@ -112,7 +121,7 @@ export default function StorePlanModal({ store, onClose, onChanged }) {
                   onChange={(e) => setSelectedPlanId(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
-                  {plans.map((p) => (
+                  {paidPlans.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} — {p.price.toLocaleString('fr-FR')} GNF
                     </option>
@@ -138,7 +147,7 @@ export default function StorePlanModal({ store, onClose, onChanged }) {
             <div className="flex items-center justify-between">
               <button
                 type="submit"
-                disabled={submitting || (isFreemium && plans.length === 0)}
+                disabled={submitting || (isFreemium && paidPlans.length === 0)}
                 className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
               >
                 {submitting ? 'Enregistrement...' : isFreemium ? 'Activer' : 'Renouveler'}
@@ -151,7 +160,7 @@ export default function StorePlanModal({ store, onClose, onChanged }) {
                   disabled={submitting}
                   className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
                 >
-                  Désactiver (retour FREEMIUM)
+                  Désactiver (retour {freePlanName || 'gratuit'})
                 </button>
               )}
             </div>

@@ -79,12 +79,12 @@ export default function AdminPlansPage() {
                 >
                   Modifier
                 </button>
-                {plan.name !== 'FREEMIUM' && (
+                {plan.price > 0 && (
                   <button
                     onClick={() => setActivatingPlan(plan)}
                     className="text-xs font-medium text-amber-600 hover:text-amber-700"
                   >
-                    Activer pour tous les FREEMIUM
+                    Activer pour toutes les boutiques en gratuit
                   </button>
                 )}
               </div>
@@ -107,6 +107,7 @@ export default function AdminPlansPage() {
       {activatingPlan && (
         <BulkActivateModal
           plan={activatingPlan}
+          freePlanName={plans.find((p) => p.price === 0)?.name || 'gratuit'}
           onClose={() => setActivatingPlan(null)}
           onActivated={(result) => {
             setActivatingPlan(null);
@@ -251,14 +252,14 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
 }
 
 /**
- * Activation en masse d'un plan payant pour toutes les boutiques en
- * FREEMIUM (§ décidé en conversation) — n'affecte jamais une boutique
- * ayant déjà un abonnement payant en cours (vérifié côté backend). Action
- * à large impact potentiel (toute la plateforme en un clic) : confirmation
- * explicite exigée en plus du formulaire, comme les autres actions
- * irréversibles de l'espace Super Admin.
+ * Activation en masse d'un plan payant pour toutes les boutiques
+ * actuellement en plan gratuit (§ décidé en conversation) — n'affecte
+ * jamais une boutique ayant déjà un abonnement payant en cours (vérifié
+ * côté backend). Action à large impact potentiel (toute la plateforme en
+ * un clic) : confirmation explicite exigée en plus du formulaire, comme
+ * les autres actions irréversibles de l'espace Super Admin.
  */
-function BulkActivateModal({ plan, onClose, onActivated }) {
+function BulkActivateModal({ plan, freePlanName, onClose, onActivated }) {
   const [days, setDays] = useState('30');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -268,7 +269,7 @@ function BulkActivateModal({ plan, onClose, onActivated }) {
     setError('');
     if (
       !window.confirm(
-        `Activer le plan ${plan.name} pour TOUTES les boutiques actuellement en FREEMIUM sur la plateforme, pour ${days} jour(s) ? Cette action est irréversible depuis cet écran (une désactivation reste possible boutique par boutique).`
+        `Activer le plan ${plan.name} pour TOUTES les boutiques actuellement en ${freePlanName} sur la plateforme, pour ${days} jour(s) ? Cette action est irréversible depuis cet écran (une désactivation reste possible boutique par boutique).`
       )
     ) {
       return;
@@ -290,7 +291,7 @@ function BulkActivateModal({ plan, onClose, onActivated }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-800">Activer {plan.name} pour tous les FREEMIUM</h2>
+          <h2 className="font-semibold text-slate-800">Activer {plan.name} pour toutes les boutiques en {freePlanName}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -303,8 +304,8 @@ function BulkActivateModal({ plan, onClose, onActivated }) {
 
         <div className="px-6 py-5">
           <p className="text-sm text-slate-500 mb-4">
-            Concerne uniquement les boutiques sans abonnement payant en cours (FREEMIUM, ou plan payant
-            expiré) — jamais une boutique qui paie déjà STANDARD ou PREMIUM.
+            Concerne uniquement les boutiques sans abonnement payant en cours ({freePlanName}, ou plan
+            payant expiré) — jamais une boutique qui a déjà un abonnement payant en cours.
           </p>
 
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
@@ -330,7 +331,7 @@ function BulkActivateModal({ plan, onClose, onActivated }) {
             disabled={submitting}
             className="rounded-lg bg-amber-600 text-white text-sm font-medium px-4 py-2 hover:bg-amber-700 transition disabled:opacity-60"
           >
-            {submitting ? 'Activation...' : 'Activer pour tous les FREEMIUM'}
+            {submitting ? 'Activation...' : `Activer pour tous les ${freePlanName}`}
           </button>
         </div>
       </form>

@@ -112,7 +112,7 @@ function invitationAcceptedEmail({ inviteeName, storeName }) {
 const PLAN_ACTION_TEXT = {
   ACTIVATED: (planName) => `Votre boutique est passée au plan <strong>${escapeHtml(planName)}</strong>.`,
   RENEWED: (planName) => `L'abonnement au plan <strong>${escapeHtml(planName)}</strong> de votre boutique a été renouvelé.`,
-  DEACTIVATED: () => `Votre boutique est repassée au plan <strong>FREEMIUM</strong>.`,
+  DEACTIVATED: (planName) => `Votre boutique est repassée au plan <strong>${escapeHtml(planName)}</strong>.`,
 };
 
 function planChangedEmail({ storeName, planName, action, expiresAt }) {

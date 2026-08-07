@@ -9,16 +9,21 @@ const { AppError } = require('../middlewares/errorHandler');
  * principe que le reste du projet (rôle/boutiques toujours relus en base,
  * jamais fait confiance à un token périmé).
  *
+ * Le plan gratuit n'est JAMAIS identifié par son nom (modifiable par le
+ * Super Admin depuis Admin > Plans) mais par `price = 0`, seul identifiant
+ * stable — un renommage en base ne doit jamais casser cette logique.
+ *
  * Si le plan payant de la boutique est expiré (ou qu'aucun plan n'est
- * défini), retombe silencieusement sur FREEMIUM — sans jamais modifier
- * `stores.plan_id` en base : la "désactivation" explicite reste un acte
- * du Super Admin (cf. admin.service.js#deactivateStorePlan), l'expiration
- * naturelle ne fait que changer le comportement observé.
+ * défini), retombe silencieusement sur le plan gratuit — sans jamais
+ * modifier `stores.plan_id` en base : la "désactivation" explicite reste
+ * un acte du Super Admin (cf. admin.service.js#deactivateStorePlan),
+ * l'expiration naturelle ne fait que changer le comportement observé.
  */
 async function getEffectivePlan(storeId) {
   const { rows } = await pool.query(
     `SELECT s.plan_expires_at AS "planExpiresAt",
-            sp.name AS "planName", sp.max_users_per_store AS "maxUsersPerStore",
+            sp.name AS "planName", sp.price AS "planPrice",
+            sp.max_users_per_store AS "maxUsersPerStore",
             sp.allows_supervision AS "allowsSupervision", sp.allows_suppliers AS "allowsSuppliers",
             sp.allows_purchase_orders AS "allowsPurchaseOrders"
      FROM stores s
@@ -33,21 +38,26 @@ async function getEffectivePlan(storeId) {
   const isExpired = store.planExpiresAt && new Date(store.planExpiresAt) <= new Date();
 
   if (!store.planName || isExpired) {
-    const freemiumResult = await pool.query(
+    const freeResult = await pool.query(
       `SELECT name, max_users_per_store AS "maxUsersPerStore",
               allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
               allows_purchase_orders AS "allowsPurchaseOrders"
-       FROM subscription_plans WHERE name = 'FREEMIUM'`
+       FROM subscription_plans WHERE price = 0 ORDER BY id ASC LIMIT 1`
     );
-    const freemium = freemiumResult.rows[0];
+    if (freeResult.rows.length === 0) {
+      throw new AppError('Plan gratuit introuvable — configuration incohérente.', 500, 'FREE_PLAN_MISSING');
+    }
+    const freePlan = freeResult.rows[0];
     return {
-      planName: freemium.name,
-      maxUsersPerStore: freemium.maxUsersPerStore,
-      allowsSupervision: freemium.allowsSupervision,
-      allowsSuppliers: freemium.allowsSuppliers,
-      allowsPurchaseOrders: freemium.allowsPurchaseOrders,
+      planName: freePlan.name,
+      maxUsersPerStore: freePlan.maxUsersPerStore,
+      allowsSupervision: freePlan.allowsSupervision,
+      allowsSuppliers: freePlan.allowsSuppliers,
+      allowsPurchaseOrders: freePlan.allowsPurchaseOrders,
       planExpiresAt: store.planExpiresAt,
       isEffectivelyFreemium: true,
+      expired: Boolean(isExpired),
+      previousPlanName: isExpired ? store.planName : null,
     };
   }
 
@@ -58,7 +68,9 @@ async function getEffectivePlan(storeId) {
     allowsSuppliers: store.allowsSuppliers,
     allowsPurchaseOrders: store.allowsPurchaseOrders,
     planExpiresAt: store.planExpiresAt,
-    isEffectivelyFreemium: store.planName === 'FREEMIUM',
+    isEffectivelyFreemium: Number(store.planPrice) === 0,
+    expired: false,
+    previousPlanName: null,
   };
 }
 

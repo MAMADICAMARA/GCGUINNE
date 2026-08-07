@@ -45,7 +45,7 @@ export default function EmployeesPage() {
     loadAll();
   }, []);
 
-  // Le plan FREEMIUM (1 utilisateur = l'Owner seul) n'autorise aucun
+  // Le plan gratuit (1 utilisateur = l'Owner seul) n'autorise aucun
   // employé (§20_plans_abonnement.sql, décidé en conversation) — vérifié
   // aussi côté serveur (employees.service.js#addEmployee), ceci n'est
   // qu'un confort pour éviter un clic dans le vide.
@@ -101,7 +101,11 @@ export default function EmployeesPage() {
         <button
           onClick={() => setShowAddModal(true)}
           disabled={!canInvite}
-          title={!canInvite ? 'Plan FREEMIUM — passez à un plan payant pour inviter votre équipe' : undefined}
+          title={
+            !canInvite
+              ? `Plan ${planStatus?.planName} — passez à un plan payant pour inviter votre équipe`
+              : undefined
+          }
           className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
           + Ajouter un employé
@@ -110,7 +114,8 @@ export default function EmployeesPage() {
 
       {!loading && !canInvite && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
-          Votre plan FREEMIUM ne permet aucun employé — passez à un plan payant pour inviter votre équipe.
+          Votre plan {planStatus?.planName} ne permet aucun employé — passez à un plan payant pour
+          inviter votre équipe.
         </p>
       )}
 
