@@ -32,6 +32,16 @@ types.setTypeParser(types.builtins.INT8, (value) => (value === null ? null : par
  */
 const pool = new Pool({
   connectionString: env.databaseUrl,
+  // Explicite plutôt que le défaut silencieux de la librairie (10) — cf.
+  // env.js#dbPoolMax. SSL volontairement PAS forcé ici : `pg` respecte déjà
+  // `sslmode` s'il est présent dans DATABASE_URL (c'est ce qui fait
+  // fonctionner la connexion actuelle en production), et Render fournit
+  // aussi une "Internal Database URL" qui n'a ni besoin ni support de SSL
+  // sur son réseau privé — imposer `ssl: {...}` sans savoir laquelle des
+  // deux URLs est utilisée risquerait de CASSER la connexion plutôt que de
+  // la sécuriser. À activer explicitement seulement si l'URL externe (avec
+  // `sslmode`) est confirmée utilisée en production.
+  max: env.dbPoolMax,
 });
 
 pool.on('error', (err) => {

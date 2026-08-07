@@ -41,6 +41,10 @@ module.exports = {
     .filter(Boolean),
 
   databaseUrl: process.env.DATABASE_URL,
+  // Explicite plutôt que de compter sur le défaut de la librairie "pg" (10,
+  // jamais documenté nulle part dans ce projet) — ajustable sans changer de
+  // code si le volume de trafic l'exige un jour.
+  dbPoolMax: parseInt(process.env.DB_POOL_MAX, 10) || 10,
 
   jwt: {
     // Jamais de repli silencieux ici (§A2 SOLUTIONS_AUDIT_PRODUCTION.md) :
