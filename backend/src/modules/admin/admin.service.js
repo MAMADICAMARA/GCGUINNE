@@ -740,12 +740,13 @@ async function activatePlanForAllFreemiumStores(planId, days, adminUserId) {
 
 /**
  * Référentiel "types de boutique" (§ cahier-des-charges-types-de-boutique.md)
- * — géré exclusivement par le Super Admin, sans lien direct avec les
- * boutiques existantes. store_type_categories n'est qu'un GABARIT : jamais
- * copié ni synchronisé automatiquement avec la vraie table `categories`
- * d'une boutique (cette copie appartient au flux de création de boutique,
- * hors périmètre ici) — le modifier ou le supprimer n'affecte donc jamais
- * une boutique déjà créée.
+ * — géré exclusivement par le Super Admin. store_type_categories est un
+ * GABARIT : un ajout de catégorie (addStoreTypeCategory ci-dessous) est
+ * immédiatement propagé aux boutiques déjà créées de ce type (décidé en
+ * conversation) ; en revanche renommer ou supprimer une catégorie du
+ * gabarit n'affecte jamais rétroactivement une boutique déjà créée — elle
+ * garde sa propre catégorie telle quelle, à charge pour elle de la
+ * renommer/supprimer elle-même si besoin.
  */
 async function listStoreTypes() {
   const [typesResult, categoriesResult] = await Promise.all([
@@ -820,18 +821,49 @@ async function deleteStoreType(id) {
   return { id: rows[0].id, deleted: true };
 }
 
+/**
+ * Ajoute une catégorie suggérée au gabarit d'un type de boutique, ET la
+ * propage immédiatement aux boutiques existantes de ce type (décidé en
+ * conversation, suite à la découverte que store_type_categories n'était
+ * copié qu'une fois à la création — les ajouts ultérieurs du Super Admin
+ * restaient invisibles pour les boutiques déjà créées). Ne touche jamais
+ * une boutique qui a déjà une catégorie du même nom (créée par elle-même
+ * ou par une propagation précédente) — jamais de doublon, jamais d'écrasement.
+ */
 async function addStoreTypeCategory(storeTypeId, { name, displayOrder }) {
   const typeExists = await pool.query('SELECT 1 FROM store_types WHERE id = $1', [storeTypeId]);
   if (typeExists.rows.length === 0) {
     throw new AppError('Type de boutique introuvable.', 404, 'STORE_TYPE_NOT_FOUND');
   }
+  const trimmedName = name.trim();
 
-  const { rows } = await pool.query(
-    `INSERT INTO store_type_categories (store_type_id, name, display_order) VALUES ($1, $2, $3)
-     RETURNING id, store_type_id AS "storeTypeId", name, display_order AS "displayOrder"`,
-    [storeTypeId, name.trim(), displayOrder || 0]
-  );
-  return rows[0];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `INSERT INTO store_type_categories (store_type_id, name, display_order) VALUES ($1, $2, $3)
+       RETURNING id, store_type_id AS "storeTypeId", name, display_order AS "displayOrder"`,
+      [storeTypeId, trimmedName, displayOrder || 0]
+    );
+
+    const propagated = await client.query(
+      `INSERT INTO categories (store_id, name)
+       SELECT s.id, $2::VARCHAR(100) FROM stores s
+       WHERE s.store_type_id = $1
+         AND NOT EXISTS (SELECT 1 FROM categories c WHERE c.store_id = s.id AND c.name = $2::VARCHAR(100))
+       RETURNING store_id`,
+      [storeTypeId, trimmedName]
+    );
+
+    await client.query('COMMIT');
+    return { ...rows[0], propagatedToStores: propagated.rows.length };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function updateStoreTypeCategory(categoryId, { name, displayOrder }) {

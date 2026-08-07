@@ -197,8 +197,14 @@ export default function AdminStoreTypesPage() {
           storeTypeId={editingCategory.storeTypeId}
           category={editingCategory.category}
           onClose={() => setEditingCategory(null)}
-          onSaved={() => {
+          onSaved={(result) => {
             setEditingCategory(null);
+            if (result?.propagatedToStores > 0) {
+              setSuccessMessage(
+                `Catégorie "${result.name}" ajoutée et propagée à ${result.propagatedToStores} boutique(s) existante(s).`
+              );
+              setTimeout(() => setSuccessMessage(''), 6000);
+            }
             loadStoreTypes();
           }}
         />
@@ -306,10 +312,11 @@ function CategoryEditorModal({ storeTypeId, category, onClose, onSaved }) {
       const payload = { name: name.trim(), displayOrder: Number(displayOrder) || 0 };
       if (category) {
         await apiClient.put(`/admin/store-types/categories/${category.id}`, payload);
+        onSaved();
       } else {
-        await apiClient.post(`/admin/store-types/${storeTypeId}/categories`, payload);
+        const { data } = await apiClient.post(`/admin/store-types/${storeTypeId}/categories`, payload);
+        onSaved(data);
       }
-      onSaved();
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Enregistrement impossible.');
     } finally {

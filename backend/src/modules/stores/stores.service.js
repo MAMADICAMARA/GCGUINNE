@@ -155,10 +155,12 @@ async function createStore(
     );
     const store = storeResult.rows[0];
 
-    // Copie ponctuelle du gabarit vers la vraie table categories — un point
-    // de départ, jamais un lien vivant : modifier store_type_categories
-    // plus tard n'a aucun effet rétroactif sur cette boutique (§ cahier des
-    // charges types de boutique).
+    // Copie initiale du gabarit vers la vraie table categories — un point
+    // de départ, pas un lien vivant : renommer/supprimer une catégorie du
+    // gabarit n'affecte jamais rétroactivement cette boutique. Un AJOUT au
+    // gabarit, lui, est propagé aux boutiques existantes séparément (cf.
+    // admin.service.js#addStoreTypeCategory, décidé en conversation) — ici
+    // on ne fait que la copie initiale pour une boutique qui vient de naître.
     await client.query(
       `INSERT INTO categories (store_id, name)
        SELECT $1, name FROM store_type_categories WHERE store_type_id = $2`,
