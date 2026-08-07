@@ -14,7 +14,67 @@ import StoreLogoSection from './StoreLogoSection';
  * catalogue produit uniquement — deux codes volontairement distincts, deux
  * niveaux de confiance différents). Le reste (infos boutique, facturation)
  * reste à construire.
+ *
+ * Réorganisée en groupes thématiques (Abonnement / Boutique / Partage &
+ * accès / Ventes) plutôt qu'une liste plate de cartes — les composants
+ * importés (SubscriptionSection, ReceiptSettingsSection...) gardent leur
+ * implémentation interne intacte, seul leur regroupement change ici.
  */
+
+// Petit en-tête de groupe cohérent avec le style déjà utilisé ailleurs dans
+// l'app (libellés en majuscules discrètes) — encode une vraie catégorie de
+// réglages, pas une simple décoration entre les cartes.
+function SectionGroup({ title, description, children }) {
+  return (
+    <div className="mb-10">
+      <div className="mb-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</h2>
+        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+      </div>
+      <div className="space-y-6">{children}</div>
+    </div>
+  );
+}
+
+// Les codes de supervision et fournisseur partagent exactement la même
+// mécanique (afficher, copier, régénérer avec confirmation) — un seul
+// composant paramétré plutôt que deux blocs JSX dupliqués.
+function ShareCodeCard({ title, description, code, loading, error, copied, regenerating, onCopy, onRegenerate }) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5">
+      <h3 className="text-sm font-semibold text-slate-700 mb-1">{title}</h3>
+      <p className="text-xs text-slate-500 mb-3">{description}</p>
+
+      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+
+      {loading ? (
+        <p className="text-sm text-slate-400">Chargement...</p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 mb-3">
+            <code className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm font-mono text-slate-800">
+              {code}
+            </code>
+            <button
+              onClick={onCopy}
+              className="rounded-lg bg-slate-100 text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-200 transition"
+            >
+              {copied ? 'Copié !' : 'Copier'}
+            </button>
+          </div>
+          <button
+            onClick={onRegenerate}
+            disabled={regenerating}
+            className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+          >
+            {regenerating ? 'Régénération...' : 'Régénérer le code'}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(true);
@@ -159,140 +219,108 @@ export default function SettingsPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-slate-800 mb-1">Paramètres</h1>
-      <p className="text-sm text-slate-500 mb-6">Informations boutique, abonnement, facturation.</p>
+      <p className="text-sm text-slate-500 mb-8">Informations boutique, abonnement, facturation.</p>
 
-      <SubscriptionSection />
+      <SectionGroup title="Abonnement">
+        <SubscriptionSection />
+      </SectionGroup>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">
-        <h2 className="text-sm font-semibold text-slate-700 mb-1">Code de supervision</h2>
-        <p className="text-xs text-slate-500 mb-3">
-          Transmettez ce code à un propriétaire multi-boutiques pour lui
-          donner une vue en lecture seule sur cette boutique — aucun droit
-          d'action de sa part (pas de caisse, pas de gestion produit/équipe).
-        </p>
+      <SectionGroup
+        title="Boutique"
+        description="Identité visuelle et catégorisation de votre activité."
+      >
+        <StoreLogoSection />
 
-        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-
-        {loading ? (
-          <p className="text-sm text-slate-400">Chargement...</p>
-        ) : (
-          <>
-            <div className="flex items-center gap-2 mb-3">
-              <code className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm font-mono text-slate-800">
-                {code}
-              </code>
-              <button
-                onClick={handleCopy}
-                className="rounded-lg bg-slate-100 text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-200 transition"
-              >
-                {copied ? 'Copié !' : 'Copier'}
-              </button>
-            </div>
-            <button
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
-            >
-              {regenerating ? 'Régénération...' : 'Régénérer le code'}
-            </button>
-          </>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">
-        <h2 className="text-sm font-semibold text-slate-700 mb-1">Code fournisseur</h2>
-        <p className="text-xs text-slate-500 mb-3">
-          Transmettez ce code à une autre boutique pour qu'elle puisse vous
-          ajouter comme fournisseur — elle ne verra que votre catalogue
-          (nom, image, catégorie), jamais vos prix ni vos quantités en stock.
-        </p>
-
-        {supplierCodeError && <p className="text-sm text-red-600 mb-3">{supplierCodeError}</p>}
-
-        {supplierCodeLoading ? (
-          <p className="text-sm text-slate-400">Chargement...</p>
-        ) : (
-          <>
-            <div className="flex items-center gap-2 mb-3">
-              <code className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm font-mono text-slate-800">
-                {supplierCode}
-              </code>
-              <button
-                onClick={handleCopySupplierCode}
-                className="rounded-lg bg-slate-100 text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-200 transition"
-              >
-                {supplierCodeCopied ? 'Copié !' : 'Copier'}
-              </button>
-            </div>
-            <button
-              onClick={handleRegenerateSupplierCode}
-              disabled={supplierCodeRegenerating}
-              className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
-            >
-              {supplierCodeRegenerating ? 'Régénération...' : 'Régénérer le code'}
-            </button>
-          </>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">
-        <h2 className="text-sm font-semibold text-slate-700 mb-1">Type de boutique</h2>
-        <p className="text-xs text-slate-500 mb-3">
-          Détermine les catégories de produits suggérées. Une boutique ne peut avoir qu'un seul
-          type — le choix est définitif une fois enregistré.
-        </p>
-
-        {storeTypeError && <p className="text-sm text-red-600 mb-3">{storeTypeError}</p>}
-        {storeTypeSuccess && (
-          <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2 mb-3">
-            {storeTypeSuccess}
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">Type de boutique</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            Détermine les catégories de produits suggérées. Une boutique ne peut avoir qu'un
+            seul type — le choix est définitif une fois enregistré.
           </p>
-        )}
 
-        {storeTypeLoading ? (
-          <p className="text-sm text-slate-400">Chargement...</p>
-        ) : storeType?.storeTypeId ? (
-          <p className="text-sm text-slate-600">
-            Type : <span className="font-medium text-slate-800">{storeType.storeTypeLabel}</span>
-          </p>
-        ) : (
-          <form onSubmit={handleSaveStoreType}>
-            <p className="text-sm text-slate-600 mb-2">Aucun type défini pour l'instant.</p>
-            <select
-              required
-              value={selectedStoreTypeId}
-              onChange={(e) => setSelectedStoreTypeId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            >
-              <option value="" disabled>
-                Choisir un type...
-              </option>
-              {allStoreTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
+          {storeTypeError && <p className="text-sm text-red-600 mb-3">{storeTypeError}</p>}
+          {storeTypeSuccess && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2 mb-3">
+              {storeTypeSuccess}
+            </p>
+          )}
+
+          {storeTypeLoading ? (
+            <p className="text-sm text-slate-400">Chargement...</p>
+          ) : storeType?.storeTypeId ? (
+            <p className="text-sm text-slate-600">
+              Type : <span className="font-medium text-slate-800">{storeType.storeTypeLabel}</span>
+            </p>
+          ) : (
+            <form onSubmit={handleSaveStoreType}>
+              <p className="text-sm text-slate-600 mb-2">Aucun type défini pour l'instant.</p>
+              <select
+                required
+                value={selectedStoreTypeId}
+                onChange={(e) => setSelectedStoreTypeId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="" disabled>
+                  Choisir un type...
                 </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={savingStoreType || !selectedStoreTypeId}
-              className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
-            >
-              {savingStoreType ? 'Enregistrement...' : 'Définir le type'}
-            </button>
-          </form>
-        )}
-      </section>
+                {allStoreTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={savingStoreType || !selectedStoreTypeId}
+                className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
+              >
+                {savingStoreType ? 'Enregistrement...' : 'Définir le type'}
+              </button>
+            </form>
+          )}
+        </section>
+      </SectionGroup>
 
-      <SalesVoidReturnPermissionSection />
+      <SectionGroup
+        title="Partage & accès"
+        description="Deux codes distincts, deux niveaux de confiance différents."
+      >
+        <div className="grid gap-6 sm:grid-cols-2">
+          <ShareCodeCard
+            title="Code de supervision"
+            description="Donne une vue en lecture seule à un propriétaire multi-boutiques — aucun droit d'action (pas de caisse, pas de gestion produit/équipe)."
+            code={code}
+            loading={loading}
+            error={error}
+            copied={copied}
+            regenerating={regenerating}
+            onCopy={handleCopy}
+            onRegenerate={handleRegenerate}
+          />
+          <ShareCodeCard
+            title="Code fournisseur"
+            description="Permet à une autre boutique de vous ajouter comme fournisseur — elle voit uniquement votre catalogue (nom, image, catégorie), jamais vos prix ni stocks."
+            code={supplierCode}
+            loading={supplierCodeLoading}
+            error={supplierCodeError}
+            copied={supplierCodeCopied}
+            regenerating={supplierCodeRegenerating}
+            onCopy={handleCopySupplierCode}
+            onRegenerate={handleRegenerateSupplierCode}
+          />
+        </div>
+      </SectionGroup>
 
-      <ReceiptSettingsSection />
+      <SectionGroup title="Ventes" description="Règles applicables à la caisse et aux reçus.">
+        <SalesVoidReturnPermissionSection />
+        <ReceiptSettingsSection />
+      </SectionGroup>
 
-      <StoreLogoSection />
-
-      <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400 text-sm">
-        Le reste (facturation) reste à implémenter.
-      </div>
+      <SectionGroup title="Facturation">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400 text-sm">
+          Reste à implémenter.
+        </div>
+      </SectionGroup>
     </div>
   );
 }
