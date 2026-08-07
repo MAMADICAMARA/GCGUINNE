@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDateTime } from '@/utils/format';
 import { useAuthStore } from '@/store/authStore';
+import { downloadInvoicePdf } from '@/utils/invoicePdf';
 import ReturnOrderModal from './ReturnOrderModal';
 
 const STATUS_LABELS = {
@@ -46,6 +47,7 @@ export default function OrderDetailModal({ orderId, onClose, onChanged }) {
   const [error, setError] = useState('');
   const [voiding, setVoiding] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   async function loadOrder() {
     try {
@@ -87,6 +89,18 @@ export default function OrderDetailModal({ orderId, onClose, onChanged }) {
       setError(err.response?.data?.error?.message || "Impossible d'annuler cette vente.");
     } finally {
       setVoiding(false);
+    }
+  }
+
+  async function handleDownloadInvoice() {
+    setDownloadingInvoice(true);
+    setError('');
+    try {
+      await downloadInvoicePdf(orderId, data.order.orderNumber);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Impossible de générer la facture.');
+    } finally {
+      setDownloadingInvoice(false);
     }
   }
 
@@ -188,6 +202,15 @@ export default function OrderDetailModal({ orderId, onClose, onChanged }) {
         </div>
 
         <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 shrink-0">
+          {data && (
+            <button
+              onClick={handleDownloadInvoice}
+              disabled={downloadingInvoice}
+              className="rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-200 transition disabled:opacity-60"
+            >
+              {downloadingInvoice ? 'Génération...' : 'Télécharger la facture (PDF)'}
+            </button>
+          )}
           {canAct && (
             <button
               onClick={handleVoid}

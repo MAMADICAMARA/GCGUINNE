@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { downloadReceiptPdf, getReceiptPdfFile } from '@/utils/receiptPdf';
+import { downloadInvoicePdf } from '@/utils/invoicePdf';
 
 /**
  * Reçu affiché juste après une vente. Corrigé (décidé en conversation) :
@@ -10,7 +11,10 @@ import { downloadReceiptPdf, getReceiptPdfFile } from '@/utils/receiptPdf';
  * quelle que soit la longueur du reçu.
  *
  * "Télécharger" génère un vrai PDF (utils/receiptPdf.js) — auparavant un
- * fichier texte brut, illisible pour beaucoup de commerçants.
+ * fichier texte brut, illisible pour beaucoup de commerçants. "Télécharger
+ * la facture (PDF)" est une fonctionnalité distincte (§ cahier des charges
+ * "Facture PDF") : mise en page formelle façon formulaire, générée côté
+ * serveur (PDFKit) — les deux coexistent, aucune ne remplace l'autre.
  *
  * "Partager" utilise le partage natif du téléphone (Web Share API) —
  * pratique pour envoyer le reçu par WhatsApp directement depuis la caisse.
@@ -19,10 +23,24 @@ import { downloadReceiptPdf, getReceiptPdfFile } from '@/utils/receiptPdf';
  */
 export default function ReceiptModal({ receiptText, order, onClose }) {
   const [sharing, setSharing] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [invoiceError, setInvoiceError] = useState('');
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   function handleDownload() {
     downloadReceiptPdf(order);
+  }
+
+  async function handleDownloadInvoice() {
+    setDownloadingInvoice(true);
+    setInvoiceError('');
+    try {
+      await downloadInvoicePdf(order.orderId, order.orderNumber);
+    } catch (err) {
+      setInvoiceError(err.response?.data?.error?.message || 'Impossible de générer la facture.');
+    } finally {
+      setDownloadingInvoice(false);
+    }
   }
 
   async function handleShare() {
@@ -58,34 +76,47 @@ export default function ReceiptModal({ receiptText, order, onClose }) {
           </pre>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 shrink-0">
-          <button
-            onClick={handleDownload}
-            className="flex-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium py-2 hover:bg-slate-200 transition"
-          >
-            Télécharger
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="flex-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium py-2 hover:bg-slate-200 transition"
-          >
-            Imprimer
-          </button>
-          {canShare && (
+        <div className="px-6 py-4 border-t border-slate-100 flex flex-col gap-2 shrink-0">
+          {invoiceError && <p className="text-xs text-red-600">{invoiceError}</p>}
+          {order.orderId && (
             <button
-              onClick={handleShare}
-              disabled={sharing}
-              className="flex-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium py-2 hover:bg-slate-200 transition disabled:opacity-60"
+              onClick={handleDownloadInvoice}
+              disabled={downloadingInvoice}
+              className="w-full rounded-lg bg-brand-50 text-brand-700 text-sm font-medium py-2 hover:bg-brand-100 transition disabled:opacity-60"
             >
-              {sharing ? '...' : 'Partager'}
+              {downloadingInvoice ? 'Génération...' : 'Télécharger la facture (PDF)'}
             </button>
           )}
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg bg-brand-500 text-white text-sm font-medium py-2 hover:bg-brand-600 transition"
-          >
-            Fermer
-          </button>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium py-2 hover:bg-slate-200 transition"
+            >
+              Télécharger
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium py-2 hover:bg-slate-200 transition"
+            >
+              Imprimer
+            </button>
+            {canShare && (
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="flex-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium py-2 hover:bg-slate-200 transition disabled:opacity-60"
+              >
+                {sharing ? '...' : 'Partager'}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="flex-1 rounded-lg bg-brand-500 text-white text-sm font-medium py-2 hover:bg-brand-600 transition"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     </div>

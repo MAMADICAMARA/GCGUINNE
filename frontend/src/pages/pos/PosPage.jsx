@@ -192,6 +192,7 @@ export default function PosPage() {
       setReceipt({
         receiptText: data.receipt,
         order: {
+          orderId: data.orderId,
           storeName: data.receiptContext?.store?.name || activeStore?.name,
           storeAddress: data.receiptContext?.store?.address,
           storePhone: data.receiptContext?.store?.phone,

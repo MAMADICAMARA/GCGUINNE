@@ -479,6 +479,27 @@ async function getOrderById(storeId, orderId, ownSellerId = null) {
 }
 
 /**
+ * Réunit tout ce qu'il faut pour générer la facture PDF d'une commande
+ * (§ cahier des charges "Facture PDF") — réutilise `getOrderById` telle
+ * quelle (mêmes règles d'accès Owner/Vendeur, jamais dupliquées) et ajoute
+ * uniquement ce qui manque : les infos boutique (nom, adresse, téléphone,
+ * logo) et les réglages de personnalisation du reçu, pour que la facture
+ * respecte exactement les mêmes réglages que le reçu texte existant.
+ * @param {number} storeId
+ * @param {number} orderId
+ * @param {number|null} ownSellerId - cf. getOrderById
+ */
+async function getInvoiceData(storeId, orderId, ownSellerId = null) {
+  const [{ order, items }, storeResult, receiptSettings] = await Promise.all([
+    getOrderById(storeId, orderId, ownSellerId),
+    pool.query('SELECT name, address, phone, logo_url AS "logoUrl" FROM stores WHERE id = $1', [storeId]),
+    getReceiptSettings(storeId),
+  ]);
+
+  return { order, items, store: storeResult.rows[0], receiptSettings };
+}
+
+/**
  * Annuler une commande (void) — reverse les mouvements de stock et,
  * décidé en conversation (§B1), la contribution de cette commande à la
  * fiche du client si elle en avait un.
@@ -800,6 +821,7 @@ module.exports = {
   createOrder,
   getOrders,
   getOrderById,
+  getInvoiceData,
   voidOrder,
   returnOrderItem,
   generateReceipt,

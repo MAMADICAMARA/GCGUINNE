@@ -46,6 +46,11 @@ router.get('/', controller.listOrders);
 
 router.get('/:id', [param('id').isInt()], controller.getOrder);
 
+// Mêmes règles d'accès que GET /:id ci-dessus (vérifié dans le service, pas
+// ici) — génère la facture PDF à la volée, jamais stockée ni mise en cache
+// (§ cahier des charges "Facture PDF", décidé en conversation).
+router.get('/:id/invoice-pdf', [param('id').isInt()], controller.getInvoicePdf);
+
 // Annulation et retours — Owner toujours, Vendeur seulement si autorisé
 // (voir requireVoidReturnPermission ci-dessus) et uniquement sur SES
 // PROPRES ventes (vérifié dans orders.service.js, jamais côté route).

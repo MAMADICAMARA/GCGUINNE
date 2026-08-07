@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const ordersService = require('./orders.service');
+const { streamInvoicePdf } = require('./invoicePdf');
 const { AppError } = require('../../middlewares/errorHandler');
 
 function checkValidation(req) {
@@ -55,6 +56,27 @@ async function getOrder(req, res, next) {
   }
 }
 
+async function getInvoicePdf(req, res, next) {
+  try {
+    const ownSellerId = req.auth.roleCode === 'OWNER' ? null : req.auth.userId;
+    const { order, items, store, receiptSettings } = await ordersService.getInvoiceData(
+      req.auth.storeId,
+      req.params.id,
+      ownSellerId
+    );
+
+    // Tout ce qui peut échouer (accès refusé, commande introuvable) doit se
+    // produire AVANT d'écrire quoi que ce soit dans la réponse — une fois
+    // les en-têtes envoyés, une erreur ne peut plus jamais devenir un JSON
+    // d'erreur propre côté client.
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="facture-${order.orderNumber}.pdf"`);
+    await streamInvoicePdf(res, order, items, { store, receiptSettings });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function voidOrder(req, res, next) {
   try {
     checkValidation(req);
@@ -87,4 +109,4 @@ async function returnOrderItem(req, res, next) {
   }
 }
 
-module.exports = { createOrder, listOrders, getOrder, voidOrder, returnOrderItem };
+module.exports = { createOrder, listOrders, getOrder, getInvoicePdf, voidOrder, returnOrderItem };
