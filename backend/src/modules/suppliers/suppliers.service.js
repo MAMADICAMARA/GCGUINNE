@@ -45,14 +45,47 @@ async function listMyClients(supplierStoreId) {
  * §18_fournisseurs_inter_boutiques.sql). Lien immédiat, sans validation du
  * fournisseur (décidé en conversation, même comportement que la
  * supervision).
+ *
+ * Restriction "même secteur d'activité" (§ décidé en conversation) : une
+ * boutique de téléphonie n'a pas de raison métier de devenir fournisseur
+ * d'une boutique de pièces moto — le lien n'est autorisé qu'entre deux
+ * boutiques du même `store_type_id`. `store_type_id` est immuable une fois
+ * défini (cf. stores.service.js#adoptStoreType) : ce contrôle, fait une
+ * seule fois ici à la création du lien, ne peut donc jamais devenir faux
+ * plus tard — sauf si l'une des deux boutiques n'avait pas encore de type
+ * au moment du lien, cas couvert par la revérification symétrique dans
+ * purchases.service.js#createOrderFromSupplierStore à chaque commande.
+ * Un trigger PostgreSQL (33_meme_type_fournisseur.sql) rejoue exactement
+ * la même règle comme garde-fou final, au cas où une insertion
+ * contournerait ce service.
  */
 async function addSupplier(buyerStoreId, code) {
   if (!code || !code.trim()) {
     throw new AppError('Le code fournisseur est requis.', 400, 'VALIDATION_ERROR');
   }
 
+  const buyerResult = await pool.query(
+    `SELECT s.store_type_id AS "storeTypeId", st.label AS "storeTypeLabel"
+     FROM stores s
+     LEFT JOIN store_types st ON st.id = s.store_type_id
+     WHERE s.id = $1`,
+    [buyerStoreId]
+  );
+  const buyerStore = buyerResult.rows[0];
+  if (!buyerStore.storeTypeId) {
+    throw new AppError(
+      "Choisissez d'abord le secteur d'activité de votre boutique (dans Paramètres) avant d'ajouter un fournisseur.",
+      409,
+      'BUYER_STORE_TYPE_MISSING'
+    );
+  }
+
   const storeResult = await pool.query(
-    'SELECT id, name, city, category FROM stores WHERE supplier_code = $1',
+    `SELECT s.id, s.name, s.city, s.category,
+            s.store_type_id AS "storeTypeId", st.label AS "storeTypeLabel"
+     FROM stores s
+     LEFT JOIN store_types st ON st.id = s.store_type_id
+     WHERE s.supplier_code = $1`,
     [code.trim().toUpperCase()]
   );
   if (storeResult.rows.length === 0) {
@@ -62,6 +95,21 @@ async function addSupplier(buyerStoreId, code) {
 
   if (supplierStore.id === buyerStoreId) {
     throw new AppError('Une boutique ne peut pas être son propre fournisseur.', 400, 'SELF_LINK');
+  }
+
+  if (!supplierStore.storeTypeId) {
+    throw new AppError(
+      "Cette boutique n'a pas encore choisi son secteur d'activité — elle ne peut pas être ajoutée comme fournisseur pour l'instant.",
+      409,
+      'SUPPLIER_STORE_TYPE_MISSING'
+    );
+  }
+  if (supplierStore.storeTypeId !== buyerStore.storeTypeId) {
+    throw new AppError(
+      `Cette boutique est de secteur "${supplierStore.storeTypeLabel}", différent du vôtre ("${buyerStore.storeTypeLabel}") — le lien fournisseur n'est possible qu'entre boutiques du même secteur d'activité.`,
+      409,
+      'STORE_TYPE_MISMATCH'
+    );
   }
 
   try {
@@ -81,6 +129,13 @@ async function addSupplier(buyerStoreId, code) {
   } catch (err) {
     if (err.code === '23505') {
       throw new AppError('Cette boutique est déjà dans vos fournisseurs.', 409, 'ALREADY_LINKED');
+    }
+    // Garde-fou du trigger PostgreSQL (33_meme_type_fournisseur.sql) — ne
+    // devrait normalement jamais se déclencher puisque la même règle est
+    // déjà vérifiée juste au-dessus, mais reste traduit proprement plutôt
+    // que de laisser fuir un message SQL brut si jamais il l'était.
+    if (err.code === 'P0001') {
+      throw new AppError(err.message, 409, 'STORE_TYPE_MISMATCH');
     }
     throw err;
   }

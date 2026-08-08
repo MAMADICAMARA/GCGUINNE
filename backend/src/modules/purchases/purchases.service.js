@@ -304,6 +304,27 @@ async function createOrderFromSupplierStore(storeId, userId, { supplierStoreId, 
     throw new AppError("Cette boutique n'est pas dans vos fournisseurs.", 403, 'NOT_A_SUPPLIER');
   }
 
+  // Revérifie l'égalité des secteurs d'activité à CHAQUE commande, pas
+  // seulement une fois à la création du lien (suppliers.service.js#addSupplier) :
+  // store_type_id est immuable une fois défini, donc un lien déjà validé ne
+  // peut normalement plus devenir incompatible — sauf le seul cas où l'une
+  // des deux boutiques n'avait pas encore de type au moment du lien, et en
+  // a adopté un différent depuis. Ce contrôle ferme ce cas limite.
+  const typesResult = await pool.query(
+    `SELECT
+       (SELECT store_type_id FROM stores WHERE id = $1) AS "buyerTypeId",
+       (SELECT store_type_id FROM stores WHERE id = $2) AS "supplierTypeId"`,
+    [storeId, supplierStoreId]
+  );
+  const { buyerTypeId, supplierTypeId } = typesResult.rows[0];
+  if (!buyerTypeId || !supplierTypeId || buyerTypeId !== supplierTypeId) {
+    throw new AppError(
+      "Cette boutique n'est plus du même secteur d'activité que la vôtre — impossible de passer commande.",
+      409,
+      'STORE_TYPE_MISMATCH'
+    );
+  }
+
   const supplierPlan = await getEffectivePlan(supplierStoreId);
   if (!supplierPlan.allowsSuppliers) {
     throw new AppError(
