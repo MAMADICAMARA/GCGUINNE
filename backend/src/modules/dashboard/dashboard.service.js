@@ -29,11 +29,23 @@ const pool = require('../../config/db');
  * recalculé à la volée (jamais stocké), en soustrayant la valeur retournée
  * (`returned_quantity * unit_price`) du total d'origine.
  */
-async function getDashboardStats(storeId, roleCode, userId) {
+async function getDashboardStats(storeId, roleCode, userId, date) {
   const isOwner = roleCode === 'OWNER';
   const includeProfit = isOwner;
   const sellerFilter = isOwner ? '' : 'AND o.seller_id = $2';
   const sellerParams = isOwner ? [storeId] : [storeId, userId];
+
+  // Date choisie par l'Owner pour consulter le récapitulatif d'un jour
+  // précis plutôt que celui d'aujourd'hui (§ décidé en conversation,
+  // DashboardPage.jsx). COALESCE($2::date, CURRENT_DATE) laisse PostgreSQL
+  // calculer sa propre "aujourd'hui" quand aucune date n'est fournie —
+  // comportement d'origine strictement inchangé — plutôt que de recalculer
+  // la date côté Node, ce qui aurait pu diverger de quelques minutes du
+  // serveur PostgreSQL selon les fuseaux horaires respectifs.
+  const dayFilter = isOwner ? '' : 'AND o.seller_id = $3';
+  const dayParams = isOwner ? [storeId, date || null] : [storeId, date || null, userId];
+  const dayBounds = `COALESCE($2::date, CURRENT_DATE)`;
+  const dayRange = `o.created_at >= ${dayBounds} AND o.created_at < ${dayBounds} + INTERVAL '1 day'`;
 
   // Sous-requête réutilisée par toutes les statistiques agrégées AU NIVEAU
   // COMMANDE (chiffre d'affaires) : valeur retournée par commande, 0 si
@@ -65,15 +77,15 @@ async function getDashboardStats(storeId, roleCode, userId) {
               COUNT(*) AS "ordersCount"
        FROM orders o
        ${returnedValueJoin}
-       WHERE o.store_id = $1 AND o.status != 'VOIDED' AND o.created_at >= CURRENT_DATE ${sellerFilter}`,
-      sellerParams
+       WHERE o.store_id = $1 AND o.status != 'VOIDED' AND ${dayRange} ${dayFilter}`,
+      dayParams
     ),
     pool.query(
       `SELECT COALESCE(SUM(oi.quantity - oi.returned_quantity), 0) AS "itemsSold"
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
-       WHERE o.store_id = $1 AND o.status != 'VOIDED' AND o.created_at >= CURRENT_DATE ${sellerFilter}`,
-      sellerParams
+       WHERE o.store_id = $1 AND o.status != 'VOIDED' AND ${dayRange} ${dayFilter}`,
+      dayParams
     ),
     pool.query(
       `SELECT COUNT(*) AS count FROM products
@@ -110,8 +122,8 @@ async function getDashboardStats(storeId, roleCode, userId) {
            FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
            JOIN products p ON p.id = oi.product_id
-           WHERE o.store_id = $1 AND o.status != 'VOIDED' AND o.created_at >= CURRENT_DATE`,
-          [storeId]
+           WHERE o.store_id = $1 AND o.status != 'VOIDED' AND ${dayRange}`,
+          [storeId, date || null]
         )
       : Promise.resolve(null),
     isOwner

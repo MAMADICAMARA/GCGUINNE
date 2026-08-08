@@ -16,17 +16,23 @@ import {
   Store,
 } from 'lucide-react';
 
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
 export default function DashboardPage() {
   const activeStore = useAuthStore((s) => s.activeStore);
   const isOwner = activeStore?.roleCode === 'OWNER';
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
+  // Date consultée (§ décidé en conversation) — réservé à l'Owner : un
+  // Vendeur reste sur "aujourd'hui", jamais de sélecteur pour lui.
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const isToday = selectedDate === todayStr();
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await apiClient.get('/dashboard/stats');
+        const { data } = await apiClient.get('/dashboard/stats', { params: { date: selectedDate } });
         if (!cancelled) setStats(data);
       } catch (err) {
         if (!cancelled) {
@@ -37,24 +43,46 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeStore]);
+  }, [activeStore, selectedDate]);
 
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!stats) return <p className="text-sm text-slate-400">Chargement…</p>;
 
   const maxTrend = Math.max(1, ...stats.revenueTrend.map((d) => Number(d.revenue)));
+  const dayLabel = isToday ? 'du jour' : `du ${formatDate(selectedDate)}`;
 
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <LayoutDashboard className="h-6 w-6 text-brand-500" strokeWidth={1.75} />
           <h1 className="text-2xl font-semibold text-slate-800">Tableau de bord</h1>
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-500 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200/60">
           <CalendarDays className="h-4 w-4" strokeWidth={1.5} />
-          <span>Aujourd'hui</span>
+          {isOwner ? (
+            <>
+              <input
+                type="date"
+                value={selectedDate}
+                max={todayStr()}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="bg-transparent text-sm font-medium text-slate-700 focus:outline-none cursor-pointer"
+                aria-label="Choisir une date"
+              />
+              {!isToday && (
+                <button
+                  onClick={() => setSelectedDate(todayStr())}
+                  className="text-xs font-medium text-brand-500 hover:text-brand-600 underline"
+                >
+                  Aujourd'hui
+                </button>
+              )}
+            </>
+          ) : (
+            <span>Aujourd'hui</span>
+          )}
           <span className="w-px h-4 bg-slate-200 mx-2" />
           <Store className="h-4 w-4" strokeWidth={1.5} />
           <span className="font-medium text-slate-700">{activeStore?.name}</span>
@@ -62,9 +90,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Cartes indicateurs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="flex flex-col gap-4 sm:grid sm:grid-cols-4">
         <StatCard
-          label={isOwner ? 'Ventes du jour' : 'Mes ventes du jour'}
+          label={isOwner ? `Ventes ${dayLabel}` : 'Mes ventes du jour'}
           value={formatGNF(stats.today.revenue)}
           icon={Coins}                 // ← icône neutre
           iconBg="bg-blue-50"
@@ -72,7 +100,7 @@ export default function DashboardPage() {
         />
         {stats.today.profit !== null && (
           <StatCard
-            label="Bénéfice du jour"
+            label={`Bénéfice ${dayLabel}`}
             value={formatGNF(stats.today.profit)}
             icon={Wallet}
             iconBg="bg-emerald-50"

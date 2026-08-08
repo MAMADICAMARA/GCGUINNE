@@ -12,7 +12,7 @@ export default function AuthLayout() {
             Gestion Commerciale
           </h1>
           <p className="text-brand-100 text-sm">
-            Plateforme multi-boutiques
+            Connectez-vous pour accéder à votre tableau de bord
           </p>
         </div>
         <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">

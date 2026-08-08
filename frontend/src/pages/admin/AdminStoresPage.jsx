@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Store } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import StorePlanModal from './StorePlanModal';
+import StoreDetailModal from './StoreDetailModal';
 
 export default function AdminStoresPage() {
   const [stores, setStores] = useState([]);
@@ -11,6 +12,7 @@ export default function AdminStoresPage() {
   const [error, setError] = useState('');
   const [actingId, setActingId] = useState(null);
   const [managingPlanStore, setManagingPlanStore] = useState(null);
+  const [detailStore, setDetailStore] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -129,17 +131,25 @@ export default function AdminStoresPage() {
                         Gérer
                       </button>
                     </span>
-                    <button
-                      onClick={() => toggleStatus(store)}
-                      disabled={actingId === store.id}
-                      className="text-xs font-medium text-slate-600 underline disabled:opacity-50"
-                    >
-                      {actingId === store.id
-                        ? '...'
-                        : store.status === 'SUSPENDED'
-                          ? 'Réactiver'
-                          : 'Suspendre'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setDetailStore(store)}
+                        className="text-xs font-medium text-slate-600 underline"
+                      >
+                        Détail
+                      </button>
+                      <button
+                        onClick={() => toggleStatus(store)}
+                        disabled={actingId === store.id}
+                        className="text-xs font-medium text-slate-600 underline disabled:opacity-50"
+                      >
+                        {actingId === store.id
+                          ? '...'
+                          : store.status === 'SUSPENDED'
+                            ? 'Réactiver'
+                            : 'Suspendre'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -190,17 +200,25 @@ export default function AdminStoresPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => toggleStatus(store)}
-                        disabled={actingId === store.id}
-                        className="text-xs font-medium text-slate-600 hover:text-slate-900 underline disabled:opacity-50"
-                      >
-                        {actingId === store.id
-                          ? '...'
-                          : store.status === 'SUSPENDED'
-                            ? 'Réactiver'
-                            : 'Suspendre'}
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => setDetailStore(store)}
+                          className="text-xs font-medium text-slate-600 hover:text-slate-900 underline"
+                        >
+                          Détail
+                        </button>
+                        <button
+                          onClick={() => toggleStatus(store)}
+                          disabled={actingId === store.id}
+                          className="text-xs font-medium text-slate-600 hover:text-slate-900 underline disabled:opacity-50"
+                        >
+                          {actingId === store.id
+                            ? '...'
+                            : store.status === 'SUSPENDED'
+                              ? 'Réactiver'
+                              : 'Suspendre'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -217,6 +235,21 @@ export default function AdminStoresPage() {
           onChanged={() => {
             setManagingPlanStore(null);
             load();
+          }}
+        />
+      )}
+
+      {detailStore && (
+        <StoreDetailModal
+          store={detailStore}
+          onClose={() => setDetailStore(null)}
+          onManagePlan={() => {
+            setManagingPlanStore(detailStore);
+            setDetailStore(null);
+          }}
+          onToggleStatus={async () => {
+            await toggleStatus(detailStore);
+            setDetailStore(null);
           }}
         />
       )}

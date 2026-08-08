@@ -168,6 +168,59 @@ async function reactivateStore(storeId, adminUserId) {
   return rows[0];
 }
 
+/**
+ * Détail d'une boutique pour la fiche Super Admin (§ décidé en conversation) :
+ * effectif produit/équipe/fournisseurs + statut de supervision. Les 5
+ * requêtes sont indépendantes, lancées en parallèle (même principe que
+ * dashboard.service.js#getDashboardStats). L'équipe reprend exactement la
+ * requête de employees.service.js#listEmployees (owner + employés, avec
+ * leur rôle) plutôt que de la dupliquer sous une forme légèrement différente.
+ *
+ * "Fournisseurs" recouvre deux tables jamais confondues ailleurs dans
+ * l'app (cf. purchases.service.js) : supplier_contacts (carnet d'adresses
+ * libre, fournisseur hors plateforme) et store_supplier_links (une autre
+ * boutique de la plateforme ajoutée comme fournisseur) — comptées et
+ * renvoyées séparément pour ne pas introduire ici une confusion que le
+ * reste du code prend soin d'éviter.
+ */
+async function getStoreDetail(storeId) {
+  const storeCheck = await pool.query('SELECT id FROM stores WHERE id = $1', [storeId]);
+  if (storeCheck.rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+
+  const [productCount, team, externalSuppliers, platformSuppliers, supervisors] = await Promise.all([
+    pool.query('SELECT COUNT(*) AS count FROM products WHERE store_id = $1', [storeId]),
+    pool.query(
+      `SELECT u.id AS "userId", u.full_name AS "fullName", u.email, r.code AS "roleCode"
+       FROM user_store us
+       JOIN users u ON u.id = us.user_id
+       JOIN roles r ON r.id = us.role_id
+       WHERE us.store_id = $1
+       ORDER BY r.code, u.full_name`,
+      [storeId]
+    ),
+    pool.query('SELECT COUNT(*) AS count FROM supplier_contacts WHERE store_id = $1', [storeId]),
+    pool.query('SELECT COUNT(*) AS count FROM store_supplier_links WHERE buyer_store_id = $1', [storeId]),
+    pool.query(
+      `SELECT u.id AS "userId", u.full_name AS "fullName", u.email
+       FROM store_supervisors ss
+       JOIN users u ON u.id = ss.supervisor_user_id
+       WHERE ss.store_id = $1
+       ORDER BY u.full_name`,
+      [storeId]
+    ),
+  ]);
+
+  return {
+    productCount: parseInt(productCount.rows[0].count, 10),
+    team: team.rows,
+    externalSuppliersCount: parseInt(externalSuppliers.rows[0].count, 10),
+    platformSuppliersCount: parseInt(platformSuppliers.rows[0].count, 10),
+    supervisors: supervisors.rows,
+  };
+}
+
 async function listPlans() {
   const { rows } = await pool.query(
     `SELECT id, name, max_users_per_store AS "maxUsersPerStore",
@@ -892,6 +945,7 @@ async function deleteStoreTypeCategory(categoryId) {
 module.exports = {
   getPlatformStats,
   listAllStores,
+  getStoreDetail,
   suspendStore,
   reactivateStore,
   listPlans,

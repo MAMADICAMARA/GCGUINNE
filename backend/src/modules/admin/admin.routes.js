@@ -21,6 +21,7 @@ function checkValidation(req, res, next) {
 
 router.get('/stats', controller.stats);
 router.get('/stores', controller.listStores);
+router.get('/stores/:id/detail', [param('id').isInt()], checkValidation, controller.getStoreDetail);
 router.post('/stores/:id/suspend', [param('id').isInt()], controller.suspendStore);
 router.post('/stores/:id/reactivate', [param('id').isInt()], controller.reactivateStore);
 router.get('/plans', controller.listPlans);

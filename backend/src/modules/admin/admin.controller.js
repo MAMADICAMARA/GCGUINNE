@@ -19,6 +19,15 @@ async function listStores(req, res, next) {
   }
 }
 
+async function getStoreDetail(req, res, next) {
+  try {
+    const result = await adminService.getStoreDetail(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function suspendStore(req, res, next) {
   try {
     const result = await adminService.suspendStore(req.params.id, req.auth.userId);
@@ -286,6 +295,7 @@ async function updatePaymentSettings(req, res, next) {
 module.exports = {
   stats,
   listStores,
+  getStoreDetail,
   suspendStore,
   reactivateStore,
   listPlans,
