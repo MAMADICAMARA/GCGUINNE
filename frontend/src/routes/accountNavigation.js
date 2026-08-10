@@ -1,4 +1,4 @@
-import { Eye, Home, Settings, Store, UserCircle } from 'lucide-react';
+import { Eye, Home, MessageCircleQuestion, Settings, Store, UserCircle } from 'lucide-react';
 
 /**
  * Navigation de l'espace COMPTE — distincte de la navigation "boutique"
@@ -23,6 +23,7 @@ export const ACCOUNT_NAV_ITEMS = [
   { key: 'supervise', label: 'Superviser', path: '/account/supervise', icon: Eye, excludeEmployees: true },
   { key: 'profile', label: 'Profil', path: '/account/profile', icon: UserCircle },
   { key: 'settings', label: 'Paramètres', path: '/account/settings', icon: Settings },
+  { key: 'contact', label: 'Contactez-nous', path: '/account/contact', icon: MessageCircleQuestion },
 ];
 
 /**

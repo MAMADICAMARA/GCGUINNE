@@ -38,6 +38,10 @@ router.put(
 );
 router.get('/audit-log', controller.listAuditLogs);
 router.get('/users/search', controller.searchUsers);
+router.get('/users', controller.listAllUsers);
+// Après /users/search : sinon ":id" intercepterait "search" (ordre des
+// routes Express, la plus spécifique doit être déclarée en premier).
+router.get('/users/:id', [param('id').isInt()], checkValidation, controller.getUserDetail);
 
 // --- Assistance compte (§2 du cahier des charges "Système d'envoi
 // d'e-mails transactionnels", décidé en conversation) ---
@@ -174,6 +178,43 @@ router.post(
   ],
   checkValidation,
   controller.rejectPaymentRequest
+);
+
+// --- Messages "Contactez-nous" et liens communauté (§ décidé en
+// conversation) — la logique vit dans le module contact/, jamais dupliquée
+// ici ; ces routes ne font que l'exposer côté Super Admin. ---
+router.get('/contact-messages', controller.listContactMessages);
+router.post(
+  '/contact-messages/:id/read',
+  [param('id').isInt().withMessage('Identifiant de message invalide.')],
+  checkValidation,
+  controller.markContactMessageAsRead
+);
+router.get('/social-links', controller.listSocialLinksAdmin);
+router.post(
+  '/social-links',
+  [
+    body('label').trim().notEmpty().withMessage('Le libellé est requis.'),
+    body('url').trim().notEmpty().withMessage('Le lien est requis.'),
+  ],
+  checkValidation,
+  controller.createSocialLink
+);
+router.put(
+  '/social-links/:id',
+  [
+    param('id').isInt().withMessage('Identifiant de lien invalide.'),
+    body('label').trim().notEmpty().withMessage('Le libellé est requis.'),
+    body('url').trim().notEmpty().withMessage('Le lien est requis.'),
+  ],
+  checkValidation,
+  controller.updateSocialLink
+);
+router.delete(
+  '/social-links/:id',
+  [param('id').isInt().withMessage('Identifiant de lien invalide.')],
+  checkValidation,
+  controller.deleteSocialLink
 );
 
 router.get('/payment-settings', controller.getPaymentSettings);

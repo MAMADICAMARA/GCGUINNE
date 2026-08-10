@@ -4,6 +4,7 @@ import {
   CreditCard,
   LayoutDashboard,
   Menu,
+  MessageCircleQuestion,
   ScrollText,
   Store,
   Tags,
@@ -22,11 +23,13 @@ const NAV_ITEMS = [
   { path: '/admin/plans', label: "Plans d'abonnement", icon: CreditCard },
   { path: '/admin/payment-requests', label: 'Demandes de paiement', icon: Wallet },
   { path: '/admin/store-types', label: 'Types de boutique', icon: Tags },
+  { path: '/admin/contact-messages', label: 'Messages', icon: MessageCircleQuestion },
 ];
 
 export default function AdminLayout() {
   const { user, logout } = useAuthStore();
   const [pendingPaymentRequests, setPendingPaymentRequests] = useState(0);
+  const [newContactMessages, setNewContactMessages] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -40,6 +43,16 @@ export default function AdminLayout() {
       } catch {
         // Silencieux : un badge qui ne charge pas ne doit jamais bloquer
         // le reste de la navigation admin.
+      }
+    })();
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/admin/contact-messages', {
+          params: { status: 'NEW', limit: 1 },
+        });
+        if (!cancelled) setNewContactMessages(data.total);
+      } catch {
+        // Silencieux, même raison que ci-dessus.
       }
     })();
     return () => {
@@ -99,6 +112,11 @@ export default function AdminLayout() {
               {item.path === '/admin/payment-requests' && pendingPaymentRequests > 0 && (
                 <span className="rounded-full bg-amber-500 text-white text-xs font-semibold px-2 py-0.5">
                   {pendingPaymentRequests}
+                </span>
+              )}
+              {item.path === '/admin/contact-messages' && newContactMessages > 0 && (
+                <span className="rounded-full bg-brand-500 text-white text-xs font-semibold px-2 py-0.5">
+                  {newContactMessages}
                 </span>
               )}
             </NavLink>

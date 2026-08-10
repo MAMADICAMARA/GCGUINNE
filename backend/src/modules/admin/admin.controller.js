@@ -1,5 +1,6 @@
 const adminService = require('./admin.service');
 const subscriptionPaymentsService = require('../subscriptionPayments/subscriptionPayments.service');
+const contactService = require('../contact/contact.service');
 
 async function stats(req, res, next) {
   try {
@@ -112,6 +113,24 @@ async function activatePlanForAllFreemiumStores(req, res, next) {
 async function listAuditLogs(req, res, next) {
   try {
     const result = await adminService.listAuditLogs(req.query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listAllUsers(req, res, next) {
+  try {
+    const result = await adminService.listAllUsers(req.query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getUserDetail(req, res, next) {
+  try {
+    const result = await adminService.getUserDetail(req.params.id);
     res.json(result);
   } catch (err) {
     next(err);
@@ -274,6 +293,60 @@ async function rejectPaymentRequest(req, res, next) {
   }
 }
 
+async function listContactMessages(req, res, next) {
+  try {
+    const result = await contactService.listMessages(req.query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function markContactMessageAsRead(req, res, next) {
+  try {
+    const result = await contactService.markMessageAsRead(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listSocialLinksAdmin(req, res, next) {
+  try {
+    const links = await contactService.listSocialLinks({ activeOnly: false });
+    res.json({ links });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createSocialLink(req, res, next) {
+  try {
+    const link = await contactService.createSocialLink(req.body);
+    res.status(201).json(link);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateSocialLink(req, res, next) {
+  try {
+    const link = await contactService.updateSocialLink(req.params.id, req.body);
+    res.json(link);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteSocialLink(req, res, next) {
+  try {
+    const result = await contactService.deleteSocialLink(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getPaymentSettings(req, res, next) {
   try {
     const result = await subscriptionPaymentsService.getPaymentSettings();
@@ -305,6 +378,8 @@ module.exports = {
   deactivateStorePlan,
   activatePlanForAllFreemiumStores,
   listAuditLogs,
+  listAllUsers,
+  getUserDetail,
   searchUsers,
   updateUserEmail,
   relaunchUserVerification,
@@ -323,4 +398,10 @@ module.exports = {
   rejectPaymentRequest,
   getPaymentSettings,
   updatePaymentSettings,
+  listContactMessages,
+  markContactMessageAsRead,
+  listSocialLinksAdmin,
+  createSocialLink,
+  updateSocialLink,
+  deleteSocialLink,
 };

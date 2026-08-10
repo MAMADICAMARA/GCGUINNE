@@ -184,7 +184,13 @@ async function reactivateStore(storeId, adminUserId) {
  * reste du code prend soin d'éviter.
  */
 async function getStoreDetail(storeId) {
-  const storeCheck = await pool.query('SELECT id FROM stores WHERE id = $1', [storeId]);
+  const storeCheck = await pool.query(
+    `SELECT s.id, st.label AS "storeTypeLabel"
+     FROM stores s
+     LEFT JOIN store_types st ON st.id = s.store_type_id
+     WHERE s.id = $1`,
+    [storeId]
+  );
   if (storeCheck.rows.length === 0) {
     throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
   }
@@ -213,6 +219,7 @@ async function getStoreDetail(storeId) {
   ]);
 
   return {
+    storeTypeLabel: storeCheck.rows[0].storeTypeLabel,
     productCount: parseInt(productCount.rows[0].count, 10),
     team: team.rows,
     externalSuppliersCount: parseInt(externalSuppliers.rows[0].count, 10),
@@ -286,6 +293,104 @@ async function listAuditLogs({ page, limit, storeId, userId, action } = {}) {
     total,
     page: pageNum,
     pages: Math.max(1, Math.ceil(total / limitNum)),
+  };
+}
+
+/**
+ * Liste TOUS les utilisateurs de la plateforme (§ décidé en conversation)
+ * — jamais filtrée par défaut, contrairement à `searchUsers` ci-dessous
+ * qui reste réservée à la recherche ponctuelle (ex. choix d'un nouveau
+ * propriétaire lors d'un transfert). `ownedStoreName` donne un aperçu
+ * rapide en liste ; le détail complet des rôles (vendeur, superviseur)
+ * n'est calculé qu'à la demande, dans `getUserDetail`, pour ne pas
+ * alourdir cette requête de liste.
+ */
+async function listAllUsers({ page, limit, search } = {}) {
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.min(100, parseInt(limit, 10) || 20);
+  const offset = (pageNum - 1) * limitNum;
+
+  const conditions = [];
+  const params = [];
+  let idx = 1;
+  if (search && search.trim()) {
+    conditions.push(`(u.full_name ILIKE $${idx} OR u.email ILIKE $${idx})`);
+    params.push(`%${search.trim()}%`);
+    idx++;
+  }
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const countResult = await pool.query(`SELECT COUNT(*) AS count FROM users u ${whereClause}`, params);
+  const total = parseInt(countResult.rows[0].count, 10);
+
+  const dataParams = [...params, limitNum, offset];
+  const result = await pool.query(
+    `SELECT u.id, u.full_name AS "fullName", u.email, u.status, u.is_super_admin AS "isSuperAdmin",
+            u.created_at AS "createdAt",
+            s.id AS "ownedStoreId", s.name AS "ownedStoreName"
+     FROM users u
+     LEFT JOIN stores s ON s.owner_id = u.id
+     ${whereClause}
+     ORDER BY u.created_at DESC
+     LIMIT $${idx++} OFFSET $${idx++}`,
+    dataParams
+  );
+
+  return {
+    users: result.rows,
+    total,
+    page: pageNum,
+    pages: Math.max(1, Math.ceil(total / limitNum)),
+  };
+}
+
+/**
+ * Détail complet d'un utilisateur pour le Super Admin (§ décidé en
+ * conversation, "tenir compte de la responsabilité") : au-delà de la
+ * fiche compte, sa position réelle sur la plateforme — propriétaire d'une
+ * boutique, vendeur ou superviseur d'une ou plusieurs autres. Les trois
+ * requêtes sont indépendantes, lancées en parallèle (même principe que
+ * dashboard.service.js#getDashboardStats).
+ */
+async function getUserDetail(userId) {
+  const userResult = await pool.query(
+    `SELECT id, full_name AS "fullName", email, phone, gender, birth_date AS "birthDate",
+            status, is_super_admin AS "isSuperAdmin", created_at AS "createdAt"
+     FROM users WHERE id = $1`,
+    [userId]
+  );
+  if (userResult.rows.length === 0) {
+    throw new AppError('Utilisateur introuvable.', 404, 'USER_NOT_FOUND');
+  }
+
+  const [ownedStoreResult, membershipsResult, supervisedResult] = await Promise.all([
+    pool.query('SELECT id, name, status FROM stores WHERE owner_id = $1', [userId]),
+    // Inclut la boutique possédée (l'inscription y crée aussi une ligne
+    // user_store avec le rôle OWNER) ET tout rattachement Vendeur.
+    pool.query(
+      `SELECT s.id AS "storeId", s.name AS "storeName", r.code AS "roleCode"
+       FROM user_store us
+       JOIN stores s ON s.id = us.store_id
+       JOIN roles r ON r.id = us.role_id
+       WHERE us.user_id = $1
+       ORDER BY s.name ASC`,
+      [userId]
+    ),
+    pool.query(
+      `SELECT s.id AS "storeId", s.name AS "storeName"
+       FROM store_supervisors ss
+       JOIN stores s ON s.id = ss.store_id
+       WHERE ss.supervisor_user_id = $1
+       ORDER BY s.name ASC`,
+      [userId]
+    ),
+  ]);
+
+  return {
+    ...userResult.rows[0],
+    ownedStore: ownedStoreResult.rows[0] || null,
+    memberships: membershipsResult.rows,
+    supervisedStores: supervisedResult.rows,
   };
 }
 
@@ -955,6 +1060,8 @@ module.exports = {
   deactivateStorePlan,
   activatePlanForAllFreemiumStores,
   listAuditLogs,
+  listAllUsers,
+  getUserDetail,
   searchUsers,
   updateUserEmail,
   relaunchUserVerification,

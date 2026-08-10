@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
 import apiClient from '@/services/apiClient';
+import UserDetailModal from './UserDetailModal';
 
 /**
- * Gestion des utilisateurs (Super Admin) — recherche, promotion/révocation
- * du statut Super Admin, et transfert de propriété de boutique.
+ * Gestion des utilisateurs (Super Admin) — liste COMPLÈTE par défaut (§
+ * décidé en conversation, "que tous les utilisateurs soient affichés"),
+ * filtrable par recherche. Le clic sur une ligne ouvre UserDetailModal, qui
+ * regroupe désormais toutes les actions (auparavant en boutons de ligne).
  *
  * Le backend bloque la promotion tant que la personne possède une
  * boutique (§17_transfert_et_promotion.sql). Ce flux propose alors le
@@ -13,12 +16,16 @@ import apiClient from '@/services/apiClient';
  * boutique (rien à restituer : elle a déjà été transférée avant promotion).
  */
 export default function AdminUsersPage() {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const [selectedUser, setSelectedUser] = useState(null);
   const [busyUserId, setBusyUserId] = useState(null);
   const [transferTarget, setTransferTarget] = useState(null); // { userId, storeId, storeName, fullName }
   const [recipientQuery, setRecipientQuery] = useState('');
@@ -32,24 +39,30 @@ export default function AdminUsersPage() {
   const [emailChangeTarget, setEmailChangeTarget] = useState(null); // { userId, fullName, currentEmail }
   const [newEmailInput, setNewEmailInput] = useState('');
 
-  async function handleSearch(e) {
-    e.preventDefault();
+  async function load() {
+    setLoading(true);
     setError('');
-    setSearching(true);
     try {
-      const { data } = await apiClient.get('/admin/users/search', { params: { q: query } });
-      setResults(data.users);
+      const { data } = await apiClient.get('/admin/users', { params: { page, limit: 20, search } });
+      setUsers(data.users);
+      setPages(data.pages);
+      setTotal(data.total);
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Recherche impossible.');
+      setError(err.response?.data?.error?.message || 'Impossible de charger les utilisateurs.');
     } finally {
-      setSearching(false);
+      setLoading(false);
     }
   }
 
-  async function refreshResults() {
-    if (!query.trim()) return;
-    const { data } = await apiClient.get('/admin/users/search', { params: { q: query } });
-    setResults(data.users);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  function handleSearchSubmit(e) {
+    e.preventDefault();
+    setPage(1);
+    load();
   }
 
   async function handlePromote(user) {
@@ -59,11 +72,13 @@ export default function AdminUsersPage() {
       await apiClient.post(`/admin/users/${user.id}/promote`);
       setSuccessMessage(`${user.fullName} est maintenant Super Admin.`);
       setTimeout(() => setSuccessMessage(''), 5000);
-      await refreshResults();
+      setSelectedUser(null);
+      await load();
     } catch (err) {
       if (err.response?.data?.error?.code === 'OWNS_STORE') {
         // Blocage attendu : proposer le transfert plutôt que de juste
         // afficher une erreur sans issue.
+        setSelectedUser(null);
         setTransferTarget({
           userId: user.id,
           fullName: user.fullName,
@@ -88,7 +103,8 @@ export default function AdminUsersPage() {
       await apiClient.post(`/admin/users/${user.id}/revoke`);
       setSuccessMessage(`${user.fullName} n'est plus Super Admin.`);
       setTimeout(() => setSuccessMessage(''), 5000);
-      await refreshResults();
+      setSelectedUser(null);
+      await load();
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Révocation impossible.');
     } finally {
@@ -97,6 +113,7 @@ export default function AdminUsersPage() {
   }
 
   function openEmailChange(user) {
+    setSelectedUser(null);
     setEmailChangeTarget({ userId: user.id, fullName: user.fullName, currentEmail: user.email });
     setNewEmailInput(user.email);
     setError('');
@@ -111,7 +128,7 @@ export default function AdminUsersPage() {
       setSuccessMessage(`E-mail de ${emailChangeTarget.fullName} mis à jour.`);
       setTimeout(() => setSuccessMessage(''), 5000);
       setEmailChangeTarget(null);
-      await refreshResults();
+      await load();
     } catch (err) {
       setError(err.response?.data?.error?.message || "Impossible de changer l'e-mail.");
     } finally {
@@ -127,7 +144,8 @@ export default function AdminUsersPage() {
       await apiClient.post(`/admin/users/${user.id}/relaunch-verification`);
       setSuccessMessage(`Nouveau code de vérification envoyé à ${user.email}.`);
       setTimeout(() => setSuccessMessage(''), 5000);
-      await refreshResults();
+      setSelectedUser(null);
+      await load();
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Renvoi impossible.');
     } finally {
@@ -165,7 +183,7 @@ export default function AdminUsersPage() {
       );
       setTimeout(() => setSuccessMessage(''), 6000);
       setTransferTarget(null);
-      await refreshResults();
+      await load();
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Transfert impossible.');
     } finally {
@@ -182,7 +200,7 @@ export default function AdminUsersPage() {
         <h1 className="text-xl font-semibold text-slate-800">Utilisateurs</h1>
       </div>
       <p className="text-sm text-slate-500 mb-6">
-        Recherchez un compte, promouvez-le Super Admin, ou transférez une boutique.
+        Tous les comptes de la plateforme ({total}). Cliquez sur un utilisateur pour voir son détail.
       </p>
 
       {successMessage && (
@@ -196,178 +214,126 @@ export default function AdminUsersPage() {
         </p>
       )}
 
-      <form onSubmit={handleSearch} className="flex gap-2 mb-6 max-w-md">
+      <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-6 max-w-md">
         <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher par nom ou e-mail..."
           className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         <button
           type="submit"
-          disabled={searching}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
+          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition"
         >
-          {searching ? 'Recherche...' : 'Chercher'}
+          Filtrer
         </button>
       </form>
 
-      {results.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-          {/* Vue mobile : cartes empilées (< md) */}
-          <div className="md:hidden divide-y divide-slate-100">
-            {results.map((user) => (
-              <div key={user.id} className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{user.fullName}</p>
-                    <p className="text-xs text-slate-400 truncate">{user.email}</p>
-                    {user.ownedStoreName && (
-                      <p className="text-xs text-slate-400">Possède : {user.ownedStoreName}</p>
-                    )}
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        {loading ? (
+          <p className="px-4 py-6 text-center text-slate-400 text-sm">Chargement...</p>
+        ) : users.length === 0 ? (
+          <p className="px-4 py-6 text-center text-slate-400 text-sm">Aucun utilisateur trouvé.</p>
+        ) : (
+          <>
+            {/* Vue mobile : cartes empilées (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {users.map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => setSelectedUser(user)}
+                  className="w-full text-left p-4 hover:bg-slate-50 transition"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800 truncate">{user.fullName}</p>
+                      <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                      {user.ownedStoreName && (
+                        <p className="text-xs text-slate-400">Possède : {user.ownedStoreName}</p>
+                      )}
+                    </div>
+                    <StatusBadge status={user.status} />
                   </div>
-                  <span
-                    className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      user.status === 'ACTIVE'
-                        ? 'bg-green-50 text-green-700'
-                        : user.status === 'PENDING_VERIFICATION'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    {user.status === 'ACTIVE'
-                      ? 'Actif'
-                      : user.status === 'PENDING_VERIFICATION'
-                        ? 'Non vérifié'
-                        : 'Inactif'}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs font-medium">
-                  <button
-                    onClick={() => openEmailChange(user)}
-                    disabled={busyUserId === user.id}
-                    className="text-slate-500 disabled:opacity-50"
-                  >
-                    Changer l'e-mail
-                  </button>
-                  {user.status !== 'ACTIVE' && (
-                    <button
-                      onClick={() => handleRelaunchVerification(user)}
-                      disabled={busyUserId === user.id}
-                      className="text-brand-500 disabled:opacity-50"
-                    >
-                      Relancer la vérification
-                    </button>
-                  )}
-                  {user.isSuperAdmin ? (
-                    <button
-                      onClick={() => handleRevoke(user)}
-                      disabled={busyUserId === user.id}
-                      className="text-red-500 disabled:opacity-50"
-                    >
-                      {busyUserId === user.id ? 'Patientez...' : 'Retirer Super Admin'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handlePromote(user)}
-                      disabled={busyUserId === user.id}
-                      className="text-brand-500 disabled:opacity-50"
-                    >
-                      {busyUserId === user.id ? 'Patientez...' : 'Promouvoir Super Admin'}
-                    </button>
-                  )}
-                </div>
-                {user.isSuperAdmin && (
-                  <span className="inline-block mt-2 rounded-full bg-amber-50 text-amber-700 px-2.5 py-0.5 text-xs font-medium">
-                    Super Admin
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Vue desktop : tableau complet (dès md) */}
-          <table className="hidden md:table w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-4 py-3">Nom</th>
-                <th className="text-left px-4 py-3">E-mail</th>
-                <th className="text-left px-4 py-3">Statut</th>
-                <th className="text-left px-4 py-3">Boutique possédée</th>
-                <th className="text-right px-4 py-3">Assistance compte</th>
-                <th className="text-right px-4 py-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((user) => (
-                <tr key={user.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-800">{user.fullName}</td>
-                  <td className="px-4 py-3 text-slate-500">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        user.status === 'ACTIVE'
-                          ? 'bg-green-50 text-green-700'
-                          : user.status === 'PENDING_VERIFICATION'
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {user.status === 'ACTIVE'
-                        ? 'Actif'
-                        : user.status === 'PENDING_VERIFICATION'
-                          ? 'Non vérifié'
-                          : 'Inactif'}
+                  {user.isSuperAdmin && (
+                    <span className="inline-block mt-2 rounded-full bg-amber-50 text-amber-700 px-2.5 py-0.5 text-xs font-medium">
+                      Super Admin
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">{user.ownedStoreName || '—'}</td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <button
-                      onClick={() => openEmailChange(user)}
-                      disabled={busyUserId === user.id}
-                      className="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 mr-3"
-                    >
-                      Changer l'e-mail
-                    </button>
-                    {user.status !== 'ACTIVE' && (
-                      <button
-                        onClick={() => handleRelaunchVerification(user)}
-                        disabled={busyUserId === user.id}
-                        className="text-xs font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50"
-                      >
-                        Relancer la vérification
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {user.isSuperAdmin ? (
-                      <div className="flex items-center justify-end gap-2">
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Vue desktop : tableau complet (dès md) */}
+            <table className="hidden md:table w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-4 py-3">Nom</th>
+                  <th className="text-left px-4 py-3">E-mail</th>
+                  <th className="text-left px-4 py-3">Statut</th>
+                  <th className="text-left px-4 py-3">Boutique possédée</th>
+                  <th className="text-left px-4 py-3">Rôle plateforme</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr
+                    key={user.id}
+                    onClick={() => setSelectedUser(user)}
+                    className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer transition"
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-800">{user.fullName}</td>
+                    <td className="px-4 py-3 text-slate-500">{user.email}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={user.status} />
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{user.ownedStoreName || '—'}</td>
+                    <td className="px-4 py-3">
+                      {user.isSuperAdmin && (
                         <span className="inline-block rounded-full bg-amber-50 text-amber-700 px-2.5 py-0.5 text-xs font-medium">
                           Super Admin
                         </span>
-                        <button
-                          onClick={() => handleRevoke(user)}
-                          disabled={busyUserId === user.id}
-                          className="text-xs font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
-                        >
-                          {busyUserId === user.id ? 'Patientez...' : 'Retirer'}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handlePromote(user)}
-                        disabled={busyUserId === user.id}
-                        className="text-xs font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50"
-                      >
-                        {busyUserId === user.id ? 'Patientez...' : 'Promouvoir Super Admin'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-40"
+          >
+            Précédent
+          </button>
+          <span className="text-sm text-slate-500">
+            Page {page} sur {pages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(pages, p + 1))}
+            disabled={page >= pages}
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-40"
+          >
+            Suivant
+          </button>
         </div>
+      )}
+
+      {selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          busy={busyUserId}
+          onPromote={handlePromote}
+          onRevoke={handleRevoke}
+          onChangeEmail={openEmailChange}
+          onRelaunchVerification={handleRelaunchVerification}
+        />
       )}
 
       {/* --- Assistance compte : changer l'e-mail d'un utilisateur --- */}
@@ -484,5 +450,20 @@ export default function AdminUsersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const labels = { ACTIVE: 'Actif', PENDING_VERIFICATION: 'Non vérifié', INACTIVE: 'Inactif' };
+  const classes =
+    status === 'ACTIVE'
+      ? 'bg-green-50 text-green-700'
+      : status === 'PENDING_VERIFICATION'
+        ? 'bg-amber-50 text-amber-700'
+        : 'bg-slate-100 text-slate-500';
+  return (
+    <span className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}`}>
+      {labels[status] || status}
+    </span>
   );
 }

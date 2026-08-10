@@ -1,6 +1,7 @@
 import {
   Boxes,
   LayoutDashboard,
+  MessageCircleQuestion,
   NotebookText,
   Package,
   Receipt,
@@ -48,6 +49,7 @@ export const NAV_ITEMS = [
   { key: 'employees', label: 'Équipe', path: '/employees', icon: UserSquare2, roles: ['OWNER'] },
   { key: 'audit-log', label: "Journal d'activité", path: '/audit-log', icon: ScrollText, roles: ['OWNER'] },
   { key: 'settings', label: 'Paramètres', path: '/settings', icon: Settings, roles: ['OWNER'] },
+  { key: 'contact', label: 'Contactez-nous', path: '/contact', icon: MessageCircleQuestion, roles: ['OWNER', 'SELLER'] },
 ];
 
 export function getNavForRole(roleCode, canVoidReturn = false) {
