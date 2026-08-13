@@ -233,11 +233,34 @@ async function listPlans() {
     `SELECT id, name, max_users_per_store AS "maxUsersPerStore",
             allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
             allows_purchase_orders AS "allowsPurchaseOrders",
+            allows_marketplace AS "allowsMarketplace",
             price, created_at AS "createdAt"
      FROM subscription_plans
      ORDER BY price ASC`
   );
   return rows;
+}
+
+/**
+ * Interrupteurs plateforme génériques (§38_marketplace.sql, décidé en
+ * conversation) — la table est clé/valeur pour en accueillir d'autres à
+ * l'avenir, mais l'API reste explicite (`marketplaceEnabled`) plutôt que
+ * de renvoyer une carte clé/valeur brute au frontend.
+ */
+async function getPlatformSettings() {
+  const { rows } = await pool.query('SELECT key, value FROM platform_settings');
+  const settings = {};
+  for (const row of rows) settings[row.key] = row.value;
+  return { marketplaceEnabled: settings.marketplace_enabled ?? false };
+}
+
+async function updatePlatformSettings({ marketplaceEnabled }) {
+  await pool.query(
+    `INSERT INTO platform_settings (key, value) VALUES ('marketplace_enabled', $1)
+     ON CONFLICT (key) DO UPDATE SET value = $1`,
+    [!!marketplaceEnabled]
+  );
+  return getPlatformSettings();
 }
 
 /**
@@ -680,7 +703,7 @@ async function revokeSuperAdmin(userId, adminUserId) {
  */
 async function updatePlan(
   planId,
-  { name, price, maxUsersPerStore, allowsSupervision, allowsSuppliers, allowsPurchaseOrders },
+  { name, price, maxUsersPerStore, allowsSupervision, allowsSuppliers, allowsPurchaseOrders, allowsMarketplace },
   adminUserId
 ) {
   if (!name || !name.trim()) {
@@ -697,13 +720,24 @@ async function updatePlan(
     const { rows } = await pool.query(
       `UPDATE subscription_plans
        SET name = $2, price = $3, max_users_per_store = $4,
-           allows_supervision = $5, allows_suppliers = $6, allows_purchase_orders = $7
+           allows_supervision = $5, allows_suppliers = $6, allows_purchase_orders = $7,
+           allows_marketplace = $8
        WHERE id = $1
        RETURNING id, name, max_users_per_store AS "maxUsersPerStore",
                  allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
                  allows_purchase_orders AS "allowsPurchaseOrders",
+                 allows_marketplace AS "allowsMarketplace",
                  price, created_at AS "createdAt"`,
-      [planId, name.trim(), price, maxUsersPerStore, !!allowsSupervision, !!allowsSuppliers, !!allowsPurchaseOrders]
+      [
+        planId,
+        name.trim(),
+        price,
+        maxUsersPerStore,
+        !!allowsSupervision,
+        !!allowsSuppliers,
+        !!allowsPurchaseOrders,
+        !!allowsMarketplace,
+      ]
     );
     if (rows.length === 0) {
       throw new AppError('Plan introuvable.', 404, 'PLAN_NOT_FOUND');
@@ -1055,6 +1089,8 @@ module.exports = {
   reactivateStore,
   listPlans,
   updatePlan,
+  getPlatformSettings,
+  updatePlatformSettings,
   activateStorePlan,
   renewStorePlan,
   deactivateStorePlan,

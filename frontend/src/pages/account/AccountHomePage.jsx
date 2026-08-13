@@ -3,12 +3,32 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import apiClient from '@/services/apiClient';
 import TutorialModal from '@/pages/contact/TutorialModal';
+import MarketplaceGrid from '@/pages/marketplace/MarketplaceGrid';
 
 export default function AccountHomePage() {
   const { user, stores } = useAuthStore();
   const location = useLocation();
   const [tutorialVideos, setTutorialVideos] = useState(null);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+
+  // MARCHÉ remplace le contenu d'accueil par défaut quand l'interrupteur
+  // plateforme est activé (§5 du cahier des charges) — jamais pour un
+  // Super Admin, qui n'a pas vocation à parcourir un catalogue produit.
+  // La navigation habituelle (volet Compte) reste inchangée autour,
+  // fournie par AccountLayout, jamais touchée ici.
+  useEffect(() => {
+    if (user?.isSuperAdmin) return;
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/marketplace/status');
+        setMarketplaceEnabled(data.enabled);
+      } catch {
+        // Silencieux : en cas d'échec, on reste sur l'accueil habituel —
+        // jamais une page qui plante pour une fonctionnalité optionnelle.
+      }
+    })();
+  }, [user?.isSuperAdmin]);
 
   // Déclenchement automatique du tutoriel (§36_tutoriel.sql, décidé en
   // conversation) — jamais pour un Super Admin. `tutorialTrigger` ('login'
@@ -45,7 +65,9 @@ export default function AccountHomePage() {
         Bonjour {user?.fullName?.split(' ')[0] || ''} 👋
       </h1>
       <p className="text-sm text-slate-500 mb-6">
-        Bienvenue sur votre espace de gestion.
+        {marketplaceEnabled
+          ? 'Découvrez les produits de nos boutiques partenaires.'
+          : 'Bienvenue sur votre espace de gestion.'}
       </p>
 
       {user?.isSuperAdmin && (
@@ -62,7 +84,9 @@ export default function AccountHomePage() {
         </Link>
       )}
 
-      {stores.length === 0 ? (
+      {marketplaceEnabled ? (
+        <MarketplaceGrid />
+      ) : stores.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="text-slate-600 mb-4">
             Vous n'avez pas encore de boutique. Créez-la pour commencer à

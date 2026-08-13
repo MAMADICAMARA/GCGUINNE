@@ -104,6 +104,18 @@ export default function AdminPlansPage() {
                   )}
                   Commandes d'achat
                 </li>
+                <li
+                  className={`flex items-center gap-1.5 ${
+                    plan.allowsMarketplace ? 'text-slate-500' : 'text-slate-300'
+                  }`}
+                >
+                  {plan.allowsMarketplace ? (
+                    <Check size={14} className="text-green-600" />
+                  ) : (
+                    <X size={14} className="text-slate-300" />
+                  )}
+                  Visible sur MARCHÉ
+                </li>
               </ul>
               <div className="flex items-center gap-3">
                 <button
@@ -162,6 +174,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
   const [allowsSupervision, setAllowsSupervision] = useState(plan.allowsSupervision);
   const [allowsSuppliers, setAllowsSuppliers] = useState(plan.allowsSuppliers);
   const [allowsPurchaseOrders, setAllowsPurchaseOrders] = useState(plan.allowsPurchaseOrders);
+  const [allowsMarketplace, setAllowsMarketplace] = useState(plan.allowsMarketplace);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -177,6 +190,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
         allowsSupervision,
         allowsSuppliers,
         allowsPurchaseOrders,
+        allowsMarketplace,
       });
       onSaved();
     } catch (err) {
@@ -263,6 +277,14 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
                 onChange={(e) => setAllowsPurchaseOrders(e.target.checked)}
               />
               Autorise "Commandes d'achat" (avantage PREMIUM)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={allowsMarketplace}
+                onChange={(e) => setAllowsMarketplace(e.target.checked)}
+              />
+              Visible sur MARCHÉ (catalogue public)
             </label>
           </div>
         </div>

@@ -1,6 +1,7 @@
 const adminService = require('./admin.service');
 const subscriptionPaymentsService = require('../subscriptionPayments/subscriptionPayments.service');
 const contactService = require('../contact/contact.service');
+const marketplaceService = require('../marketplace/marketplace.service');
 
 async function stats(req, res, next) {
   try {
@@ -401,6 +402,33 @@ async function updateTutorialSettings(req, res, next) {
   }
 }
 
+async function getPlatformSettings(req, res, next) {
+  try {
+    const settings = await adminService.getPlatformSettings();
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePlatformSettings(req, res, next) {
+  try {
+    const settings = await adminService.updatePlatformSettings(req.body);
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getMarketplaceReadiness(req, res, next) {
+  try {
+    const readiness = await marketplaceService.getMarketplaceReadiness();
+    res.json(readiness);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getPaymentSettings(req, res, next) {
   try {
     const result = await subscriptionPaymentsService.getPaymentSettings();
@@ -427,6 +455,9 @@ module.exports = {
   reactivateStore,
   listPlans,
   updatePlan,
+  getPlatformSettings,
+  updatePlatformSettings,
+  getMarketplaceReadiness,
   activateStorePlan,
   renewStorePlan,
   deactivateStorePlan,

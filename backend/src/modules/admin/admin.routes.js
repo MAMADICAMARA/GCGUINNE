@@ -36,6 +36,17 @@ router.put(
   checkValidation,
   controller.updatePlan
 );
+// --- Interrupteurs plateforme (§38_marketplace.sql, décidé en
+// conversation) — contrat d'API exact demandé : GET/PUT /admin/platform-settings. ---
+router.get('/platform-settings', controller.getPlatformSettings);
+router.put(
+  '/platform-settings',
+  [body('marketplaceEnabled').isBoolean().withMessage('marketplaceEnabled doit être un booléen.')],
+  checkValidation,
+  controller.updatePlatformSettings
+);
+router.get('/marketplace-readiness', controller.getMarketplaceReadiness);
+
 router.get('/audit-log', controller.listAuditLogs);
 router.get('/users/search', controller.searchUsers);
 router.get('/users', controller.listAllUsers);

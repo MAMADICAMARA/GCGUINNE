@@ -31,6 +31,7 @@ router.use('/purchases', require('../modules/purchases/purchases.routes'));
 router.use('/cash-drawers', require('../modules/cashDrawers/cashDrawers.routes'));
 router.use('/uploads', require('../modules/uploads/uploads.routes'));
 router.use('/contact', require('../modules/contact/contact.routes'));
+router.use('/marketplace', require('../modules/marketplace/marketplace.routes'));
 
 // router.use('/users', require('../modules/users/users.routes'));
 // ----------------------------------------------------------------------

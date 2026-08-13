@@ -44,6 +44,10 @@ import AdminPlansPage from '@/pages/admin/AdminPlansPage';
 import AdminPaymentRequestsPage from '@/pages/admin/AdminPaymentRequestsPage';
 import AdminStoreTypesPage from '@/pages/admin/AdminStoreTypesPage';
 import AdminContactMessagesPage from '@/pages/admin/AdminContactMessagesPage';
+import AdminMarketplacePage from '@/pages/admin/AdminMarketplacePage';
+
+import MarketplacePage from '@/pages/marketplace/MarketplacePage';
+import RootRedirect from '@/routes/RootRedirect';
 
 export default function App() {
   return (
@@ -56,6 +60,11 @@ export default function App() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         </Route>
+
+        {/* MARCHÉ public — atteignable sans connexion, uniquement quand
+            l'interrupteur plateforme est activé (§5/§9). Route publique,
+            volontairement hors de ProtectedRoute. */}
+        <Route path="/marche" element={<MarketplacePage />} />
 
         {/* Espace COMPTE — nécessite une session, PAS de boutique active.
             C'est ici que l'utilisateur atterrit après connexion/inscription. */}
@@ -105,10 +114,11 @@ export default function App() {
             <Route path="/admin/payment-requests" element={<AdminPaymentRequestsPage />} />
             <Route path="/admin/store-types" element={<AdminStoreTypesPage />} />
             <Route path="/admin/contact-messages" element={<AdminContactMessagesPage />} />
+            <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
           </Route>
         </Route>
 
-        <Route path="/" element={<Navigate to="/account" replace />} />
+        <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<Navigate to="/account" replace />} />
       </Routes>
     </BrowserRouter>
