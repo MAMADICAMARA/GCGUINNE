@@ -1,5 +1,6 @@
 const app = require('./app');
 const env = require('./config/env');
+const authService = require('./modules/auth/auth.service');
 
 const server = app.listen(env.port, () => {
   // eslint-disable-next-line no-console
@@ -7,6 +8,33 @@ const server = app.listen(env.port, () => {
   // eslint-disable-next-line no-console
   console.log(`Environnement : ${env.nodeEnv}`);
 });
+
+/**
+ * Purge des comptes jamais vérifiés et trop anciens (§ décidé en
+ * conversation, auth.service.js#purgeStaleUnverifiedAccounts) — une fois
+ * au démarrage (nettoie aussi les comptes fantômes déjà présents avant ce
+ * correctif, jamais un simple filet pour les nouveaux uniquement), puis à
+ * intervalle régulier. Pas de dépendance externe (cron système, service
+ * planifié) : un simple `setInterval` suffit tant que l'application tourne
+ * en une seule instance longue durée, ce qui est le cas ici.
+ */
+const STALE_ACCOUNT_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
+
+async function runStaleAccountPurge() {
+  try {
+    const purged = await authService.purgeStaleUnverifiedAccounts();
+    if (purged.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`Purge des comptes non vérifiés : ${purged.length} compte(s) supprimé(s).`);
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Échec de la purge des comptes non vérifiés :', err.message);
+  }
+}
+
+runStaleAccountPurge();
+setInterval(runStaleAccountPurge, STALE_ACCOUNT_PURGE_INTERVAL_MS);
 
 /**
  * Arrêt propre du serveur (utile en conteneur / orchestrateur).

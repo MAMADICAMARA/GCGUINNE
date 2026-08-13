@@ -347,6 +347,60 @@ async function deleteSocialLink(req, res, next) {
   }
 }
 
+async function listTutorialVideosAdmin(req, res, next) {
+  try {
+    const videos = await contactService.listTutorialVideos({ activeOnly: false });
+    res.json({ videos });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createTutorialVideo(req, res, next) {
+  try {
+    const video = await contactService.createTutorialVideo(req.body);
+    res.status(201).json(video);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateTutorialVideo(req, res, next) {
+  try {
+    const video = await contactService.updateTutorialVideo(req.params.id, req.body);
+    res.json(video);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteTutorialVideo(req, res, next) {
+  try {
+    const result = await contactService.deleteTutorialVideo(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getTutorialSettings(req, res, next) {
+  try {
+    const settings = await contactService.getTutorialSettings();
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateTutorialSettings(req, res, next) {
+  try {
+    const settings = await contactService.updateTutorialSettings(req.body);
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getPaymentSettings(req, res, next) {
   try {
     const result = await subscriptionPaymentsService.getPaymentSettings();
@@ -404,4 +458,10 @@ module.exports = {
   createSocialLink,
   updateSocialLink,
   deleteSocialLink,
+  listTutorialVideosAdmin,
+  createTutorialVideo,
+  updateTutorialVideo,
+  deleteTutorialVideo,
+  getTutorialSettings,
+  updateTutorialSettings,
 };

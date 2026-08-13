@@ -58,4 +58,23 @@ router.get('/social-links', async (req, res, next) => {
   }
 });
 
+// Tutoriel (§36_tutoriel.sql, décidé en conversation) — même principe que
+// social-links ci-dessus : lecture publique restreinte aux vidéos actives,
+// gestion réservée au Super Admin sous /admin. Les deux réglages
+// d'affichage automatique sont renvoyés avec les vidéos en un seul appel :
+// c'est exactement ce dont la page d'accueil du compte a besoin pour
+// décider, juste après une connexion ou une inscription, si le modal doit
+// s'ouvrir automatiquement.
+router.get('/tutorial', async (req, res, next) => {
+  try {
+    const [videos, settings] = await Promise.all([
+      contactService.listTutorialVideos({ activeOnly: true }),
+      contactService.getTutorialSettings(),
+    ]);
+    res.json({ videos, ...settings });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

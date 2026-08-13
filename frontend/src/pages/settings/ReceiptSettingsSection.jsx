@@ -28,7 +28,7 @@ function buildPreview(form, store) {
   lines.push('═══════════════════════════════', 'REÇU DE VENTE', '═══════════════════════════════', '');
   lines.push('Commande: ORD-2026-000123');
   lines.push('Date: 03/08/2026 15:00:00');
-  if (form.showSellerName) lines.push('Vendeur: Mamadi Camara');
+  if (form.showSellerName) lines.push('Vendeur: nom complet');
   lines.push('', '───────────────────────────────', 'ARTICLES', '───────────────────────────────');
   lines.push('Produit exemple');
   lines.push(`  2 x ${formatGNF(5000)} = ${formatGNF(10000)}`);

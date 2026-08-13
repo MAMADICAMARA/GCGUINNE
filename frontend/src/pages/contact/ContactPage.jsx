@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
-import { MessageCircleQuestion, Send, MessageCircle, Phone, Mail, Globe, Users } from 'lucide-react';
+import { MessageCircleQuestion, Send, MessageCircle, Phone, Mail, Globe, Users, GraduationCap } from 'lucide-react';
+import TutorialModal from './TutorialModal';
 
 const ICONS = {
   WHATSAPP: MessageCircle,
@@ -23,6 +24,7 @@ export default function ContactPage() {
 
   const [links, setLinks] = useState([]);
   const [linksLoading, setLinksLoading] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -78,9 +80,18 @@ export default function ContactPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-center gap-3">
-        <MessageCircleQuestion className="h-6 w-6 text-brand-500" strokeWidth={1.75} />
-        <h1 className="text-2xl font-semibold text-slate-800">Contactez-nous</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <MessageCircleQuestion className="h-6 w-6 text-brand-500" strokeWidth={1.75} />
+          <h1 className="text-2xl font-semibold text-slate-800">Contactez-nous</h1>
+        </div>
+        <button
+          onClick={() => setShowTutorial(true)}
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-50 text-brand-700 text-sm font-medium px-4 py-2 hover:bg-brand-100 transition"
+        >
+          <GraduationCap size={16} strokeWidth={1.75} />
+          Voir le tutoriel
+        </button>
       </div>
       <p className="text-sm text-slate-500 -mt-4">
         Une question, un problème, une suggestion ? Écrivez-nous directement depuis cet écran.
@@ -174,6 +185,8 @@ export default function ContactPage() {
           </div>
         </section>
       )}
+
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
     </div>
   );
 }

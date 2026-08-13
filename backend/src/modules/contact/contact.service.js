@@ -157,6 +157,90 @@ async function deleteSocialLink(id) {
   return { deleted: true };
 }
 
+/**
+ * Vidéos tutoriel (§36_tutoriel.sql, décidé en conversation) — même
+ * principe générique que les liens communauté ci-dessus. `activeOnly`
+ * distingue la lecture publique (modal tutoriel, ne montre que les
+ * vidéos actives) de la lecture Super Admin (voit aussi les vidéos
+ * désactivées).
+ */
+async function listTutorialVideos({ activeOnly } = {}) {
+  const whereClause = activeOnly ? 'WHERE is_active = TRUE' : '';
+  const { rows } = await pool.query(
+    `SELECT id, title, url, display_order AS "displayOrder", is_active AS "isActive"
+     FROM platform_tutorial_videos
+     ${whereClause}
+     ORDER BY display_order ASC, id ASC`
+  );
+  return rows;
+}
+
+function validateTutorialVideoInput({ title, url }) {
+  if (!title || !title.trim()) {
+    throw new AppError('Le titre est requis.', 400, 'VALIDATION_ERROR');
+  }
+  if (!url || !url.trim()) {
+    throw new AppError('Le lien de la vidéo est requis.', 400, 'VALIDATION_ERROR');
+  }
+}
+
+async function createTutorialVideo({ title, url, displayOrder }) {
+  validateTutorialVideoInput({ title, url });
+  const { rows } = await pool.query(
+    `INSERT INTO platform_tutorial_videos (title, url, display_order)
+     VALUES ($1, $2, $3)
+     RETURNING id, title, url, display_order AS "displayOrder", is_active AS "isActive"`,
+    [title.trim(), url.trim(), displayOrder || 0]
+  );
+  return rows[0];
+}
+
+async function updateTutorialVideo(id, { title, url, displayOrder, isActive }) {
+  validateTutorialVideoInput({ title, url });
+  const { rows } = await pool.query(
+    `UPDATE platform_tutorial_videos
+     SET title = $1, url = $2, display_order = $3, is_active = $4
+     WHERE id = $5
+     RETURNING id, title, url, display_order AS "displayOrder", is_active AS "isActive"`,
+    [title.trim(), url.trim(), displayOrder || 0, isActive !== false, id]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Vidéo introuvable.', 404, 'VIDEO_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function deleteTutorialVideo(id) {
+  const { rowCount } = await pool.query('DELETE FROM platform_tutorial_videos WHERE id = $1', [id]);
+  if (rowCount === 0) {
+    throw new AppError('Vidéo introuvable.', 404, 'VIDEO_NOT_FOUND');
+  }
+  return { deleted: true };
+}
+
+/**
+ * Les deux réglages d'affichage automatique (§36_tutoriel.sql) — ligne
+ * singleton, jamais NULL une fois la migration appliquée (INSERT initial).
+ */
+async function getTutorialSettings() {
+  const { rows } = await pool.query(
+    `SELECT show_after_signup AS "showAfterSignup", show_on_login AS "showOnLogin"
+     FROM platform_tutorial_settings WHERE id = 1`
+  );
+  return rows[0];
+}
+
+async function updateTutorialSettings({ showAfterSignup, showOnLogin }) {
+  const { rows } = await pool.query(
+    `UPDATE platform_tutorial_settings
+     SET show_after_signup = $1, show_on_login = $2
+     WHERE id = 1
+     RETURNING show_after_signup AS "showAfterSignup", show_on_login AS "showOnLogin"`,
+    [!!showAfterSignup, !!showOnLogin]
+  );
+  return rows[0];
+}
+
 module.exports = {
   SUBJECT_CATEGORIES,
   createMessage,
@@ -166,4 +250,10 @@ module.exports = {
   createSocialLink,
   updateSocialLink,
   deleteSocialLink,
+  listTutorialVideos,
+  createTutorialVideo,
+  updateTutorialVideo,
+  deleteTutorialVideo,
+  getTutorialSettings,
+  updateTutorialSettings,
 };

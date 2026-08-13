@@ -1,8 +1,43 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import apiClient from '@/services/apiClient';
+import TutorialModal from '@/pages/contact/TutorialModal';
 
 export default function AccountHomePage() {
   const { user, stores } = useAuthStore();
+  const location = useLocation();
+  const [tutorialVideos, setTutorialVideos] = useState(null);
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  // Déclenchement automatique du tutoriel (§36_tutoriel.sql, décidé en
+  // conversation) — jamais pour un Super Admin. `tutorialTrigger` ('login'
+  // ou 'signup') n'est présent que juste après un vrai passage par
+  // LoginPage/VerifyEmailPage (state de navigation, jamais persistant) :
+  // ce useEffect ne se redéclenche donc pas à chaque re-render, seulement
+  // à chaque nouvelle connexion/inscription réelle. Le réglage consulté
+  // dépend du type d'événement — les deux sont indépendants, contrôlés
+  // séparément par le Super Admin (jamais une seule case à cocher pour
+  // les deux).
+  useEffect(() => {
+    const trigger = location.state?.tutorialTrigger;
+    if (!trigger || user?.isSuperAdmin) return;
+
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/contact/tutorial');
+        const shouldShow = trigger === 'signup' ? data.showAfterSignup : data.showOnLogin;
+        if (shouldShow && data.videos.length > 0) {
+          setTutorialVideos(data.videos);
+          setShowTutorial(true);
+        }
+      } catch {
+        // Silencieux : un tutoriel qui ne charge pas ne doit jamais
+        // bloquer l'arrivée sur l'espace compte.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   return (
     <div>
@@ -51,6 +86,10 @@ export default function AccountHomePage() {
             pour l'ouvrir ou en créer une autre.
           </p>
         </div>
+      )}
+
+      {showTutorial && (
+        <TutorialModal videos={tutorialVideos} onClose={() => setShowTutorial(false)} />
       )}
     </div>
   );

@@ -217,6 +217,38 @@ router.delete(
   controller.deleteSocialLink
 );
 
+// --- Vidéos tutoriel et réglages d'affichage automatique (§36_tutoriel.sql,
+// décidé en conversation) — même remarque que les liens communauté
+// ci-dessus : logique dans le module contact/, jamais dupliquée ici. ---
+router.get('/tutorial-videos', controller.listTutorialVideosAdmin);
+router.post(
+  '/tutorial-videos',
+  [
+    body('title').trim().notEmpty().withMessage('Le titre est requis.'),
+    body('url').trim().notEmpty().withMessage('Le lien de la vidéo est requis.'),
+  ],
+  checkValidation,
+  controller.createTutorialVideo
+);
+router.put(
+  '/tutorial-videos/:id',
+  [
+    param('id').isInt().withMessage('Identifiant de vidéo invalide.'),
+    body('title').trim().notEmpty().withMessage('Le titre est requis.'),
+    body('url').trim().notEmpty().withMessage('Le lien de la vidéo est requis.'),
+  ],
+  checkValidation,
+  controller.updateTutorialVideo
+);
+router.delete(
+  '/tutorial-videos/:id',
+  [param('id').isInt().withMessage('Identifiant de vidéo invalide.')],
+  checkValidation,
+  controller.deleteTutorialVideo
+);
+router.get('/tutorial-settings', controller.getTutorialSettings);
+router.put('/tutorial-settings', controller.updateTutorialSettings);
+
 router.get('/payment-settings', controller.getPaymentSettings);
 router.put(
   '/payment-settings',

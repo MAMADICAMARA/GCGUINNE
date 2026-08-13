@@ -70,7 +70,7 @@ export default function RegisterPage() {
           value={form.fullName}
           onChange={update('fullName')}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          placeholder="Mamadi Camara"
+          placeholder="nom complet"
         />
       </div>
 

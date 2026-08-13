@@ -29,6 +29,53 @@ function signToken(payload) {
   return jwt.sign(payload, env.jwt.secret, { expiresIn: env.jwt.expiresIn });
 }
 
+// Délai de grâce avant qu'un compte jamais vérifié soit considéré comme
+// abandonné (§ décidé en conversation) — assez long pour qu'une personne
+// légitime qui a raté son code (spam, oubli) puisse encore revenir le
+// lendemain, assez court pour ne pas laisser une adresse e-mail bloquée
+// indéfiniment par une faute de frappe ou une inscription malveillante au
+// nom d'un tiers.
+const UNVERIFIED_ACCOUNT_TTL_HOURS = 48;
+
+/**
+ * Libère un e-mail bloqué par un compte jamais vérifié et trop ancien —
+ * appelée à CHAQUE tentative d'inscription, avant le contrôle "e-mail déjà
+ * utilisé", pour qu'un compte fantôme ne bloque jamais indéfiniment la
+ * vraie personne propriétaire de cette adresse. Ne touche jamais un compte
+ * ACTIVE, ni un compte PENDING_VERIFICATION encore dans le délai de grâce.
+ */
+async function releaseStaleEmailIfAny(email) {
+  await pool.query(
+    `DELETE FROM users
+     WHERE LOWER(email) = LOWER($1)
+       AND status = 'PENDING_VERIFICATION'
+       AND created_at < NOW() - make_interval(hours => $2)`,
+    [email, UNVERIFIED_ACCOUNT_TTL_HOURS]
+  );
+}
+
+/**
+ * Purge périodique de TOUS les comptes jamais vérifiés et trop anciens —
+ * complète `releaseStaleEmailIfAny` ci-dessus : celle-ci ne libère qu'un
+ * e-mail précis, au moment où quelqu'un retente une inscription dessus ;
+ * celle-ci nettoie tout le reste, même les adresses sur lesquelles
+ * personne ne retente jamais rien. Appelée au démarrage puis à intervalle
+ * régulier (voir server.js), jamais depuis une route HTTP — un compte
+ * jamais vérifié n'a aucune donnée de valeur (aucune vente, aucun
+ * historique réel), contrairement à un compte actif que ce projet protège
+ * scrupuleusement contre toute suppression.
+ */
+async function purgeStaleUnverifiedAccounts() {
+  const { rows } = await pool.query(
+    `DELETE FROM users
+     WHERE status = 'PENDING_VERIFICATION'
+       AND created_at < NOW() - make_interval(hours => $1)
+     RETURNING id`,
+    [UNVERIFIED_ACCOUNT_TTL_HOURS]
+  );
+  return rows;
+}
+
 /**
  * Inscription d'un nouvel utilisateur (§4.1 du cahier des charges).
  * Ne crée QUE le compte — la création de boutique est volontairement
@@ -46,6 +93,8 @@ function signToken(payload) {
  * compte définitivement perdu le jour où son mot de passe l'est aussi.
  */
 async function register({ fullName, email, password, phone, gender, birthDate }) {
+  await releaseStaleEmailIfAny(email);
+
   const existing = await pool.query(
     'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
     [email]
@@ -444,4 +493,5 @@ module.exports = {
   resendVerificationCode,
   requestPasswordReset,
   resetPassword,
+  purgeStaleUnverifiedAccounts,
 };

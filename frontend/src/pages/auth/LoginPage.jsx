@@ -26,7 +26,13 @@ export default function LoginPage() {
       // Boutique" que l'utilisateur choisit/crée une boutique et entre
       // ensuite dans l'espace opérationnel (§4.1 vs §4.2 du cahier des
       // charges — les deux espaces sont volontairement découplés).
-      navigate('/account');
+      // `tutorialTrigger: 'login'` (§36_tutoriel.sql, décidé en
+      // conversation) : signal éphémère, jamais persistant, qui permet à
+      // AccountHomePage de proposer le tutoriel après CHAQUE connexion
+      // normale (si le Super Admin l'a activé) — sans lui, la page ne
+      // saurait pas distinguer une vraie connexion d'une simple navigation
+      // interne vers /account.
+      navigate('/account', { state: { tutorialTrigger: 'login' } });
     } catch (err) {
       // Compte existant mais pas encore vérifié (§ cahier des charges
       // "Système d'envoi d'e-mails transactionnels", décidé en

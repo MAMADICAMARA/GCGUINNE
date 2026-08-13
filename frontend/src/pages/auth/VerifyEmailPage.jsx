@@ -43,7 +43,11 @@ export default function VerifyEmailPage() {
     try {
       const { data } = await apiClient.post('/auth/verify-email', { email, code });
       setSession(data);
-      navigate('/account');
+      // `tutorialTrigger: 'signup'` (§36_tutoriel.sql, décidé en
+      // conversation) — distinct de 'login' (LoginPage.jsx) : ce
+      // déclenchement-ci reste toujours garanti la première fois,
+      // indépendamment du réglage "connexion normale".
+      navigate('/account', { state: { tutorialTrigger: 'signup' } });
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Code invalide ou expiré.');
     } finally {
