@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import apiClient from '@/services/apiClient';
+import PasswordInput from '@/components/PasswordInput';
 
 /**
  * Mot de passe oublié, en 2 étapes (§6.2 du cahier des charges "Système
@@ -107,26 +108,22 @@ export default function ForgotPasswordPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1">Nouveau mot de passe</label>
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={6}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder="Au moins 6 caractères"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1">Confirmer le mot de passe</label>
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={6}
             value={newPasswordConfirm}
             onChange={(e) => setNewPasswordConfirm(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder="Retapez le mot de passe"
           />
         </div>

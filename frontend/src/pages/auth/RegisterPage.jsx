@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
+import PasswordInput from '@/components/PasswordInput';
 
 const initialForm = {
   fullName: '',
@@ -131,13 +132,11 @@ export default function RegisterPage() {
 
       <div>
         <label className="block text-sm font-medium text-slate-600 mb-1">Mot de passe</label>
-        <input
-          type="password"
+        <PasswordInput
           required
           minLength={6}
           value={form.password}
           onChange={update('password')}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           placeholder="Au moins 6 caractères"
         />
       </div>
@@ -146,13 +145,11 @@ export default function RegisterPage() {
         <label className="block text-sm font-medium text-slate-600 mb-1">
           Confirmer le mot de passe
         </label>
-        <input
-          type="password"
+        <PasswordInput
           required
           minLength={6}
           value={form.passwordConfirm}
           onChange={update('passwordConfirm')}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           placeholder="Retapez le mot de passe"
         />
       </div>

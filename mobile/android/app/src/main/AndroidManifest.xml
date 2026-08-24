@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Photo d'un produit depuis l'appareil photo (image_picker) — la
+         galerie, elle, passe par le sélecteur système et n'a besoin
+         d'aucune permission déclarée ici sur Android récent. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="gestion_commerciale_mobile"
         android:name="${applicationName}"

@@ -9,7 +9,9 @@ class StoreRef {
     required this.name,
     required this.roleCode,
     this.city,
+    this.region,
     this.category,
+    this.status,
     this.isDefaultStore = false,
   });
 
@@ -19,7 +21,9 @@ class StoreRef {
       name: json['name'] as String,
       roleCode: json['roleCode'] as String,
       city: json['city'] as String?,
+      region: json['region'] as String?,
       category: json['category'] as String?,
+      status: json['status'] as String?,
       isDefaultStore: json['isDefaultStore'] as bool? ?? false,
     );
   }
@@ -28,7 +32,9 @@ class StoreRef {
   final String name;
   final String roleCode;
   final String? city;
+  final String? region;
   final String? category;
+  final String? status;
   final bool isDefaultStore;
 
   Map<String, dynamic> toJson() => {
@@ -36,7 +42,9 @@ class StoreRef {
         'name': name,
         'roleCode': roleCode,
         'city': city,
+        'region': region,
         'category': category,
+        'status': status,
         'isDefaultStore': isDefaultStore,
       };
 }

@@ -13,6 +13,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Localise en français les widgets Material intégrés (sélecteur de date,
+  # libellés "Annuler"/"OK"...) — sans ça, ils restent en anglais par
+  # défaut, quel que soit le texte déjà en français écrit à la main
+  # ailleurs dans l'app (repéré en testant le sélecteur de date du
+  # Tableau de bord).
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
 
   # Navigation déclarative avec gestion des redirections (équivalent de
@@ -29,8 +36,19 @@ dependencies:
   # Stockage sécurisé du jeton de session (Keychain iOS / Keystore Android).
   flutter_secure_storage: ^9.2.2
 
-  # Formatage des montants (GNF) et des dates.
-  intl: ^0.19.0
+  # Formatage des montants (GNF) et des dates. Version épinglée par
+  # flutter_localizations (SDK) — ^0.19.0 ne résout plus depuis son ajout.
+  intl: ^0.20.2
+
+  # Partage natif du reçu après une vente (miroir de la Web Share API côté
+  # web, ReceiptModal.jsx) — usage explicitement visé : envoyer le reçu
+  # par WhatsApp directement depuis la caisse.
+  share_plus: ^10.1.4
+
+  # Photo de produit depuis l'appareil photo ou la galerie — sur mobile,
+  # bien plus naturel que coller une URL d'image (seule option côté web).
+  image_picker: ^1.1.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

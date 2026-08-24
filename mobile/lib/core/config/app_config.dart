@@ -1,9 +1,14 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 /// Configuration centrale de l'application.
 ///
 /// L'URL de l'API peut être surchargée au lancement sans recompiler :
 ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.10:4000/api/v1
 ///
 /// Valeurs par défaut selon l'environnement de test :
+/// - Web (Chrome, Edge...) : le navigateur tourne sur la même machine que
+///   le backend en développement, "localhost" fonctionne directement —
+///   pas d'émulateur entre les deux, contrairement à Android.
 /// - Émulateur Android : 10.0.2.2 pointe vers le "localhost" de la machine
 ///   hôte (celle qui fait tourner le backend Node).
 /// - Simulateur iOS : "localhost" fonctionne directement, pas besoin de
@@ -15,8 +20,10 @@
 class AppConfig {
   AppConfig._();
 
-  static const String apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:4000/api/v1',
-  );
+  static const String _override = String.fromEnvironment('API_BASE_URL');
+
+  static String get apiBaseUrl {
+    if (_override.isNotEmpty) return _override;
+    return kIsWeb ? 'http://localhost:4000/api/v1' : 'http://10.0.2.2:4000/api/v1';
+  }
 }

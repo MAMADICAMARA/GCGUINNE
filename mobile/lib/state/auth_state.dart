@@ -23,6 +23,15 @@ class AuthState extends ChangeNotifier {
   List<StoreRef> stores = <StoreRef>[];
   StoreRef? activeStore;
 
+  /// Un Vendeur (jamais consulté pour l'Owner, toujours implicitement vrai)
+  /// peut-il annuler/retourner SES PROPRES ventes ?
+  /// (§25_autorisation_annulation_retour.sql). Peuplé une fois par
+  /// StoreShell à l'entrée dans l'espace boutique (GET
+  /// /stores/my-void-return-permission), jamais persisté — donnée dérivée,
+  /// toujours rechargée fraîche plutôt que risquer d'afficher une
+  /// autorisation périmée (même logique que authStore.js côté web).
+  bool canVoidReturn = false;
+
   /// true tant que la tentative de restauration de session au démarrage
   /// n'est pas terminée (voir main.dart, qui attend [restore] avant
   /// d'appeler runApp).
@@ -48,7 +57,16 @@ class AuthState extends ChangeNotifier {
     if (json['stores'] != null) {
       stores = _parseStores(json['stores']);
     }
+    // Donnée dérivée de la boutique précédente, jamais reportée sur la
+    // nouvelle — StoreShell la recharge fraîche à l'entrée dans l'espace
+    // boutique (même logique que authStore.js#applyStoreSwitch côté web).
+    canVoidReturn = false;
     _persist();
+    notifyListeners();
+  }
+
+  void setCanVoidReturn(bool value) {
+    canVoidReturn = value;
     notifyListeners();
   }
 
@@ -65,6 +83,7 @@ class AuthState extends ChangeNotifier {
     user = null;
     stores = <StoreRef>[];
     activeStore = null;
+    canVoidReturn = false;
     await _tokenStorage.clear();
     notifyListeners();
   }

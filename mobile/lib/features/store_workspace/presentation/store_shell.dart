@@ -2,25 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../../../routing/store_nav_items.dart';
 import '../../../state/auth_state.dart';
+import '../../account/data/stores_api.dart';
 
 /// Shell de l'espace BOUTIQUE — utilise un Drawer plutôt qu'une barre de
 /// navigation basse : le nombre d'entrées varie selon le rôle (jusqu'à 6
 /// pour un Owner), ce qui ne tient pas proprement dans une bottom bar
 /// standard. Miroir fonctionnel de frontend/src/layouts/DashboardLayout.jsx.
-class StoreShell extends StatelessWidget {
+class StoreShell extends StatefulWidget {
   const StoreShell({super.key, required this.child, required this.location});
 
   final Widget child;
   final String location;
 
   @override
+  State<StoreShell> createState() => _StoreShellState();
+}
+
+class _StoreShellState extends State<StoreShell> {
+  @override
+  void initState() {
+    super.initState();
+    // Miroir de VoidReturnPermissionSync.jsx — une seule requête à l'entrée
+    // dans l'espace boutique, jamais pour l'Owner (toujours implicitement
+    // autorisé), silencieuse en cas d'échec (canVoidReturn reste false).
+    final authState = context.read<AuthState>();
+    if (authState.activeStore?.roleCode == 'SELLER') {
+      _loadVoidReturnPermission();
+    }
+  }
+
+  Future<void> _loadVoidReturnPermission() async {
+    try {
+      final allowed = await context.read<StoresApi>().getMyVoidReturnPermission();
+      if (!mounted) return;
+      context.read<AuthState>().setCanVoidReturn(allowed);
+    } on ApiException catch (_) {
+      // Silencieux, même logique que côté web.
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthState>();
     final activeStore = authState.activeStore;
-    final navItems = navForRole(activeStore?.roleCode);
-    final matching = navItems.where((i) => i.path == location);
+    final navItems = navForRole(activeStore?.roleCode, canVoidReturn: authState.canVoidReturn);
+    final matching = navItems.where((i) => i.path == widget.location);
     final currentItem = matching.isEmpty ? null : matching.first;
 
     return Scaffold(
@@ -66,7 +95,7 @@ class StoreShell extends StatelessWidget {
                       ListTile(
                         leading: Icon(item.icon),
                         title: Text(item.label),
-                        selected: item.path == location,
+                        selected: item.path == widget.location,
                         onTap: () {
                           Navigator.of(context).pop();
                           context.go(item.path);
@@ -94,7 +123,7 @@ class StoreShell extends StatelessWidget {
           ),
         ),
       ),
-      body: child,
+      body: widget.child,
     );
   }
 }

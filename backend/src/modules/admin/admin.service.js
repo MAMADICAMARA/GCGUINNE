@@ -74,7 +74,7 @@ async function getPlatformStats() {
  */
 async function listAllStores({ page, limit, status, search } = {}) {
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const limitNum = Math.min(100, parseInt(limit, 10) || 20);
+  const limitNum = Math.min(100, parseInt(limit, 10) || 30);
   const offset = (pageNum - 1) * limitNum;
 
   const conditions = [];
@@ -330,7 +330,7 @@ async function listAuditLogs({ page, limit, storeId, userId, action } = {}) {
  */
 async function listAllUsers({ page, limit, search } = {}) {
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const limitNum = Math.min(100, parseInt(limit, 10) || 20);
+  const limitNum = Math.min(100, parseInt(limit, 10) || 50);
   const offset = (pageNum - 1) * limitNum;
 
   const conditions = [];
@@ -616,6 +616,7 @@ async function transferStoreOwnership(storeId, newOwnerUserId, adminUserId) {
  * contente de traduire son erreur en message clair plutôt que de laisser
  * fuir un message SQL brut.
  */
+
 async function promoteToSuperAdmin(userId) {
   try {
     // token_version incrémenté aussi ici (§A5 SOLUTIONS_AUDIT_PRODUCTION.md,

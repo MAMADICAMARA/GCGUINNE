@@ -3,11 +3,14 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/password_form_field.dart';
 import '../../../state/auth_state.dart';
 import '../data/auth_api.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.prefillEmail});
+
+  final String? prefillEmail;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -15,11 +18,18 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  late final TextEditingController _emailController;
   final _passwordController = TextEditingController();
 
   bool _loading = false;
   String? _error;
+  bool _needsVerification = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(text: widget.prefillEmail ?? '');
+  }
 
   @override
   void dispose() {
@@ -34,6 +44,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       _loading = true;
       _error = null;
+      _needsVerification = false;
     });
 
     try {
@@ -46,6 +57,12 @@ class _LoginPageState extends State<LoginPage> {
       context.read<AuthState>().setSession(result);
       context.go('/account');
     } on ApiException catch (err) {
+      // Compte existant mais pas encore vérifié (§6.1 du cahier des
+      // charges) — même logique que LoginPage.jsx : proposer directement
+      // le lien vers l'écran de code plutôt qu'un message sans issue.
+      if (err.code == 'EMAIL_NOT_VERIFIED') {
+        setState(() => _needsVerification = true);
+      }
       setState(() => _error = err.message);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -99,9 +116,30 @@ class _LoginPageState extends State<LoginPage> {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: Colors.red.shade100),
                               ),
-                              child: Text(
-                                _error!,
-                                style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _error!,
+                                    style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                                  ),
+                                  if (_needsVerification) ...[
+                                    const SizedBox(height: 6),
+                                    InkWell(
+                                      onTap: () => context.push('/verify-email', extra: _emailController.text.trim()),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Entrer le code de vérification',
+                                            style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
+                                          ),
+                                          Icon(Icons.chevron_right, size: 16, color: Colors.red.shade700),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -114,14 +152,21 @@ class _LoginPageState extends State<LoginPage> {
                                 (v == null || !v.contains('@')) ? 'E-mail invalide' : null,
                           ),
                           const SizedBox(height: 12),
-                          TextFormField(
+                          PasswordFormField(
                             controller: _passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(labelText: 'Mot de passe'),
+                            labelText: 'Mot de passe',
                             validator: (v) =>
                                 (v == null || v.isEmpty) ? 'Mot de passe requis' : null,
                           ),
-                          const SizedBox(height: 20),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 32)),
+                              onPressed: () => context.push('/forgot-password'),
+                              child: const Text('Mot de passe oublié ?', style: TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           FilledButton(
                             onPressed: _loading ? null : _submit,
                             child: _loading

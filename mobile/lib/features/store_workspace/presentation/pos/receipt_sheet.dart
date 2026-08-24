@@ -1,0 +1,74 @@
+import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../data/pos_models.dart';
+
+/// Miroir (partiel) de ReceiptModal.jsx — affiche le reçu texte renvoyé par
+/// le serveur et propose de le partager (miroir du bouton "Partager", Web
+/// Share API côté web — usage visé : envoyer le reçu par WhatsApp
+/// directement depuis la caisse). Le téléchargement PDF et la facture PDF
+/// du web restent à faire dans une passe dédiée : générer/manipuler un PDF
+/// côté mobile est un sujet à part entière, pas une simple adaptation.
+Future<void> showReceiptSheet(BuildContext context, OrderResult order) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    isDismissible: false,
+    enableDrag: false,
+    builder: (context) => _ReceiptSheet(order: order),
+  );
+}
+
+class _ReceiptSheet extends StatelessWidget {
+  const _ReceiptSheet({required this.order});
+
+  final OrderResult order;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const Text('Vente validée', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const SizedBox(height: 12),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
+                  child: Text(order.receiptText, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Share.share(order.receiptText, subject: 'Reçu ${order.orderNumber}'),
+                    child: const Text('Partager'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Fermer'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

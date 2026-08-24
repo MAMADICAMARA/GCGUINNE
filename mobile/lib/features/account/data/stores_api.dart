@@ -1,5 +1,6 @@
 import '../../../core/network/api_client.dart';
 import '../../../state/models/store.dart';
+import '../../store_workspace/data/settings_models.dart';
 
 /// Miroir de la logique de MyStorePage.jsx côté web.
 class StoresApi {
@@ -17,18 +18,147 @@ class StoresApi {
 
   /// POST /stores — création d'une boutique (première ou supplémentaire).
   /// Retourne { token, activeStore, stores } : la nouvelle boutique
-  /// devient immédiatement active (cf. §4.2 du cahier des charges).
+  /// devient immédiatement active (cf. §4.2 du cahier des charges). Miroir
+  /// exact du contrat serveur (stores.routes.js) — name et storeTypeId
+  /// requis, le reste optionnel.
   Future<Map<String, dynamic>> create({
     required String name,
-    String? category,
+    required int storeTypeId,
+    String? country,
+    String? region,
     String? city,
+    String? address,
     String? phone,
   }) {
     return _client.post('/stores', data: {
       'name': name,
-      if (category != null && category.isNotEmpty) 'category': category,
+      'storeTypeId': storeTypeId,
+      if (country != null && country.isNotEmpty) 'country': country,
+      if (region != null && region.isNotEmpty) 'region': region,
       if (city != null && city.isNotEmpty) 'city': city,
+      if (address != null && address.isNotEmpty) 'address': address,
       if (phone != null && phone.isNotEmpty) 'phone': phone,
     });
   }
+
+  /// GET /stores/plan-status — plan EFFECTIF de la boutique active (jamais
+  /// mis en cache côté serveur : recalculé à chaque appel, un abonnement
+  /// pouvant expirer en cours de session). Owner uniquement.
+  Future<PlanStatus> getPlanStatus() async {
+    final data = await _client.get('/stores/plan-status');
+    return PlanStatus.fromJson(data);
+  }
+
+  Future<String?> getSupervisionCode() async {
+    final data = await _client.get('/stores/supervision-code');
+    return data['supervisionCode'] as String?;
+  }
+
+  Future<String> regenerateSupervisionCode() async {
+    final data = await _client.post('/stores/supervision-code/regenerate');
+    return data['supervisionCode'] as String;
+  }
+
+  Future<String?> getSupplierCode() async {
+    final data = await _client.get('/stores/supplier-code');
+    return data['supplierCode'] as String?;
+  }
+
+  Future<String> regenerateSupplierCode() async {
+    final data = await _client.post('/stores/supplier-code/regenerate');
+    return data['supplierCode'] as String;
+  }
+
+  /// {storeTypeId, storeTypeLabel} — les deux sont null tant qu'aucun type
+  /// n'a été adopté (boutiques créées avant cette fonctionnalité).
+  Future<(int?, String?)> getStoreType() async {
+    final data = await _client.get('/stores/type');
+    return (data['storeTypeId'] as int?, data['storeTypeLabel'] as String?);
+  }
+
+  Future<List<StoreTypeOption>> listStoreTypes() async {
+    final data = await _client.get('/stores/types');
+    final raw = data['storeTypes'] as List<dynamic>? ?? [];
+    return raw.map((e) => StoreTypeOption.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Définitif une fois enregistré — pas de re-changement possible côté
+  /// serveur (cf. stores.service.js#adoptStoreType).
+  Future<Map<String, dynamic>> adoptStoreType(int storeTypeId) {
+    return _client.put('/stores/type', data: {'storeTypeId': storeTypeId});
+  }
+
+  Future<String?> getLogo() async {
+    final data = await _client.get('/stores/logo');
+    return data['logoUrl'] as String?;
+  }
+
+  Future<String?> updateLogo(String? logoUrl) async {
+    final data = await _client.put('/stores/logo', data: {'logoUrl': logoUrl});
+    return data['logoUrl'] as String?;
+  }
+
+  Future<(ReceiptSettings, StoreContactInfo)> getReceiptSettings() async {
+    final data = await _client.get('/stores/receipt-settings');
+    return (ReceiptSettings.fromJson(data), StoreContactInfo.fromJson(data['store'] as Map<String, dynamic>? ?? {}));
+  }
+
+  Future<ReceiptSettings> updateReceiptSettings(ReceiptSettings settings) async {
+    final data = await _client.put('/stores/receipt-settings', data: settings.toJson());
+    return ReceiptSettings.fromJson(data);
+  }
+
+  Future<bool> getVoidReturnSettings() async {
+    final data = await _client.get('/stores/void-return-settings');
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> updateVoidReturnSettings(bool allowAllSellers) async {
+    final data = await _client.put('/stores/void-return-settings', data: {'allowAllSellers': allowAllSellers});
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  /// GET /stores/my-void-return-permission — accessible à tout rôle,
+  /// mais n'a d'intérêt qu'à interroger pour un Vendeur (l'Owner peut
+  /// toujours annuler/retourner, cf. stores.service.js#canUserVoidReturn).
+  Future<bool> getMyVoidReturnPermission() async {
+    final data = await _client.get('/stores/my-void-return-permission');
+    return data['allowed'] as bool? ?? false;
+  }
+}
+
+class PlanStatus {
+  const PlanStatus({
+    required this.planName,
+    required this.isEffectivelyFreemium,
+    required this.allowsSupervision,
+    required this.allowsSuppliers,
+    required this.allowsPurchaseOrders,
+    required this.maxUsersPerStore,
+    required this.planExpiresAt,
+    required this.expired,
+    required this.previousPlanName,
+  });
+
+  factory PlanStatus.fromJson(Map<String, dynamic> json) => PlanStatus(
+        planName: json['planName'] as String? ?? '',
+        isEffectivelyFreemium: json['isEffectivelyFreemium'] as bool? ?? true,
+        allowsSupervision: json['allowsSupervision'] as bool? ?? false,
+        allowsSuppliers: json['allowsSuppliers'] as bool? ?? false,
+        allowsPurchaseOrders: json['allowsPurchaseOrders'] as bool? ?? false,
+        maxUsersPerStore: json['maxUsersPerStore'] as int? ?? 1,
+        planExpiresAt: json['planExpiresAt'] as String?,
+        expired: json['expired'] as bool? ?? false,
+        previousPlanName: json['previousPlanName'] as String?,
+      );
+
+  final String planName;
+  final bool isEffectivelyFreemium;
+  final bool allowsSupervision;
+  final bool allowsSuppliers;
+  final bool allowsPurchaseOrders;
+  final int maxUsersPerStore;
+  final String? planExpiresAt;
+  final bool expired;
+  final String? previousPlanName;
 }
