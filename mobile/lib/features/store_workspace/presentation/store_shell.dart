@@ -31,6 +31,8 @@ class _StoreShellState extends State<StoreShell> {
     final authState = context.read<AuthState>();
     if (authState.activeStore?.roleCode == 'SELLER') {
       _loadVoidReturnPermission();
+      _loadEditPricePermission();
+      _loadAddProductPermission();
     }
   }
 
@@ -44,11 +46,37 @@ class _StoreShellState extends State<StoreShell> {
     }
   }
 
+  // Miroir de EditPricePermissionSync.jsx (§39_prix_editable_vente.sql).
+  Future<void> _loadEditPricePermission() async {
+    try {
+      final allowed = await context.read<StoresApi>().getMyEditPricePermission();
+      if (!mounted) return;
+      context.read<AuthState>().setCanEditPrice(allowed);
+    } on ApiException catch (_) {
+      // Silencieux, même logique que côté web.
+    }
+  }
+
+  // Miroir de AddProductPermissionSync.jsx (§40_autorisation_ajout_produit.sql).
+  Future<void> _loadAddProductPermission() async {
+    try {
+      final allowed = await context.read<StoresApi>().getMyAddProductPermission();
+      if (!mounted) return;
+      context.read<AuthState>().setCanAddProduct(allowed);
+    } on ApiException catch (_) {
+      // Silencieux, même logique que côté web.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthState>();
     final activeStore = authState.activeStore;
-    final navItems = navForRole(activeStore?.roleCode, canVoidReturn: authState.canVoidReturn);
+    final navItems = navForRole(
+      activeStore?.roleCode,
+      canVoidReturn: authState.canVoidReturn,
+      canAddProduct: authState.canAddProduct,
+    );
     final matching = navItems.where((i) => i.path == widget.location);
     final currentItem = matching.isEmpty ? null : matching.first;
 

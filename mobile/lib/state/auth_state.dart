@@ -32,6 +32,17 @@ class AuthState extends ChangeNotifier {
   /// autorisation périmée (même logique que authStore.js côté web).
   bool canVoidReturn = false;
 
+  /// Un Vendeur (jamais consulté pour l'Owner, toujours implicitement vrai)
+  /// peut-il saisir un prix de vente différent du prix catalogue à la
+  /// Caisse ? (§39_prix_editable_vente.sql). Même précédent exact que
+  /// canVoidReturn ci-dessus.
+  bool canEditPrice = false;
+
+  /// Un Vendeur (jamais consulté pour l'Owner, toujours implicitement vrai)
+  /// peut-il créer un nouveau produit ? (§40_autorisation_ajout_produit.sql).
+  /// Même précédent exact que canVoidReturn/canEditPrice ci-dessus.
+  bool canAddProduct = false;
+
   /// true tant que la tentative de restauration de session au démarrage
   /// n'est pas terminée (voir main.dart, qui attend [restore] avant
   /// d'appeler runApp).
@@ -61,12 +72,24 @@ class AuthState extends ChangeNotifier {
     // nouvelle — StoreShell la recharge fraîche à l'entrée dans l'espace
     // boutique (même logique que authStore.js#applyStoreSwitch côté web).
     canVoidReturn = false;
+    canEditPrice = false;
+    canAddProduct = false;
     _persist();
     notifyListeners();
   }
 
   void setCanVoidReturn(bool value) {
     canVoidReturn = value;
+    notifyListeners();
+  }
+
+  void setCanEditPrice(bool value) {
+    canEditPrice = value;
+    notifyListeners();
+  }
+
+  void setCanAddProduct(bool value) {
+    canAddProduct = value;
     notifyListeners();
   }
 
@@ -84,6 +107,8 @@ class AuthState extends ChangeNotifier {
     stores = <StoreRef>[];
     activeStore = null;
     canVoidReturn = false;
+    canEditPrice = false;
+    canAddProduct = false;
     await _tokenStorage.clear();
     notifyListeners();
   }

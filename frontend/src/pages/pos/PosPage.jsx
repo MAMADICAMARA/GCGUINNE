@@ -28,7 +28,12 @@ function getEffectiveUnitPrice(product, quantity) {
 
 export default function PosPage() {
   const activeStore = useAuthStore((s) => s.activeStore);
+  const authCanEditPrice = useAuthStore((s) => s.canEditPrice);
   const isFrozen = useIsPlanFrozen();
+  // Owner : toujours. Vendeur : seulement si autorisé
+  // (§39_prix_editable_vente.sql, décidé en conversation) — même
+  // précédent que canVoidReturn, revérifié de toute façon côté serveur.
+  const canEditPrice = activeStore?.roleCode === 'OWNER' || authCanEditPrice;
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -107,10 +112,20 @@ export default function PosPage() {
     setError('');
     setCart((prev) => {
       const newQuantity = currentQtyInCart + requestedQty;
-      const unitPrice = getEffectiveUnitPrice(product, newQuantity);
+      const normalUnitPrice = getEffectiveUnitPrice(product, newQuantity);
       return existing
         ? prev.map((item) =>
-            item.productId === product.id ? { ...item, quantity: newQuantity, unitPrice } : item
+            item.productId === product.id
+              ? {
+                  ...item,
+                  quantity: newQuantity,
+                  // Si un prix négocié a déjà été saisi pour cet article,
+                  // on le garde — sauf s'il retombe sous le nouveau
+                  // plancher (le palier de quantité a pu changer avec la
+                  // quantité), auquel cas on le relève juste ce qu'il faut.
+                  unitPrice: item.priceEdited ? Math.max(item.unitPrice, normalUnitPrice) : normalUnitPrice,
+                }
+              : item
           )
         : [
             ...prev,
@@ -118,7 +133,8 @@ export default function PosPage() {
               productId: product.id,
               productName: product.name,
               quantity: newQuantity,
-              unitPrice,
+              unitPrice: normalUnitPrice,
+              priceEdited: false,
               availableStock: product.quantity,
             },
           ];
@@ -144,13 +160,45 @@ export default function PosPage() {
     }
     setError('');
     setCart((prev) =>
+      prev.map((item) => {
+        if (item.productId !== productId) return item;
+        const normalUnitPrice = product ? getEffectiveUnitPrice(product, newQty) : item.unitPrice;
+        return {
+          ...item,
+          quantity: newQty,
+          unitPrice: item.priceEdited ? Math.max(item.unitPrice, normalUnitPrice) : normalUnitPrice,
+        };
+      })
+    );
+  }
+
+  // Prix négocié à la vente (§39_prix_editable_vente.sql, décidé en
+  // conversation) — jamais en dessous du prix normal (catalogue ou palier
+  // de quantité en vigueur) pour un Vendeur ; l'Owner n'a lui aucun
+  // plancher. Volontairement PAS clampé au fil de la saisie ici (ça
+  // empêcherait de taper "15000" si le plancher est "12000" — le premier
+  // "1" serait aussitôt remonté à 12000) : on laisse taper librement, et
+  // on n'empêche que la validation finale si le prix retombe sous le
+  // plancher (voir cartHasPriceBelowFloor plus bas). Le serveur revérifie
+  // de toute façon ce même plancher indépendamment à la création de la
+  // vente — seule autorité réelle.
+  function updateUnitPrice(productId, rawValue) {
+    const parsed = Math.max(0, parseFloat(rawValue) || 0);
+    setCart((prev) =>
       prev.map((item) =>
-        item.productId === productId
-          ? { ...item, quantity: newQty, unitPrice: product ? getEffectiveUnitPrice(product, newQty) : item.unitPrice }
-          : item
+        item.productId === productId ? { ...item, unitPrice: parsed, priceEdited: true } : item
       )
     );
   }
+
+  function normalUnitPriceFor(item) {
+    const product = products.find((p) => p.id === item.productId);
+    return product ? getEffectiveUnitPrice(product, item.quantity) : item.unitPrice;
+  }
+
+  const cartHasPriceBelowFloor =
+    activeStore?.roleCode !== 'OWNER' &&
+    cart.some((item) => item.priceEdited && item.unitPrice < normalUnitPriceFor(item));
 
   const subtotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountAmount = (subtotal * discountPercent) / 100;
@@ -161,6 +209,10 @@ export default function PosPage() {
   function handleOpenCustomerStep() {
     if (cart.length === 0) {
       setError('Le panier est vide.');
+      return;
+    }
+    if (cartHasPriceBelowFloor) {
+      setError('Un prix saisi est inférieur au prix minimum autorisé — corrigez-le avant de continuer.');
       return;
     }
     setError('');
@@ -179,7 +231,11 @@ export default function PosPage() {
 
     try {
       const { data } = await apiClient.post('/orders', {
-        items: cart.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        items: cart.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          ...(item.priceEdited ? { unitPrice: item.unitPrice } : {}),
+        })),
         paymentMethod,
         discount: discountAmount,
         tax: taxAmount,
@@ -367,6 +423,31 @@ export default function PosPage() {
                         {formatGNF(item.quantity * item.unitPrice)}
                       </span>
                     </div>
+                    {canEditPrice && (
+                      <div className="flex items-center justify-between gap-2 mt-1.5">
+                        <span className="text-xs text-slate-400">Prix unitaire négocié</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.unitPrice}
+                          onChange={(e) => updateUnitPrice(item.productId, e.target.value)}
+                          className={`w-24 text-right rounded border text-xs py-0.5 px-1.5 bg-white ${
+                            activeStore?.roleCode !== 'OWNER' &&
+                            item.priceEdited &&
+                            item.unitPrice < normalUnitPriceFor(item)
+                              ? 'border-red-300 text-red-600'
+                              : 'border-slate-300'
+                          }`}
+                        />
+                      </div>
+                    )}
+                    {activeStore?.roleCode !== 'OWNER' &&
+                      item.priceEdited &&
+                      item.unitPrice < normalUnitPriceFor(item) && (
+                        <p className="text-[11px] text-red-500 mt-1">
+                          Minimum : {formatGNF(normalUnitPriceFor(item))}
+                        </p>
+                      )}
                   </div>
                 ))}
               </div>
@@ -427,7 +508,7 @@ export default function PosPage() {
 
             <button
               onClick={handleOpenCustomerStep}
-              disabled={cart.length === 0 || submitting || isFrozen}
+              disabled={cart.length === 0 || submitting || isFrozen || cartHasPriceBelowFloor}
               title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
               className="w-full mt-4 rounded-lg bg-brand-500 text-white text-sm font-semibold py-3 hover:bg-brand-600 transition disabled:opacity-50"
             >

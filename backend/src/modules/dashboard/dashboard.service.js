@@ -181,4 +181,58 @@ async function getDashboardStats(storeId, roleCode, userId, date) {
   return stats;
 }
 
-module.exports = { getDashboardStats };
+/**
+ * Rapport de recette (§ décidé en conversation) : total encaissé et détail
+ * par produit (quantité vendue, recette générée) sur une période choisie —
+ * contrairement au tableau de bord (aujourd'hui + top 5 sur 30 jours
+ * glissants), ici la période est libre et TOUS les produits apparaissent,
+ * triés par recette décroissante.
+ *
+ * Même règle de visibilité que getDashboardStats ci-dessus : un Vendeur ne
+ * voit que SES PROPRES ventes (o.seller_id), l'Owner seul voit toute la
+ * boutique. Les commandes VOIDED sont exclues, et la quantité/recette d'un
+ * article déjà partiellement retourné est calculée nette du retour
+ * (`quantity - returned_quantity`) — même logique que le tableau de bord,
+ * jamais le montant brut avant retour.
+ *
+ * [startDate, endDate] au format AAAA-MM-JJ, tous deux inclusifs. Défaut :
+ * aujourd'hui si aucune date n'est fournie.
+ */
+async function getSalesReport(storeId, roleCode, userId, options = {}) {
+  const isOwner = roleCode === 'OWNER';
+  const today = new Date().toISOString().slice(0, 10);
+  const startDay = options.startDate || today;
+  const endDay = options.endDate || startDay;
+  const rangeStart = `${startDay}T00:00:00.000Z`;
+  const rangeEnd = new Date(new Date(`${endDay}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+  const sellerFilter = isOwner ? '' : 'AND o.seller_id = $4';
+  const params = isOwner ? [storeId, rangeStart, rangeEnd] : [storeId, rangeStart, rangeEnd, userId];
+
+  const { rows } = await pool.query(
+    `SELECT p.id AS "productId", p.name AS "productName",
+            SUM(oi.quantity - oi.returned_quantity) AS "quantitySold",
+            SUM((oi.quantity - oi.returned_quantity) * oi.unit_price) AS "revenue"
+     FROM order_items oi
+     JOIN orders o ON o.id = oi.order_id
+     JOIN products p ON p.id = oi.product_id
+     WHERE o.store_id = $1 AND o.status != 'VOIDED'
+       AND o.created_at >= $2 AND o.created_at < $3
+       ${sellerFilter}
+     GROUP BY p.id, p.name
+     ORDER BY revenue DESC`,
+    params
+  );
+
+  const products = rows.map((r) => ({
+    productId: r.productId,
+    productName: r.productName,
+    quantitySold: parseInt(r.quantitySold, 10),
+    revenue: Number(r.revenue),
+  }));
+  const totalRevenue = products.reduce((sum, p) => sum + p.revenue, 0);
+
+  return { startDate: startDay, endDate: endDay, totalRevenue, products };
+}
+
+module.exports = { getDashboardStats, getSalesReport };

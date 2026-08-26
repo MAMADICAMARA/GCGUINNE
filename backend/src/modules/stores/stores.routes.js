@@ -308,6 +308,116 @@ router.get('/my-void-return-permission', requireActiveStore, async (req, res, ne
   }
 });
 
+// --- Prix de vente modifiable à la Caisse par un Vendeur
+// (§39_prix_editable_vente.sql, décidé en conversation) — même schéma
+// exact que l'autorisation d'annulation/retour ci-dessus.
+router.get(
+  '/edit-price-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.getEditPriceSettings(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.put(
+  '/edit-price-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [body('allowAllSellers').isBoolean().withMessage('Valeur invalide.')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updateEditPriceSettings(
+        req.auth.storeId,
+        req.body.allowAllSellers,
+        req.auth.userId
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Accessible à TOUTE l'équipe — c'est ce que le Vendeur interroge lui-même
+// pour savoir s'il peut modifier le prix à la Caisse.
+router.get('/my-edit-price-permission', requireActiveStore, async (req, res, next) => {
+  try {
+    const allowed = await storesService.canUserEditPrice(
+      req.auth.storeId,
+      req.auth.userId,
+      req.auth.roleCode
+    );
+    res.json({ allowed });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Ajout de produit par un Vendeur (§40_autorisation_ajout_produit.sql,
+// décidé en conversation) — même schéma exact que les deux autorisations
+// ci-dessus.
+router.get(
+  '/add-product-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.getAddProductSettings(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.put(
+  '/add-product-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [body('allowAllSellers').isBoolean().withMessage('Valeur invalide.')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updateAddProductSettings(
+        req.auth.storeId,
+        req.body.allowAllSellers,
+        req.auth.userId
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Accessible à TOUTE l'équipe — c'est ce que le Vendeur interroge lui-même
+// pour savoir s'il peut ajouter un produit.
+router.get('/my-add-product-permission', requireActiveStore, async (req, res, next) => {
+  try {
+    const allowed = await storesService.canUserAddProduct(
+      req.auth.storeId,
+      req.auth.userId,
+      req.auth.roleCode
+    );
+    res.json({ allowed });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Journal d'activité de la boutique ACTIVE (§ décidé en conversation,
 // en même temps que la supervision enrichie) --- Réservé au Owner : voir
 // ce que font ses employés (ventes, annulations, ajustements de stock...),

@@ -53,7 +53,7 @@ class SettingsPage extends StatelessWidget {
           _SectionGroup(
             title: 'VENTES',
             description: 'Règles applicables à la caisse et aux reçus.',
-            children: [_VoidReturnSection(), _ReceiptSettingsSection()],
+            children: [_VoidReturnSection(), _EditPriceSection(), _AddProductSection(), _ReceiptSettingsSection()],
           ),
           _SectionGroup(title: 'FACTURATION', children: [_BillingStub()]),
         ],
@@ -775,9 +775,9 @@ class _VoidReturnSectionState extends State<_VoidReturnSection> {
       await context.read<EmployeesApi>().updateVoidReturnPermission(seller.userId, value);
       if (!mounted) return;
       setState(() {
-        _sellers = _sellers.map((s) => s.userId == seller.userId
-            ? Employee(userId: s.userId, fullName: s.fullName, email: s.email, phone: s.phone, roleCode: s.roleCode, isDefaultStore: s.isDefaultStore, joinedAt: s.joinedAt, canVoidReturn: value)
-            : s).toList();
+        _sellers = _sellers
+            .map((s) => s.userId == seller.userId ? s.copyWith(canVoidReturn: value) : s)
+            .toList();
       });
     } on ApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
@@ -824,6 +824,265 @@ class _VoidReturnSectionState extends State<_VoidReturnSection> {
                     for (final seller in _sellers)
                       CheckboxListTile(
                         value: _allowAllSellers || seller.canVoidReturn,
+                        onChanged: (_allowAllSellers || _savingSellerId == seller.userId) ? null : (value) => _toggleSeller(seller, value ?? false),
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        dense: true,
+                        title: Text(seller.fullName, style: TextStyle(fontSize: 13, color: _allowAllSellers ? Colors.grey.shade400 : Colors.black87)),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Miroir exact de _VoidReturnSection ci-dessus, pour le prix modifiable à
+/// la Caisse (§39_prix_editable_vente.sql, décidé en conversation).
+class _EditPriceSection extends StatefulWidget {
+  const _EditPriceSection();
+
+  @override
+  State<_EditPriceSection> createState() => _EditPriceSectionState();
+}
+
+class _EditPriceSectionState extends State<_EditPriceSection> {
+  bool _allowAllSellers = false;
+  List<Employee> _sellers = [];
+  bool _loading = true;
+  String? _error;
+  bool _savingAll = false;
+  int? _savingSellerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final storesApi = context.read<StoresApi>();
+      final employeesApi = context.read<EmployeesApi>();
+      final results = await Future.wait([storesApi.getEditPriceSettings(), employeesApi.list()]);
+      if (!mounted) return;
+      setState(() {
+        _allowAllSellers = results[0] as bool;
+        _sellers = (results[1] as List<Employee>).where((e) => e.roleCode == 'SELLER').toList();
+        _loading = false;
+      });
+    } on ApiException catch (err) {
+      if (mounted) {
+        setState(() {
+          _error = err.message;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleAll(bool value) async {
+    setState(() => _savingAll = true);
+    try {
+      final result = await context.read<StoresApi>().updateEditPriceSettings(value);
+      if (!mounted) return;
+      setState(() => _allowAllSellers = result);
+    } on ApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _savingAll = false);
+    }
+  }
+
+  Future<void> _toggleSeller(Employee seller, bool value) async {
+    setState(() => _savingSellerId = seller.userId);
+    try {
+      await context.read<EmployeesApi>().updateEditPricePermission(seller.userId, value);
+      if (!mounted) return;
+      setState(() {
+        _sellers = _sellers
+            .map((s) => s.userId == seller.userId ? s.copyWith(canEditPrice: value) : s)
+            .toList();
+      });
+    } on ApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _savingSellerId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle(
+            title: 'Prix de vente modifiable par un vendeur',
+            subtitle: 'Par défaut, seul vous pouvez modifier le prix à la Caisse. Vous pouvez autoriser vos vendeurs à négocier un prix avec le client — jamais en dessous du prix normalement appliqué.',
+            icon: Icons.sell_outlined,
+            iconColor: AppColors.teal,
+          ),
+          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+          if (_loading)
+            Text('Chargement...', style: TextStyle(color: Colors.grey.shade400, fontSize: 13))
+          else ...[
+            CheckboxListTile(
+              value: _allowAllSellers,
+              onChanged: _savingAll ? null : (value) => _toggleAll(value ?? false),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              title: const Text('Autoriser tous les vendeurs', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+            if (_sellers.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Text("Aucun vendeur dans l'équipe pour l'instant.", style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Column(
+                  children: [
+                    for (final seller in _sellers)
+                      CheckboxListTile(
+                        value: _allowAllSellers || seller.canEditPrice,
+                        onChanged: (_allowAllSellers || _savingSellerId == seller.userId) ? null : (value) => _toggleSeller(seller, value ?? false),
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        dense: true,
+                        title: Text(seller.fullName, style: TextStyle(fontSize: 13, color: _allowAllSellers ? Colors.grey.shade400 : Colors.black87)),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Miroir exact de _EditPriceSection ci-dessus, pour la création de
+/// produit par un vendeur (§40_autorisation_ajout_produit.sql, décidé en
+/// conversation) — couvre UNIQUEMENT la création ; modifier/désactiver un
+/// produit existant reste strictement réservé au Owner (voir
+/// products/product_detail_sheet.dart).
+class _AddProductSection extends StatefulWidget {
+  const _AddProductSection();
+
+  @override
+  State<_AddProductSection> createState() => _AddProductSectionState();
+}
+
+class _AddProductSectionState extends State<_AddProductSection> {
+  bool _allowAllSellers = false;
+  List<Employee> _sellers = [];
+  bool _loading = true;
+  String? _error;
+  bool _savingAll = false;
+  int? _savingSellerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final storesApi = context.read<StoresApi>();
+      final employeesApi = context.read<EmployeesApi>();
+      final results = await Future.wait([storesApi.getAddProductSettings(), employeesApi.list()]);
+      if (!mounted) return;
+      setState(() {
+        _allowAllSellers = results[0] as bool;
+        _sellers = (results[1] as List<Employee>).where((e) => e.roleCode == 'SELLER').toList();
+        _loading = false;
+      });
+    } on ApiException catch (err) {
+      if (mounted) {
+        setState(() {
+          _error = err.message;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleAll(bool value) async {
+    setState(() => _savingAll = true);
+    try {
+      final result = await context.read<StoresApi>().updateAddProductSettings(value);
+      if (!mounted) return;
+      setState(() => _allowAllSellers = result);
+    } on ApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _savingAll = false);
+    }
+  }
+
+  Future<void> _toggleSeller(Employee seller, bool value) async {
+    setState(() => _savingSellerId = seller.userId);
+    try {
+      await context.read<EmployeesApi>().updateAddProductPermission(seller.userId, value);
+      if (!mounted) return;
+      setState(() {
+        _sellers = _sellers
+            .map((s) => s.userId == seller.userId ? s.copyWith(canAddProduct: value) : s)
+            .toList();
+      });
+    } on ApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _savingSellerId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle(
+            title: 'Création de produit par un vendeur',
+            subtitle: 'Par défaut, seul vous pouvez ajouter un produit au catalogue. Vous pouvez autoriser vos vendeurs à créer eux-mêmes de nouveaux produits — modifier ou désactiver une fiche existante reste toujours réservé à vous seul.',
+            icon: Icons.add_box_outlined,
+            iconColor: AppColors.emerald,
+          ),
+          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+          if (_loading)
+            Text('Chargement...', style: TextStyle(color: Colors.grey.shade400, fontSize: 13))
+          else ...[
+            CheckboxListTile(
+              value: _allowAllSellers,
+              onChanged: _savingAll ? null : (value) => _toggleAll(value ?? false),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              title: const Text('Autoriser tous les vendeurs', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+            if (_sellers.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Text("Aucun vendeur dans l'équipe pour l'instant.", style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Column(
+                  children: [
+                    for (final seller in _sellers)
+                      CheckboxListTile(
+                        value: _allowAllSellers || seller.canAddProduct,
                         onChanged: (_allowAllSellers || _savingSellerId == seller.userId) ? null : (value) => _toggleSeller(seller, value ?? false),
                         contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,

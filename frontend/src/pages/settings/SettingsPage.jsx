@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import ReceiptSettingsSection from './ReceiptSettingsSection';
 import SalesVoidReturnPermissionSection from './SalesVoidReturnPermissionSection';
+import SalesEditPricePermissionSection from './SalesEditPricePermissionSection';
+import AddProductPermissionSection from './AddProductPermissionSection';
 import SubscriptionSection from './SubscriptionSection';
 import StoreLogoSection from './StoreLogoSection';
 
@@ -313,6 +315,8 @@ export default function SettingsPage() {
 
       <SectionGroup title="Ventes" description="Règles applicables à la caisse et aux reçus.">
         <SalesVoidReturnPermissionSection />
+        <SalesEditPricePermissionSection />
+        <AddProductPermissionSection />
         <ReceiptSettingsSection />
       </SectionGroup>
 

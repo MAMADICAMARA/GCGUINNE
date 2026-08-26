@@ -558,6 +558,119 @@ async function canUserVoidReturn(storeId, userId, roleCode) {
   return rows[0].allowAllSellers || rows[0].individualPermission;
 }
 
+/**
+ * Réglage global "autoriser TOUS les vendeurs à modifier le prix de vente à
+ * la Caisse" (§39_prix_editable_vente.sql, décidé en conversation). Vendeur
+ * par vendeur, voir plutôt employees.service.js#setSellerEditPricePermission.
+ * Même principe exact que getVoidReturnSettings ci-dessus.
+ */
+async function getEditPriceSettings(storeId) {
+  const { rows } = await pool.query(
+    'SELECT allow_all_sellers_edit_price AS "allowAllSellers" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updateEditPriceSettings(storeId, allowAllSellers, actingUserId) {
+  const { rows } = await pool.query(
+    'UPDATE stores SET allow_all_sellers_edit_price = $1 WHERE id = $2 RETURNING id',
+    [Boolean(allowAllSellers), storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'UPDATE_EDIT_PRICE_SETTINGS', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ allowAllSellers: Boolean(allowAllSellers) })]
+  );
+  return { allowAllSellers: Boolean(allowAllSellers) };
+}
+
+/**
+ * Est-ce que cet utilisateur peut saisir un prix de vente différent du
+ * prix catalogue à la Caisse ? Owner : toujours (et jamais soumis au
+ * plancher — voir orders.service.js#createOrder). Vendeur : soit le flag
+ * global ci-dessus, soit sa permission individuelle
+ * (`user_store.permissions->>'canEditPrice'`) — et dans ce cas, toujours
+ * borné par le prix qui serait normalement appliqué (catalogue ou palier
+ * de quantité), jamais en dessous.
+ */
+async function canUserEditPrice(storeId, userId, roleCode) {
+  if (roleCode === 'OWNER') return true;
+
+  const { rows } = await pool.query(
+    `SELECT s.allow_all_sellers_edit_price AS "allowAllSellers",
+            COALESCE((us.permissions->>'canEditPrice')::boolean, false) AS "individualPermission"
+     FROM stores s
+     JOIN user_store us ON us.store_id = s.id
+     WHERE s.id = $1 AND us.user_id = $2`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) return false;
+  return rows[0].allowAllSellers || rows[0].individualPermission;
+}
+
+/**
+ * Réglage global "autoriser TOUS les vendeurs à ajouter un produit"
+ * (§40_autorisation_ajout_produit.sql, décidé en conversation). Vendeur
+ * par vendeur, voir plutôt employees.service.js#setSellerAddProductPermission.
+ * Même principe exact que getVoidReturnSettings/getEditPriceSettings.
+ */
+async function getAddProductSettings(storeId) {
+  const { rows } = await pool.query(
+    'SELECT allow_all_sellers_add_product AS "allowAllSellers" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updateAddProductSettings(storeId, allowAllSellers, actingUserId) {
+  const { rows } = await pool.query(
+    'UPDATE stores SET allow_all_sellers_add_product = $1 WHERE id = $2 RETURNING id',
+    [Boolean(allowAllSellers), storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'UPDATE_ADD_PRODUCT_SETTINGS', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ allowAllSellers: Boolean(allowAllSellers) })]
+  );
+  return { allowAllSellers: Boolean(allowAllSellers) };
+}
+
+/**
+ * Est-ce que cet utilisateur peut créer un nouveau produit ? Owner :
+ * toujours. Vendeur : soit le flag global ci-dessus, soit sa permission
+ * individuelle (`user_store.permissions->>'canAddProduct'`). Ne couvre QUE
+ * la création (POST /products) — modifier/désactiver/ajuster le stock
+ * d'un produit existant reste strictement réservé au Owner, jamais vérifié
+ * ici.
+ */
+async function canUserAddProduct(storeId, userId, roleCode) {
+  if (roleCode === 'OWNER') return true;
+
+  const { rows } = await pool.query(
+    `SELECT s.allow_all_sellers_add_product AS "allowAllSellers",
+            COALESCE((us.permissions->>'canAddProduct')::boolean, false) AS "individualPermission"
+     FROM stores s
+     JOIN user_store us ON us.store_id = s.id
+     WHERE s.id = $1 AND us.user_id = $2`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) return false;
+  return rows[0].allowAllSellers || rows[0].individualPermission;
+}
+
 module.exports = {
   listMyStores,
   createStore,
@@ -576,4 +689,10 @@ module.exports = {
   getVoidReturnSettings,
   updateVoidReturnSettings,
   canUserVoidReturn,
+  getEditPriceSettings,
+  updateEditPriceSettings,
+  canUserEditPrice,
+  getAddProductSettings,
+  updateAddProductSettings,
+  canUserAddProduct,
 };

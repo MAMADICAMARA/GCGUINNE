@@ -40,4 +40,16 @@ class EmployeesApi {
   /// du réglage global "tous les vendeurs" (StoresApi.updateVoidReturnSettings).
   Future<void> updateVoidReturnPermission(int userId, bool canVoidReturn) =>
       _client.patch('/employees/$userId/permissions', data: {'canVoidReturn': canVoidReturn});
+
+  /// Autorisation individuelle de modification du prix à la Caisse
+  /// (§39_prix_editable_vente.sql) — indépendant du réglage global
+  /// (StoresApi.updateEditPriceSettings).
+  Future<void> updateEditPricePermission(int userId, bool canEditPrice) =>
+      _client.patch('/employees/$userId/permissions', data: {'canEditPrice': canEditPrice});
+
+  /// Autorisation individuelle de création de produit
+  /// (§40_autorisation_ajout_produit.sql) — indépendant du réglage global
+  /// (StoresApi.updateAddProductSettings).
+  Future<void> updateAddProductPermission(int userId, bool canAddProduct) =>
+      _client.patch('/employees/$userId/permissions', data: {'canAddProduct': canAddProduct});
 }

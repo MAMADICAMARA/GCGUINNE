@@ -13,6 +13,8 @@ class Employee {
     required this.isDefaultStore,
     required this.joinedAt,
     required this.canVoidReturn,
+    required this.canEditPrice,
+    required this.canAddProduct,
   });
 
   factory Employee.fromJson(Map<String, dynamic> json) => Employee(
@@ -24,6 +26,8 @@ class Employee {
         isDefaultStore: json['isDefaultStore'] as bool? ?? false,
         joinedAt: json['joinedAt'] as String?,
         canVoidReturn: json['canVoidReturn'] as bool? ?? false,
+        canEditPrice: json['canEditPrice'] as bool? ?? false,
+        canAddProduct: json['canAddProduct'] as bool? ?? false,
       );
 
   final int userId;
@@ -34,6 +38,21 @@ class Employee {
   final bool isDefaultStore;
   final String? joinedAt;
   final bool canVoidReturn;
+  final bool canEditPrice;
+  final bool canAddProduct;
+
+  Employee copyWith({bool? canVoidReturn, bool? canEditPrice, bool? canAddProduct}) => Employee(
+        userId: userId,
+        fullName: fullName,
+        email: email,
+        phone: phone,
+        roleCode: roleCode,
+        isDefaultStore: isDefaultStore,
+        joinedAt: joinedAt,
+        canVoidReturn: canVoidReturn ?? this.canVoidReturn,
+        canEditPrice: canEditPrice ?? this.canEditPrice,
+        canAddProduct: canAddProduct ?? this.canAddProduct,
+      );
 }
 
 class EmployeeInvitation {

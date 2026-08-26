@@ -9,6 +9,7 @@ import {
   Settings,
   ShoppingBag,
   ShoppingCart,
+  TrendingUp,
   Truck,
   UserSquare2,
   Users,
@@ -32,12 +33,21 @@ export const NAV_ITEMS = [
   // c'est le Vendeur qui ouvre/ferme sa propre caisse ; le Owner voit en
   // plus l'historique de toute l'équipe (scoping fait côté serveur).
   { key: 'cash-drawers', label: 'Historique des caisses', path: '/cash-drawers', icon: Wallet, roles: ['OWNER', 'SELLER'] },
-  { key: 'products', label: 'Produits', path: '/products', icon: Package, roles: ['OWNER'] },
+  // Visible au Vendeur uniquement si le Owner l'a autorisé à créer des
+  // produits (§40_autorisation_ajout_produit.sql, décidé en conversation)
+  // — voir getNavForRole ci-dessous. Un Vendeur qui accède à cette page
+  // n'y voit que la création, jamais modifier/désactiver/réactiver un
+  // produit existant (ProductsPage.jsx, réservé au Owner).
+  { key: 'products', label: 'Produits', path: '/products', icon: Package, roles: ['OWNER', 'SELLER'] },
   { key: 'stock', label: 'Stock', path: '/stock', icon: Boxes, roles: ['OWNER'] },
   // Visible au Vendeur uniquement si le Owner l'a autorisé à
   // annuler/retourner ses propres ventes (§25_autorisation_annulation_retour.sql,
   // décidé en conversation) — voir getNavForRole ci-dessous.
   { key: 'sales', label: 'Historique des ventes', path: '/sales', icon: Receipt, roles: ['OWNER', 'SELLER'] },
+  // Visible à toute l'équipe (§ décidé en conversation) — le backend
+  // scope déjà les données à SES PROPRES ventes pour un Vendeur, même
+  // règle que le Tableau de bord (dashboard.service.js#getSalesReport).
+  { key: 'sales-report', label: 'Recette', path: '/reports/sales', icon: TrendingUp, roles: ['OWNER', 'SELLER'] },
   { key: 'customers', label: 'Clients', path: '/customers', icon: Users, roles: ['OWNER', 'SELLER'] },
   { key: 'notes', label: 'Notes', path: '/notes', icon: NotebookText, roles: ['OWNER', 'SELLER'] },
   { key: 'suppliers', label: 'Fournisseurs', path: '/suppliers', icon: Truck, roles: ['OWNER'] },
@@ -52,10 +62,11 @@ export const NAV_ITEMS = [
   { key: 'contact', label: 'Contactez-nous', path: '/contact', icon: MessageCircleQuestion, roles: ['OWNER', 'SELLER'] },
 ];
 
-export function getNavForRole(roleCode, canVoidReturn = false) {
+export function getNavForRole(roleCode, canVoidReturn = false, canAddProduct = false) {
   return NAV_ITEMS.filter((item) => {
     if (!item.roles.includes(roleCode)) return false;
     if (item.key === 'sales' && roleCode === 'SELLER') return canVoidReturn;
+    if (item.key === 'products' && roleCode === 'SELLER') return canAddProduct;
     return true;
   });
 }

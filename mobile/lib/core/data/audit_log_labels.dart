@@ -21,8 +21,16 @@ const List<AuditActionGroup> kAuditActionGroups = [
     'ADD_EMPLOYEE_EXISTING_ACCOUNT',
     'REMOVE_EMPLOYEE',
     'SET_SELLER_VOID_RETURN_PERMISSION',
+    'SET_SELLER_EDIT_PRICE_PERMISSION',
+    'SET_SELLER_ADD_PRODUCT_PERMISSION',
+    'UPDATE_ADD_PRODUCT_SETTINGS',
   ]),
-  AuditActionGroup('Ventes', ['VOID_ORDER', 'RETURN_ORDER_ITEM', 'UPDATE_VOID_RETURN_SETTINGS']),
+  AuditActionGroup('Ventes', [
+    'VOID_ORDER',
+    'RETURN_ORDER_ITEM',
+    'UPDATE_VOID_RETURN_SETTINGS',
+    'UPDATE_EDIT_PRICE_SETTINGS',
+  ]),
   AuditActionGroup('Achats', [
     'CREATE_PURCHASE_ORDER',
     'RECEIVE_PURCHASE_ORDER',
@@ -63,6 +71,10 @@ const Map<String, String> kAuditActionLabels = {
   'RETURN_ORDER_ITEM': 'Article retourné',
   'UPDATE_VOID_RETURN_SETTINGS': "Réglage d'autorisation modifié",
   'SET_SELLER_VOID_RETURN_PERMISSION': 'Autorisation vendeur modifiée',
+  'UPDATE_EDIT_PRICE_SETTINGS': 'Réglage prix modifiable mis à jour',
+  'SET_SELLER_EDIT_PRICE_PERMISSION': 'Autorisation prix vendeur modifiée',
+  'UPDATE_ADD_PRODUCT_SETTINGS': 'Réglage ajout produit mis à jour',
+  'SET_SELLER_ADD_PRODUCT_PERMISSION': 'Autorisation ajout produit modifiée',
   'SUBMIT_PAYMENT_REQUEST': 'Paiement déclaré',
   'REJECT_PAYMENT_REQUEST': 'Paiement refusé',
   'CREATE_PURCHASE_ORDER': "Commande d'achat créée",
@@ -107,6 +119,14 @@ String? formatAuditLogDetails(String action, Map<String, dynamic>? details) {
       return details['allowAllSellers'] == true ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
     case 'SET_SELLER_VOID_RETURN_PERMISSION':
       return details['canVoidReturn'] == true ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'UPDATE_EDIT_PRICE_SETTINGS':
+      return details['allowAllSellers'] == true ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
+    case 'SET_SELLER_EDIT_PRICE_PERMISSION':
+      return details['canEditPrice'] == true ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'UPDATE_ADD_PRODUCT_SETTINGS':
+      return details['allowAllSellers'] == true ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
+    case 'SET_SELLER_ADD_PRODUCT_PERMISSION':
+      return details['canAddProduct'] == true ? 'Vendeur autorisé' : 'Autorisation retirée';
     case 'SUBMIT_PAYMENT_REQUEST':
       return [
         str(details['planName']),

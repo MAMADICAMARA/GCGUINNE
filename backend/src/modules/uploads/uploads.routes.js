@@ -47,7 +47,7 @@ router.post(
       if (!err) return next();
       if (err.code === 'LIMIT_FILE_SIZE') {
         return next(
-          new AppError('Le fichier dépasse la taille maximale autorisée (2 Mo).', 400, 'FILE_TOO_LARGE')
+          new AppError('Le fichier dépasse la taille maximale autorisée (8 Mo).', 400, 'FILE_TOO_LARGE')
         );
       }
       return next(new AppError('Fichier invalide.', 400, 'INVALID_FILE_TYPE'));

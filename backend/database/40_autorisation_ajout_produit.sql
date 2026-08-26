@@ -1,0 +1,21 @@
+-- ============================================================================
+-- 40_autorisation_ajout_produit.sql
+-- Domaine : Ajout de produit au catalogue par un Vendeur autorisé
+-- ============================================================================
+-- Décidé en conversation : jusqu'ici, ajouter un produit (POST /products)
+-- était strictement réservé au Owner (§4.3). Le Owner peut désormais
+-- autoriser ses Vendeurs à créer eux-mêmes de nouveaux produits — cette
+-- autorisation couvre UNIQUEMENT la création (POST /products) ; modifier
+-- une fiche existante, la désactiver/réactiver ou ajuster son stock
+-- restent strictement réservés au Owner, inchangés.
+--
+-- Même schéma exact que 25_autorisation_annulation_retour.sql et
+-- 39_prix_editable_vente.sql : soit TOUS les vendeurs d'un coup (ce flag),
+-- soit vendeur par vendeur (colonne `permissions` JSONB de `user_store` —
+-- clé `canAddProduct`).
+--
+-- FALSE par défaut : une boutique qui n'a jamais rien configuré garde le
+-- comportement actuel (Owner seul).
+-- ============================================================================
+
+ALTER TABLE stores ADD COLUMN allow_all_sellers_add_product BOOLEAN NOT NULL DEFAULT false;

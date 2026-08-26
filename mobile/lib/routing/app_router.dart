@@ -22,6 +22,7 @@ import '../features/store_workspace/presentation/notes_page.dart';
 import '../features/store_workspace/presentation/products_page.dart';
 import '../features/store_workspace/presentation/purchases_page.dart';
 import '../features/store_workspace/presentation/sales_history_page.dart';
+import '../features/store_workspace/presentation/sales_report_page.dart';
 import '../features/store_workspace/presentation/settings_page.dart';
 import '../features/store_workspace/presentation/stock_page.dart';
 import '../features/marketplace/data/marketplace_api.dart';
@@ -127,6 +128,7 @@ GoRouter buildAppRouter(AuthState authState, MarketplaceApi marketplaceApi) {
           GoRoute(path: '/workspace/products', builder: (context, state) => const ProductsPage()),
           GoRoute(path: '/workspace/stock', builder: (context, state) => const StockPage()),
           GoRoute(path: '/workspace/sales', builder: (context, state) => const SalesHistoryPage()),
+          GoRoute(path: '/workspace/reports/sales', builder: (context, state) => const SalesReportPage()),
           GoRoute(
             path: '/workspace/customers',
             builder: (context, state) => const CustomersPage(),

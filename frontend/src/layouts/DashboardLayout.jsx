@@ -5,10 +5,12 @@ import { useAuthStore } from '@/store/authStore';
 import { getNavForRole } from '@/routes/navigation';
 import PlanStatusBanner from '@/components/PlanStatusBanner';
 import VoidReturnPermissionSync from '@/components/VoidReturnPermissionSync';
+import EditPricePermissionSync from '@/components/EditPricePermissionSync';
+import AddProductPermissionSync from '@/components/AddProductPermissionSync';
 
 export default function DashboardLayout() {
-  const { user, activeStore, stores, logout, canVoidReturn } = useAuthStore();
-  const navItems = getNavForRole(activeStore?.roleCode, canVoidReturn);
+  const { user, activeStore, stores, logout, canVoidReturn, canAddProduct } = useAuthStore();
+  const navItems = getNavForRole(activeStore?.roleCode, canVoidReturn, canAddProduct);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -127,6 +129,8 @@ export default function DashboardLayout() {
 
         <main className="flex-1 p-4 md:p-6 overflow-y-auto">
           <VoidReturnPermissionSync roleCode={activeStore?.roleCode} />
+          <EditPricePermissionSync roleCode={activeStore?.roleCode} />
+          <AddProductPermissionSync roleCode={activeStore?.roleCode} />
           <PlanStatusBanner roleCode={activeStore?.roleCode} />
           <Outlet />
         </main>

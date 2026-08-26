@@ -51,7 +51,13 @@ class OrdersApi {
     SelectedCustomer? customer,
   }) async {
     final data = await _client.post('/orders', data: {
-      'items': items.map((item) => {'productId': item.productId, 'quantity': item.quantity}).toList(),
+      'items': items
+          .map((item) => {
+                'productId': item.productId,
+                'quantity': item.quantity,
+                if (item.priceEdited) 'unitPrice': item.unitPrice,
+              })
+          .toList(),
       'paymentMethod': paymentMethod,
       'discount': discount,
       'tax': tax,

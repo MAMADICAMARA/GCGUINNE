@@ -1,6 +1,6 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
-const { getReceiptSettings } = require('../stores/stores.service');
+const { getReceiptSettings, canUserEditPrice } = require('../stores/stores.service');
 const { getEffectiveUnitPrice } = require('../products/products.service');
 
 /**
@@ -10,10 +10,11 @@ const { getEffectiveUnitPrice } = require('../products/products.service');
  * - Transaction : all-or-nothing
  * @param {number} storeId - Identifiant de la boutique
  * @param {number} userId - Identifiant du vendeur
- * @param {object} orderData - {customerId?, newCustomer?: {name, phone}, items: [{productId, quantity}], discount, paymentMethod, tax, amountPaid?}
+ * @param {string} roleCode - Rôle de l'auteur de la vente ('OWNER'/'SELLER')
+ * @param {object} orderData - {customerId?, newCustomer?: {name, phone}, items: [{productId, quantity, unitPrice?}], discount, paymentMethod, tax, amountPaid?}
  * @returns {object} {orderId, orderNumber, totalAmount, items, receipt}
  */
-async function createOrder(storeId, userId, orderData) {
+async function createOrder(storeId, userId, roleCode, orderData) {
   const client = await pool.connect();
 
   // Ces deux variables ne survivent qu'à la portée de la transaction ;
@@ -38,6 +39,32 @@ async function createOrder(storeId, userId, orderData) {
     }
     if (orderData.items.some((i) => !Number.isInteger(i.quantity) || i.quantity <= 0)) {
       throw new AppError('Quantité invalide', 400);
+    }
+    if (
+      orderData.items.some(
+        (i) => i.unitPrice != null && (typeof i.unitPrice !== 'number' || i.unitPrice < 0)
+      )
+    ) {
+      throw new AppError('Prix invalide', 400);
+    }
+
+    // Prix négocié à la vente (§39_prix_editable_vente.sql, décidé en
+    // conversation) — vérifié UNE fois pour toute la commande (même
+    // vendeur pour tous les articles), pas item par item. Le Owner peut
+    // toujours saisir un prix personnalisé ; un Vendeur doit d'abord être
+    // explicitement autorisé (voir stores.service.js#canUserEditPrice).
+    // Le plancher (jamais en dessous du prix normal) est vérifié plus bas,
+    // article par article, une fois le prix effectif de chacun connu.
+    const hasCustomPrice = orderData.items.some((i) => i.unitPrice != null);
+    if (hasCustomPrice && roleCode !== 'OWNER') {
+      const allowed = await canUserEditPrice(storeId, userId, roleCode);
+      if (!allowed) {
+        throw new AppError(
+          "Vous n'avez pas la permission de modifier le prix de vente.",
+          403,
+          'FORBIDDEN'
+        );
+      }
     }
 
     // Récupérer les produits et vérifier le stock (première vérification,
@@ -88,7 +115,25 @@ async function createOrder(storeId, userId, orderData) {
         );
       }
 
-      const unitPrice = getEffectiveUnitPrice(product.selling_price, tiersByProduct[item.productId], item.quantity);
+      const normalUnitPrice = getEffectiveUnitPrice(
+        product.selling_price,
+        tiersByProduct[item.productId],
+        item.quantity
+      );
+      let unitPrice = normalUnitPrice;
+      if (item.unitPrice != null) {
+        // Plancher = le prix qui aurait été normalement appliqué (prix
+        // catalogue OU prix du palier de quantité en vigueur — le prix
+        // dégressif §31 n'est jamais contourné par ce plancher). Jamais
+        // vérifié pour le Owner, toujours pour un Vendeur.
+        if (roleCode !== 'OWNER' && item.unitPrice < normalUnitPrice) {
+          throw new AppError(
+            `Le prix saisi pour "${product.name}" ne peut pas être inférieur au prix normal (${normalUnitPrice}).`,
+            400
+          );
+        }
+        unitPrice = item.unitPrice;
+      }
       const lineTotal = item.quantity * unitPrice;
       totalAmount += lineTotal;
       preparedItems.push({

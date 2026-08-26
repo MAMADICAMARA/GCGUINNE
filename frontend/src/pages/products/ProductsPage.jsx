@@ -16,6 +16,11 @@ import ProductDetail from './ProductDetail';
 export default function ProductsPage() {
   const activeStore = useAuthStore((s) => s.activeStore);
   const isFrozen = useIsPlanFrozen();
+  // Un Vendeur autorisé à créer des produits (§40_autorisation_ajout_produit.sql,
+  // décidé en conversation) atteint désormais cette page, mais ne peut
+  // QUE créer — modifier/désactiver/réactiver un produit existant reste
+  // strictement réservé au Owner, jamais couvert par cette autorisation.
+  const isOwner = activeStore?.roleCode === 'OWNER';
 
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -253,14 +258,16 @@ export default function ProductsPage() {
                       <button onClick={() => handleViewDetail(product)} className="text-slate-500">
                         Détails
                       </button>
-                      <button
-                        onClick={() => handleEdit(product)}
-                        disabled={isFrozen}
-                        className="text-brand-500 disabled:opacity-40"
-                      >
-                        Modifier
-                      </button>
-                      {product.status === 'ACTIVE' ? (
+                      {isOwner && (
+                        <button
+                          onClick={() => handleEdit(product)}
+                          disabled={isFrozen}
+                          className="text-brand-500 disabled:opacity-40"
+                        >
+                          Modifier
+                        </button>
+                      )}
+                      {isOwner && (product.status === 'ACTIVE' ? (
                         <button
                           onClick={() => handleDeactivate(product)}
                           disabled={isFrozen}
@@ -276,7 +283,7 @@ export default function ProductsPage() {
                         >
                           Réactiver
                         </button>
-                      )}
+                      ))}
                     </div>
                   </div>
                 );
@@ -334,15 +341,17 @@ export default function ProductsPage() {
                         >
                           Détails
                         </button>
-                        <button
-                          onClick={() => handleEdit(product)}
-                          disabled={isFrozen}
-                          title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
-                          className="text-xs font-medium text-brand-500 hover:text-brand-600 mr-3 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          Modifier
-                        </button>
-                        {product.status === 'ACTIVE' ? (
+                        {isOwner && (
+                          <button
+                            onClick={() => handleEdit(product)}
+                            disabled={isFrozen}
+                            title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
+                            className="text-xs font-medium text-brand-500 hover:text-brand-600 mr-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Modifier
+                          </button>
+                        )}
+                        {isOwner && (product.status === 'ACTIVE' ? (
                           <button
                             onClick={() => handleDeactivate(product)}
                             disabled={isFrozen}
@@ -360,7 +369,7 @@ export default function ProductsPage() {
                           >
                             Réactiver
                           </button>
-                        )}
+                        ))}
                       </td>
                     </tr>
                   );

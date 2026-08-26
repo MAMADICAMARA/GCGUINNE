@@ -32,7 +32,9 @@ async function listEmployees(storeId) {
     `SELECT u.id AS "userId", u.full_name AS "fullName", u.email, u.phone,
             r.code AS "roleCode", us.is_default_store AS "isDefaultStore",
             us.created_at AS "joinedAt",
-            COALESCE((us.permissions->>'canVoidReturn')::boolean, false) AS "canVoidReturn"
+            COALESCE((us.permissions->>'canVoidReturn')::boolean, false) AS "canVoidReturn",
+            COALESCE((us.permissions->>'canEditPrice')::boolean, false) AS "canEditPrice",
+            COALESCE((us.permissions->>'canAddProduct')::boolean, false) AS "canAddProduct"
      FROM user_store us
      JOIN users u ON u.id = us.user_id
      JOIN roles r ON r.id = us.role_id
@@ -326,6 +328,80 @@ async function setSellerVoidReturnPermission(storeId, targetUserId, canVoidRetur
   return { userId: targetUserId, canVoidReturn: Boolean(canVoidReturn) };
 }
 
+/**
+ * Autorise (ou pas) UN vendeur précis à modifier le prix de vente à la
+ * Caisse (§39_prix_editable_vente.sql, décidé en conversation) — même
+ * principe exact que setSellerVoidReturnPermission ci-dessus, indépendant
+ * du flag global "tous les vendeurs" (stores.service.js#updateEditPriceSettings).
+ * Le plancher (jamais en dessous du prix normal) est vérifié à la vente
+ * elle-même (orders.service.js#createOrder), pas ici.
+ */
+async function setSellerEditPricePermission(storeId, targetUserId, canEditPrice, actingUserId) {
+  const membership = await pool.query(
+    `SELECT r.code AS "roleCode"
+     FROM user_store us JOIN roles r ON r.id = us.role_id
+     WHERE us.user_id = $1 AND us.store_id = $2`,
+    [targetUserId, storeId]
+  );
+  if (membership.rows.length === 0) {
+    throw new AppError('Employé introuvable dans cette boutique.', 404, 'EMPLOYEE_NOT_FOUND');
+  }
+  if (membership.rows[0].roleCode !== 'SELLER') {
+    throw new AppError("Cette autorisation ne s'applique qu'aux vendeurs.", 400, 'NOT_A_SELLER');
+  }
+
+  await pool.query(
+    `UPDATE user_store
+     SET permissions = jsonb_set(permissions, '{canEditPrice}', $1::jsonb)
+     WHERE user_id = $2 AND store_id = $3`,
+    [JSON.stringify(Boolean(canEditPrice)), targetUserId, storeId]
+  );
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'SET_SELLER_EDIT_PRICE_PERMISSION', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ targetUserId, canEditPrice: Boolean(canEditPrice) })]
+  );
+
+  return { userId: targetUserId, canEditPrice: Boolean(canEditPrice) };
+}
+
+/**
+ * Autorise (ou pas) UN vendeur précis à ajouter un produit
+ * (§40_autorisation_ajout_produit.sql, décidé en conversation) — même
+ * principe exact que les deux fonctions ci-dessus, indépendant du flag
+ * global "tous les vendeurs" (stores.service.js#updateAddProductSettings).
+ */
+async function setSellerAddProductPermission(storeId, targetUserId, canAddProduct, actingUserId) {
+  const membership = await pool.query(
+    `SELECT r.code AS "roleCode"
+     FROM user_store us JOIN roles r ON r.id = us.role_id
+     WHERE us.user_id = $1 AND us.store_id = $2`,
+    [targetUserId, storeId]
+  );
+  if (membership.rows.length === 0) {
+    throw new AppError('Employé introuvable dans cette boutique.', 404, 'EMPLOYEE_NOT_FOUND');
+  }
+  if (membership.rows[0].roleCode !== 'SELLER') {
+    throw new AppError("Cette autorisation ne s'applique qu'aux vendeurs.", 400, 'NOT_A_SELLER');
+  }
+
+  await pool.query(
+    `UPDATE user_store
+     SET permissions = jsonb_set(permissions, '{canAddProduct}', $1::jsonb)
+     WHERE user_id = $2 AND store_id = $3`,
+    [JSON.stringify(Boolean(canAddProduct)), targetUserId, storeId]
+  );
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'SET_SELLER_ADD_PRODUCT_PERMISSION', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ targetUserId, canAddProduct: Boolean(canAddProduct) })]
+  );
+
+  return { userId: targetUserId, canAddProduct: Boolean(canAddProduct) };
+}
+
 module.exports = {
   listEmployees,
   listPendingInvitations,
@@ -333,4 +409,6 @@ module.exports = {
   cancelInvitation,
   removeEmployee,
   setSellerVoidReturnPermission,
+  setSellerEditPricePermission,
+  setSellerAddProductPermission,
 };

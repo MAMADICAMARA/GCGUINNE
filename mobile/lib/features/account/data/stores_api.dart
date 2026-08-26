@@ -125,6 +125,40 @@ class StoresApi {
     final data = await _client.get('/stores/my-void-return-permission');
     return data['allowed'] as bool? ?? false;
   }
+
+  /// Miroir exact des trois méthodes ci-dessus, pour le prix modifiable à
+  /// la Caisse (§39_prix_editable_vente.sql, décidé en conversation).
+  Future<bool> getEditPriceSettings() async {
+    final data = await _client.get('/stores/edit-price-settings');
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> updateEditPriceSettings(bool allowAllSellers) async {
+    final data = await _client.put('/stores/edit-price-settings', data: {'allowAllSellers': allowAllSellers});
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> getMyEditPricePermission() async {
+    final data = await _client.get('/stores/my-edit-price-permission');
+    return data['allowed'] as bool? ?? false;
+  }
+
+  /// Miroir exact des trois méthodes ci-dessus, pour la création de
+  /// produit (§40_autorisation_ajout_produit.sql, décidé en conversation).
+  Future<bool> getAddProductSettings() async {
+    final data = await _client.get('/stores/add-product-settings');
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> updateAddProductSettings(bool allowAllSellers) async {
+    final data = await _client.put('/stores/add-product-settings', data: {'allowAllSellers': allowAllSellers});
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> getMyAddProductPermission() async {
+    final data = await _client.get('/stores/my-add-product-permission');
+    return data['allowed'] as bool? ?? false;
+  }
 }
 
 class PlanStatus {

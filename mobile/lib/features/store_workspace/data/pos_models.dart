@@ -134,6 +134,7 @@ class CartItem {
     required this.quantity,
     required this.unitPrice,
     required this.availableStock,
+    this.priceEdited = false,
   });
 
   final int productId;
@@ -141,6 +142,11 @@ class CartItem {
   int quantity;
   num unitPrice;
   final int availableStock;
+  // true si un prix négocié a été saisi à la Caisse pour cet article
+  // (§39_prix_editable_vente.sql) — distingue "prix normal recalculé
+  // automatiquement" de "prix explicitement choisi par le vendeur", pour
+  // savoir s'il faut l'envoyer au serveur et vérifier le plancher.
+  bool priceEdited;
 
   num get lineTotal => quantity * unitPrice;
 }

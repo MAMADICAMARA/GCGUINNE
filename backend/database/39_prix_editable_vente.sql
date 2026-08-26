@@ -1,0 +1,22 @@
+-- ============================================================================
+-- 39_prix_editable_vente.sql
+-- Domaine : Prix de vente modifiable à la Caisse par un Vendeur autorisé
+-- ============================================================================
+-- Décidé en conversation : en Guinée, les prix de vente sont souvent
+-- négociés au cas par cas avec le client, jamais un tarif strictement fixe.
+-- Le Owner peut désormais autoriser un Vendeur à saisir, au moment de la
+-- vente, un prix différent du prix catalogue — JAMAIS en dessous du prix
+-- qui serait normalement appliqué (prix catalogue, ou prix du palier de
+-- quantité en vigueur — le prix dégressif §31 reste inchangé), seulement
+-- au-dessus, pour qu'un vendeur ne puisse jamais sous-déclarer une vente.
+-- Le Owner, lui, n'est jamais soumis à ce plancher (sa boutique).
+--
+-- Même schéma que 25_autorisation_annulation_retour.sql : soit TOUS les
+-- vendeurs d'un coup (ce flag), soit vendeur par vendeur (colonne
+-- `permissions` JSONB de `user_store`, déjà présente — clé `canEditPrice`).
+--
+-- FALSE par défaut : une boutique qui n'a jamais rien configuré garde le
+-- comportement actuel (prix catalogue strict, jamais modifiable).
+-- ============================================================================
+
+ALTER TABLE stores ADD COLUMN allow_all_sellers_edit_price BOOLEAN NOT NULL DEFAULT false;

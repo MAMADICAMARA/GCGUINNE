@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../state/auth_state.dart';
 import '../../data/pos_models.dart';
 import '../../data/product_detail_models.dart';
 import '../../data/products_api.dart';
@@ -88,6 +89,10 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
     final margin = product.sellingPrice - product.purchasePrice;
     final marginPercent = product.purchasePrice > 0 ? (margin / product.purchasePrice * 100).round() : null;
     final isActive = product.status == 'ACTIVE';
+    // Un Vendeur autorisé à créer des produits (§40_autorisation_ajout_produit.sql)
+    // peut atteindre cette feuille, mais modifier/désactiver/réactiver un
+    // produit existant reste strictement réservé au Owner.
+    final isOwner = context.watch<AuthState>().activeStore?.roleCode == 'OWNER';
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -193,27 +198,29 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                   ],
                 ),
               ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-                    icon: const Icon(Icons.edit_outlined, size: 17),
-                    label: const Text('Modifier'),
+            if (isOwner) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.edit_outlined, size: 17),
+                      label: const Text('Modifier'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _busy ? null : _toggleStatus,
-                    style: FilledButton.styleFrom(backgroundColor: isActive ? Colors.red.shade600 : Colors.green.shade600),
-                    icon: Icon(isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 17),
-                    label: Text(isActive ? 'Désactiver' : 'Réactiver'),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _toggleStatus,
+                      style: FilledButton.styleFrom(backgroundColor: isActive ? Colors.red.shade600 : Colors.green.shade600),
+                      icon: Icon(isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 17),
+                      label: Text(isActive ? 'Désactiver' : 'Réactiver'),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
         ),
       );

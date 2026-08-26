@@ -14,7 +14,10 @@ const ALLOWED_MIME_TYPES = {
   'image/webp': 'webp',
 };
 
-const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2 Mo, §7.2
+// 8 Mo (décidé en conversation — relevé depuis 2 Mo, §7.2, car une photo
+// prise directement avec un téléphone récent dépassait largement l'ancien
+// plafond, bloquant la plupart des envois).
+const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 
 /**
  * Envoie un fichier image vers R2 et renvoie son URL publique — jamais son

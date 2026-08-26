@@ -26,6 +26,7 @@ import CashDrawerHistoryPage from '@/pages/cashDrawers/CashDrawerHistoryPage';
 import ProductsPage from '@/pages/products/ProductsPage';
 import StockPage from '@/pages/stock/StockPage';
 import SalesHistoryPage from '@/pages/sales/SalesHistoryPage';
+import SalesReportPage from '@/pages/reports/SalesReportPage';
 import CustomersPage from '@/pages/customers/CustomersPage';
 import SuppliersPage from '@/pages/suppliers/SuppliersPage';
 import SupplierStorefrontPage from '@/pages/suppliers/SupplierStorefrontPage';
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/stock" element={<StockPage />} />
             <Route path="/sales" element={<SalesHistoryPage />} />
+            <Route path="/reports/sales" element={<SalesReportPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/suppliers" element={<SuppliersPage />} />
             <Route path="/suppliers/:storeId/order" element={<SupplierStorefrontPage />} />

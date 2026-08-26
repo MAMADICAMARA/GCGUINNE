@@ -31,8 +31,13 @@ const List<StoreNavItem> kStoreNavItems = [
   // Owner voit en plus l'historique de toute l'équipe (scoping côté serveur).
   StoreNavItem('/workspace/cash-drawers', Icons.account_balance_wallet_outlined,
       'Historique des caisses', ['OWNER', 'SELLER']),
+  // Visible au Vendeur seulement si le Owner l'a autorisé à créer des
+  // produits (§40_autorisation_ajout_produit.sql, décidé en conversation)
+  // — filtre appliqué dans navForRole ci-dessous. Un Vendeur qui accède à
+  // cet écran n'y voit que la création, jamais modifier/désactiver un
+  // produit existant (products_page.dart, réservé au Owner).
   StoreNavItem('/workspace/products', Icons.inventory_2_outlined, 'Produits',
-      ['OWNER']),
+      ['OWNER', 'SELLER']),
   StoreNavItem('/workspace/stock', Icons.warehouse_outlined, 'Stock',
       ['OWNER']),
   // Visible au Vendeur seulement si le Owner l'a autorisé à
@@ -40,6 +45,11 @@ const List<StoreNavItem> kStoreNavItems = [
   // frontend/src/routes/navigation.js#getNavForRole.
   StoreNavItem('/workspace/sales', Icons.receipt_long_outlined,
       'Historique des ventes', ['OWNER', 'SELLER']),
+  // Visible à toute l'équipe (§ décidé en conversation) — le backend
+  // scope déjà les données à SES PROPRES ventes pour un Vendeur, même
+  // règle que le Tableau de bord (dashboard.service.js#getSalesReport).
+  StoreNavItem('/workspace/reports/sales', Icons.trending_up,
+      'Recette', ['OWNER', 'SELLER']),
   StoreNavItem('/workspace/customers', Icons.people_outline, 'Clients',
       ['OWNER', 'SELLER']),
   // Carnet partagé — ouvert à toute l'équipe, contrairement à la plupart
@@ -56,11 +66,16 @@ const List<StoreNavItem> kStoreNavItems = [
 ];
 
 /// Miroir de frontend/src/routes/navigation.js#getNavForRole.
-List<StoreNavItem> navForRole(String? roleCode, {bool canVoidReturn = false}) {
+List<StoreNavItem> navForRole(
+  String? roleCode, {
+  bool canVoidReturn = false,
+  bool canAddProduct = false,
+}) {
   if (roleCode == null) return const [];
   return kStoreNavItems.where((item) {
     if (!item.roles.contains(roleCode)) return false;
     if (item.path == '/workspace/sales' && roleCode == 'SELLER') return canVoidReturn;
+    if (item.path == '/workspace/products' && roleCode == 'SELLER') return canAddProduct;
     return true;
   }).toList();
 }

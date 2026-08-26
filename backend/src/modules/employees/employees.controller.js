@@ -51,12 +51,37 @@ async function remove(req, res, next) {
 
 async function updatePermissions(req, res, next) {
   try {
-    const result = await employeesService.setSellerVoidReturnPermission(
-      req.auth.storeId,
-      req.params.userId,
-      req.body.canVoidReturn,
-      req.auth.userId
-    );
+    // Les deux permissions sont indépendantes et optionnelles côté route
+    // (voir employees.routes.js) — on n'applique que celles réellement
+    // fournies dans cet appel, jamais l'autre par effet de bord.
+    const result = { userId: Number(req.params.userId) };
+    if (req.body.canVoidReturn !== undefined) {
+      const r = await employeesService.setSellerVoidReturnPermission(
+        req.auth.storeId,
+        req.params.userId,
+        req.body.canVoidReturn,
+        req.auth.userId
+      );
+      result.canVoidReturn = r.canVoidReturn;
+    }
+    if (req.body.canEditPrice !== undefined) {
+      const r = await employeesService.setSellerEditPricePermission(
+        req.auth.storeId,
+        req.params.userId,
+        req.body.canEditPrice,
+        req.auth.userId
+      );
+      result.canEditPrice = r.canEditPrice;
+    }
+    if (req.body.canAddProduct !== undefined) {
+      const r = await employeesService.setSellerAddProductPermission(
+        req.auth.storeId,
+        req.params.userId,
+        req.body.canAddProduct,
+        req.auth.userId
+      );
+      result.canAddProduct = r.canAddProduct;
+    }
     res.json(result);
   } catch (err) {
     next(err);

@@ -45,14 +45,30 @@ router.delete(
   controller.remove
 );
 
-// Autorisation individuelle d'annulation/retour de vente
-// (§25_autorisation_annulation_retour.sql, décidé en conversation) —
-// indépendant du flag global "tous les vendeurs" (stores.routes.js).
+// Autorisations individuelles d'un vendeur — annulation/retour de vente
+// (§25_autorisation_annulation_retour.sql), modification du prix à la
+// Caisse (§39_prix_editable_vente.sql) et ajout de produit
+// (§40_autorisation_ajout_produit.sql), toutes décidées en conversation,
+// indépendantes des flags globaux "tous les vendeurs" (stores.routes.js).
+// Les trois champs sont optionnels mais au moins l'un doit être fourni —
+// sinon cet appel ne changerait rien.
 router.patch(
   '/:userId/permissions',
   [
     param('userId').isInt().withMessage('Identifiant invalide.'),
-    body('canVoidReturn').isBoolean().withMessage('Valeur invalide.'),
+    body('canVoidReturn').optional().isBoolean().withMessage('Valeur invalide.'),
+    body('canEditPrice').optional().isBoolean().withMessage('Valeur invalide.'),
+    body('canAddProduct').optional().isBoolean().withMessage('Valeur invalide.'),
+    body().custom((_, { req }) => {
+      if (
+        req.body.canVoidReturn === undefined &&
+        req.body.canEditPrice === undefined &&
+        req.body.canAddProduct === undefined
+      ) {
+        throw new Error('Aucune permission à mettre à jour.');
+      }
+      return true;
+    }),
   ],
   checkValidation,
   controller.updatePermissions

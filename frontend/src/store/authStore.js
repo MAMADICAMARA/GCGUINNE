@@ -45,6 +45,18 @@ export const useAuthStore = create(
       // précédent que planBanner ci-dessus.
       canVoidReturn: false,
 
+      // boolean — un Vendeur peut-il saisir un prix de vente différent du
+      // prix catalogue à la Caisse ? (§39_prix_editable_vente.sql, décidé
+      // en conversation). Même précédent exact que canVoidReturn ci-dessus
+      // (EditPricePermissionSync au montage de DashboardLayout, GET
+      // /stores/my-edit-price-permission).
+      canEditPrice: false,
+
+      // boolean — un Vendeur peut-il créer un nouveau produit ?
+      // (§40_autorisation_ajout_produit.sql, décidé en conversation). Même
+      // précédent exact que canVoidReturn/canEditPrice ci-dessus.
+      canAddProduct: false,
+
       setSession: ({ token, user, stores }) =>
         set({
           token,
@@ -61,6 +73,10 @@ export const useAuthStore = create(
 
       setCanVoidReturn: (canVoidReturn) => set({ canVoidReturn }),
 
+      setCanEditPrice: (canEditPrice) => set({ canEditPrice }),
+
+      setCanAddProduct: (canAddProduct) => set({ canAddProduct }),
+
       /**
        * Applique le résultat d'une création de boutique ou d'un changement de
        * boutique active (réponses de POST /stores ou POST /auth/switch-store) :
@@ -74,6 +90,8 @@ export const useAuthStore = create(
           stores: stores || state.stores,
           planBanner: null,
           canVoidReturn: false,
+          canEditPrice: false,
+          canAddProduct: false,
         })),
 
       logout: () =>
@@ -84,6 +102,8 @@ export const useAuthStore = create(
           activeStore: null,
           planBanner: null,
           canVoidReturn: false,
+          canEditPrice: false,
+          canAddProduct: false,
         }),
 
       isAuthenticated: () => {

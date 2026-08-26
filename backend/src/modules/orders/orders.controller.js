@@ -21,7 +21,12 @@ function checkValidation(req) {
 async function createOrder(req, res, next) {
   try {
     checkValidation(req);
-    const result = await ordersService.createOrder(req.auth.storeId, req.auth.userId, req.body);
+    const result = await ordersService.createOrder(
+      req.auth.storeId,
+      req.auth.userId,
+      req.auth.roleCode,
+      req.body
+    );
     res.status(201).json(result);
   } catch (err) {
     next(err);

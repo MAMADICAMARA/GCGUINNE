@@ -19,11 +19,19 @@ export const ACTION_GROUPS = [
       'ADD_EMPLOYEE_EXISTING_ACCOUNT',
       'REMOVE_EMPLOYEE',
       'SET_SELLER_VOID_RETURN_PERMISSION',
+      'SET_SELLER_EDIT_PRICE_PERMISSION',
+      'SET_SELLER_ADD_PRODUCT_PERMISSION',
+      'UPDATE_ADD_PRODUCT_SETTINGS',
     ],
   },
   {
     label: 'Ventes',
-    actions: ['VOID_ORDER', 'RETURN_ORDER_ITEM', 'UPDATE_VOID_RETURN_SETTINGS'],
+    actions: [
+      'VOID_ORDER',
+      'RETURN_ORDER_ITEM',
+      'UPDATE_VOID_RETURN_SETTINGS',
+      'UPDATE_EDIT_PRICE_SETTINGS',
+    ],
   },
   {
     label: 'Achats',
@@ -72,6 +80,10 @@ export const ACTION_LABELS = {
   RETURN_ORDER_ITEM: 'Article retourné',
   UPDATE_VOID_RETURN_SETTINGS: "Réglage d'autorisation modifié",
   SET_SELLER_VOID_RETURN_PERMISSION: 'Autorisation vendeur modifiée',
+  UPDATE_EDIT_PRICE_SETTINGS: 'Réglage prix modifiable mis à jour',
+  SET_SELLER_EDIT_PRICE_PERMISSION: 'Autorisation prix vendeur modifiée',
+  UPDATE_ADD_PRODUCT_SETTINGS: 'Réglage ajout produit mis à jour',
+  SET_SELLER_ADD_PRODUCT_PERMISSION: 'Autorisation ajout produit modifiée',
   SUBMIT_PAYMENT_REQUEST: 'Paiement déclaré',
   REJECT_PAYMENT_REQUEST: 'Paiement refusé',
   CREATE_PURCHASE_ORDER: "Commande d'achat créée",
@@ -109,6 +121,14 @@ export function formatLogDetails(action, details) {
       return details.allowAllSellers ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
     case 'SET_SELLER_VOID_RETURN_PERMISSION':
       return details.canVoidReturn ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'UPDATE_EDIT_PRICE_SETTINGS':
+      return details.allowAllSellers ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
+    case 'SET_SELLER_EDIT_PRICE_PERMISSION':
+      return details.canEditPrice ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'UPDATE_ADD_PRODUCT_SETTINGS':
+      return details.allowAllSellers ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
+    case 'SET_SELLER_ADD_PRODUCT_PERMISSION':
+      return details.canAddProduct ? 'Vendeur autorisé' : 'Autorisation retirée';
     case 'SUBMIT_PAYMENT_REQUEST':
       return [details.planName, details.amount ? `${Number(details.amount).toLocaleString('fr-FR')} GNF` : null]
         .filter(Boolean)

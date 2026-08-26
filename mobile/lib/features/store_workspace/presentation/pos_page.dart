@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../state/auth_state.dart';
 import '../data/catalog_api.dart';
 import '../data/orders_api.dart';
 import '../data/pos_models.dart';
@@ -99,16 +102,21 @@ class _PosPageState extends State<PosPage> {
 
     setState(() {
       _error = null;
-      final unitPrice = product.effectiveUnitPriceFor(newQuantity);
+      final normalUnitPrice = product.effectiveUnitPriceFor(newQuantity);
       if (existingIndex >= 0) {
-        _cart[existingIndex].quantity = newQuantity;
-        _cart[existingIndex].unitPrice = unitPrice;
+        final existing = _cart[existingIndex];
+        existing.quantity = newQuantity;
+        // Si un prix négocié a déjà été saisi, on le garde — sauf s'il
+        // retombe sous le nouveau plancher (le palier de quantité a pu
+        // changer), auquel cas on le relève juste ce qu'il faut.
+        existing.unitPrice =
+            existing.priceEdited ? math.max(existing.unitPrice, normalUnitPrice) : normalUnitPrice;
       } else {
         _cart.add(CartItem(
           productId: product.id,
           productName: product.name,
           quantity: newQuantity,
-          unitPrice: unitPrice,
+          unitPrice: normalUnitPrice,
           availableStock: product.quantity,
         ));
       }
@@ -144,10 +152,45 @@ class _PosPageState extends State<PosPage> {
       _error = null;
       final index = _cart.indexWhere((i) => i.productId == productId);
       if (index >= 0) {
-        _cart[index].quantity = newQty;
-        if (selectedProduct != null) _cart[index].unitPrice = selectedProduct.effectiveUnitPriceFor(newQty);
+        final item = _cart[index];
+        item.quantity = newQty;
+        if (selectedProduct != null) {
+          final normalUnitPrice = selectedProduct.effectiveUnitPriceFor(newQty);
+          item.unitPrice = item.priceEdited ? math.max(item.unitPrice, normalUnitPrice) : normalUnitPrice;
+        }
       }
     });
+  }
+
+  // Prix négocié à la vente (§39_prix_editable_vente.sql, décidé en
+  // conversation) — volontairement PAS clampé au fil de la saisie (ça
+  // empêcherait de taper "15000" si le plancher est "12000" : le premier
+  // "1" serait aussitôt remonté à 12000). On laisse taper librement, et on
+  // n'empêche que la validation finale si le prix retombe sous le
+  // plancher (voir _cartHasPriceBelowFloor). Le serveur revérifie de toute
+  // façon ce même plancher indépendamment à la création de la vente.
+  void _updateUnitPrice(int productId, String rawValue) {
+    final parsed = math.max(0, num.tryParse(rawValue) ?? 0);
+    setState(() {
+      final index = _cart.indexWhere((i) => i.productId == productId);
+      if (index >= 0) {
+        _cart[index].unitPrice = parsed;
+        _cart[index].priceEdited = true;
+      }
+    });
+  }
+
+  num _normalUnitPriceFor(CartItem item) {
+    for (final p in _products) {
+      if (p.id == item.productId) return p.effectiveUnitPriceFor(item.quantity);
+    }
+    return item.unitPrice;
+  }
+
+  bool get _cartHasPriceBelowFloor {
+    final roleCode = context.read<AuthState>().activeStore?.roleCode;
+    if (roleCode == 'OWNER') return false;
+    return _cart.any((item) => item.priceEdited && item.unitPrice < _normalUnitPriceFor(item));
   }
 
   num get _subtotal => _cart.fold(0, (sum, item) => sum + item.lineTotal);
@@ -159,6 +202,10 @@ class _PosPageState extends State<PosPage> {
   Future<void> _startCheckout() async {
     if (_cart.isEmpty) {
       setState(() => _error = 'Le panier est vide.');
+      return;
+    }
+    if (_cartHasPriceBelowFloor) {
+      setState(() => _error = 'Un prix saisi est inférieur au prix minimum autorisé — corrigez-le avant de continuer.');
       return;
     }
     setState(() => _error = null);
@@ -215,6 +262,12 @@ class _PosPageState extends State<PosPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthState>();
+    // Owner : toujours. Vendeur : seulement si autorisé
+    // (§39_prix_editable_vente.sql) — revérifié de toute façon côté
+    // serveur à la création de la vente.
+    final canEditPrice = authState.activeStore?.roleCode == 'OWNER' || authState.canEditPrice;
+
     return Column(
       children: [
         Expanded(
@@ -333,13 +386,14 @@ class _PosPageState extends State<PosPage> {
           submitting: _submitting,
           onTap: _cart.isEmpty
               ? null
-              : () => _showCartSheet(context),
+              : () => _showCartSheet(context, canEditPrice),
         ),
       ],
     );
   }
 
-  void _showCartSheet(BuildContext context) {
+  void _showCartSheet(BuildContext context, bool canEditPrice) {
+    final isOwner = context.read<AuthState>().activeStore?.roleCode == 'OWNER';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -423,6 +477,54 @@ class _PosPageState extends State<PosPage> {
                                         ),
                                       ],
                                     ),
+                                    if (canEditPrice) ...[
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text('Prix unitaire négocié', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                          SizedBox(
+                                            width: 90,
+                                            child: TextField(
+                                              key: ValueKey('price-${item.productId}'),
+                                              keyboardType: TextInputType.number,
+                                              textAlign: TextAlign.right,
+                                              controller: TextEditingController(text: '${item.unitPrice}'),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: !isOwner && item.priceEdited && item.unitPrice < _normalUnitPriceFor(item)
+                                                    ? Colors.red
+                                                    : null,
+                                              ),
+                                              decoration: InputDecoration(
+                                                isDense: true,
+                                                contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                                border: const OutlineInputBorder(),
+                                                enabledBorder: OutlineInputBorder(
+                                                  borderSide: BorderSide(
+                                                    color: !isOwner && item.priceEdited && item.unitPrice < _normalUnitPriceFor(item)
+                                                        ? Colors.red.shade300
+                                                        : Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                              ),
+                                              onChanged: (value) {
+                                                _updateUnitPrice(item.productId, value);
+                                                setSheetState(() {});
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (!isOwner && item.priceEdited && item.unitPrice < _normalUnitPriceFor(item))
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            'Minimum : ${formatGNF(_normalUnitPriceFor(item))}',
+                                            style: const TextStyle(fontSize: 10.5, color: Colors.red),
+                                          ),
+                                        ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -490,7 +592,7 @@ class _PosPageState extends State<PosPage> {
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
-                  onPressed: _cart.isEmpty || _submitting
+                  onPressed: _cart.isEmpty || _submitting || _cartHasPriceBelowFloor
                       ? null
                       : () {
                           Navigator.of(sheetContext).pop();
