@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const dashboardService = require('./dashboard.service');
-const { requireAuth, requireActiveStore } = require('../../middlewares/auth');
+const { requireAuth, requireActiveStore, requireRole } = require('../../middlewares/auth');
 const { AppError } = require('../../middlewares/errorHandler');
 
 const router = Router();
@@ -49,7 +49,9 @@ function validateReportDate(value, label) {
   }
 }
 
-router.get('/sales-report', async (req, res, next) => {
+// Réservé au Owner (décidé en conversation — masqué et bloqué côté
+// employé, jamais seulement caché dans le menu comme le reste de l'appli).
+router.get('/sales-report', requireRole('OWNER'), async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
     validateReportDate(startDate, 'Date de début');

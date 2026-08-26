@@ -45,11 +45,9 @@ const List<StoreNavItem> kStoreNavItems = [
   // frontend/src/routes/navigation.js#getNavForRole.
   StoreNavItem('/workspace/sales', Icons.receipt_long_outlined,
       'Historique des ventes', ['OWNER', 'SELLER']),
-  // Visible à toute l'équipe (§ décidé en conversation) — le backend
-  // scope déjà les données à SES PROPRES ventes pour un Vendeur, même
-  // règle que le Tableau de bord (dashboard.service.js#getSalesReport).
+  // Réservé au Owner (décidé en conversation — masqué côté employé).
   StoreNavItem('/workspace/reports/sales', Icons.trending_up,
-      'Recette', ['OWNER', 'SELLER']),
+      'Recette', ['OWNER']),
   StoreNavItem('/workspace/customers', Icons.people_outline, 'Clients',
       ['OWNER', 'SELLER']),
   // Carnet partagé — ouvert à toute l'équipe, contrairement à la plupart

@@ -44,10 +44,8 @@ export const NAV_ITEMS = [
   // annuler/retourner ses propres ventes (§25_autorisation_annulation_retour.sql,
   // décidé en conversation) — voir getNavForRole ci-dessous.
   { key: 'sales', label: 'Historique des ventes', path: '/sales', icon: Receipt, roles: ['OWNER', 'SELLER'] },
-  // Visible à toute l'équipe (§ décidé en conversation) — le backend
-  // scope déjà les données à SES PROPRES ventes pour un Vendeur, même
-  // règle que le Tableau de bord (dashboard.service.js#getSalesReport).
-  { key: 'sales-report', label: 'Recette', path: '/reports/sales', icon: TrendingUp, roles: ['OWNER', 'SELLER'] },
+  // Réservé au Owner (décidé en conversation — masqué côté employé).
+  { key: 'sales-report', label: 'Recette', path: '/reports/sales', icon: TrendingUp, roles: ['OWNER'] },
   { key: 'customers', label: 'Clients', path: '/customers', icon: Users, roles: ['OWNER', 'SELLER'] },
   { key: 'notes', label: 'Notes', path: '/notes', icon: NotebookText, roles: ['OWNER', 'SELLER'] },
   { key: 'suppliers', label: 'Fournisseurs', path: '/suppliers', icon: Truck, roles: ['OWNER'] },
