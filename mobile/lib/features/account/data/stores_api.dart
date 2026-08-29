@@ -88,6 +88,19 @@ class StoresApi {
     return _client.put('/stores/type', data: {'storeTypeId': storeTypeId});
   }
 
+  /// Informations générales de la boutique (§ décidé en conversation, "tout
+  /// modifiable sauf l'e-mail") — miroir de GET/PUT /stores/info. Owner
+  /// uniquement (déjà vérifié côté serveur, requireRole('OWNER')).
+  Future<StoreInfo> getStoreInfo() async {
+    final data = await _client.get('/stores/info');
+    return StoreInfo.fromJson(data);
+  }
+
+  Future<StoreInfo> updateStoreInfo(StoreInfo info) async {
+    final data = await _client.put('/stores/info', data: info.toJson());
+    return StoreInfo.fromJson(data);
+  }
+
   Future<String?> getLogo() async {
     final data = await _client.get('/stores/logo');
     return data['logoUrl'] as String?;

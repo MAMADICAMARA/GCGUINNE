@@ -5,6 +5,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
 import 'products/product_detail_sheet.dart';
 import 'products/product_form_page.dart';
+import 'upgrade_plan_dialog.dart';
 import '../data/catalog_api.dart';
 import '../data/pos_models.dart';
 import '../data/product_detail_models.dart';
@@ -108,6 +109,15 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Future<void> _openDetail(Product product) async {
+    if (product.locked) {
+      await showUpgradePlanDialog(
+        context,
+        planName: _result?.planName,
+        maxProductsPerStore: _result?.maxProductsPerStore,
+        productName: product.name,
+      );
+      return;
+    }
     final result = await showProductDetailSheet(context, product);
     if (!mounted) return;
     if (result == true) {
@@ -248,9 +258,9 @@ class _ProductListTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: product.locked ? Colors.amber.shade50.withValues(alpha: 0.5) : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: product.locked ? Colors.amber.shade200 : Colors.grey.shade200),
         ),
         child: Row(
           children: [
@@ -273,6 +283,13 @@ class _ProductListTile extends StatelessWidget {
                       Expanded(
                         child: Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                       ),
+                      if (product.locked)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(20)),
+                          child: Icon(Icons.lock_outline, size: 11, color: Colors.amber.shade800),
+                        ),
                       if (!isActive)
                         Container(
                           margin: const EdgeInsets.only(left: 6),

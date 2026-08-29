@@ -484,6 +484,110 @@ async function switchStore({ userId, storeId }) {
   return { token, activeStore: target };
 }
 
+/**
+ * Modifie les informations personnelles du compte connecté (§ décidé en
+ * conversation) — tout est modifiable ici SAUF l'e-mail (identifiant de
+ * connexion, jamais changé depuis cet écran) et le mot de passe (voir
+ * changePassword ci-dessous, qui a sa propre vérification dédiée). Mêmes
+ * règles de validation que register() pour ces mêmes champs.
+ */
+async function updateProfile(userId, { fullName, phone, gender, birthDate }) {
+  if (!fullName || !fullName.trim()) {
+    throw new AppError('Le nom complet est requis.', 400, 'VALIDATION_ERROR');
+  }
+  if (!phone || !phone.trim()) {
+    throw new AppError('Le numéro de téléphone est requis.', 400, 'VALIDATION_ERROR');
+  }
+  if (!['HOMME', 'FEMME', 'AUTRE'].includes(gender)) {
+    throw new AppError('Le sexe doit être HOMME, FEMME ou AUTRE.', 400, 'VALIDATION_ERROR');
+  }
+  const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime()) || birth > new Date()) {
+    throw new AppError('Date de naissance invalide.', 400, 'VALIDATION_ERROR');
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE users
+     SET full_name = $1, phone = $2, gender = $3, birth_date = $4
+     WHERE id = $5
+     RETURNING id, full_name AS "fullName", email, phone, gender,
+               birth_date AS "birthDate", is_super_admin AS "isSuperAdmin"`,
+    [fullName.trim(), phone.trim(), gender, birthDate, userId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Utilisateur introuvable.', 404, 'USER_NOT_FOUND');
+  }
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, NULL, 'UPDATE_PROFILE', '{}'::jsonb)`,
+    [userId]
+  );
+
+  return rows[0];
+}
+
+/**
+ * Changement de mot de passe depuis une session déjà connectée (§ décidé
+ * en conversation) — distinct de resetPassword (flux mot de passe oublié,
+ * non connecté) : ici on exige le mot de passe ACTUEL plutôt qu'un code
+ * reçu par e-mail. `token_version` incrémenté (même principe que
+ * resetPassword) : invalide toute AUTRE session ouverte ailleurs — mais un
+ * nouveau jeton est immédiatement signé et renvoyé pour que LA session en
+ * cours (celle qui vient de faire ce changement) continue sans forcer une
+ * reconnexion, exactement comme switchStore() le fait déjà pour un
+ * changement de contexte de boutique.
+ */
+async function changePassword({ userId, storeId, roleCode, currentPassword, newPassword, newPasswordConfirm }) {
+  if (!newPassword || newPassword.length < 6) {
+    throw new AppError('Le mot de passe doit contenir au moins 6 caractères.', 400, 'VALIDATION_ERROR');
+  }
+  if (newPassword !== newPasswordConfirm) {
+    throw new AppError('Les mots de passe ne correspondent pas.', 400, 'VALIDATION_ERROR');
+  }
+
+  const { rows } = await pool.query(
+    'SELECT password_hash AS "passwordHash", is_super_admin AS "isSuperAdmin" FROM users WHERE id = $1',
+    [userId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Utilisateur introuvable.', 404, 'USER_NOT_FOUND');
+  }
+
+  const matches = await bcrypt.compare(currentPassword, rows[0].passwordHash);
+  if (!matches) {
+    // 403, jamais 401 : la session/le jeton restent parfaitement valides
+    // ici, seul le mot de passe fourni est refusé. Un 401 déclencherait la
+    // déconnexion globale automatique des intercepteurs HTTP (web et
+    // mobile, cf. apiClient.js/api_client.dart) avant même que l'appelant
+    // ait pu proposer le repli par e-mail (§ décidé en conversation).
+    throw new AppError('Mot de passe actuel incorrect.', 403, 'INVALID_CURRENT_PASSWORD');
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, env.bcryptSaltRounds);
+  const updateResult = await pool.query(
+    `UPDATE users SET password_hash = $1, token_version = token_version + 1
+     WHERE id = $2 RETURNING token_version AS "tokenVersion"`,
+    [passwordHash, userId]
+  );
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, NULL, 'CHANGE_PASSWORD', '{}'::jsonb)`,
+    [userId]
+  );
+
+  const token = signToken({
+    userId,
+    storeId,
+    roleCode,
+    isSuperAdmin: rows[0].isSuperAdmin,
+    tokenVersion: updateResult.rows[0].tokenVersion,
+  });
+
+  return { token };
+}
+
 module.exports = {
   register,
   login,
@@ -493,5 +597,7 @@ module.exports = {
   resendVerificationCode,
   requestPasswordReset,
   resetPassword,
+  updateProfile,
+  changePassword,
   purgeStaleUnverifiedAccounts,
 };

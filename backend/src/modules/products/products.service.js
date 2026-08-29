@@ -1,5 +1,33 @@
 const pool = require('../../config/db');
+const { getEffectivePlan } = require('../../utils/planContext');
 const { AppError } = require('../../middlewares/errorHandler');
+
+/**
+ * Produits "verrouillés" au-delà du plafond du plan effectif de la
+ * boutique (§ décidé en conversation — ex : une boutique PROFESSIONNEL
+ * avec 200 produits qui retombe en FREEMIUM à l'expiration, plafonné à
+ * 50). Les plus ANCIENS restent déverrouillés (ORDER BY created_at ASC) —
+ * ce sur quoi le commerce s'est construit — le reste se verrouille.
+ * Complètement gelé : ni consultable, ni modifiable, ni vendable, tant
+ * que le plan n'est pas remonté (ou que le marchand désactive un produit
+ * plus ancien pour faire de la place — la désactivation reste toujours
+ * possible, jamais bloquée par cette règle).
+ *
+ * Réutilisé par listProducts (affichage), getProductById (blocage
+ * consultation/édition), adjustStock (blocage ajustement) et
+ * orders.service.js#createOrder (blocage vente) — une seule requête,
+ * jamais une logique de rang dupliquée à plusieurs endroits.
+ */
+async function getLockedProductIds(storeId, plan) {
+  const { rows } = await pool.query(
+    `SELECT id FROM products
+     WHERE store_id = $1 AND status = 'ACTIVE'
+     ORDER BY created_at ASC, id ASC
+     OFFSET $2`,
+    [storeId, plan.maxProductsPerStore]
+  );
+  return new Set(rows.map((r) => r.id));
+}
 
 /**
  * Valide et normalise une liste de paliers de prix dégressif
@@ -163,14 +191,34 @@ async function listProducts(storeId, options = {}) {
     dataParams
   );
 
+  // Verrouillage par plafond de plan (§ décidé en conversation) — calculé
+  // sur l'ensemble des produits ACTIFS de la boutique, jamais seulement
+  // sur la page affichée (sinon un filtre/une recherche fausserait le
+  // rang). `planName`/`maxProductsPerStore` remontés en plus pour que le
+  // front puisse composer un message d'upgrade sans requête séparée.
+  const plan = await getEffectivePlan(storeId);
+  const lockedIds = await getLockedProductIds(storeId, plan);
+  const products = result.rows.map((row) => ({ ...row, locked: lockedIds.has(row.id) }));
+
   return {
-    products: result.rows,
+    products,
     total,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
+    planName: plan.planName,
+    maxProductsPerStore: plan.maxProductsPerStore,
   };
 }
 
+/**
+ * Utilisée à la fois pour "voir le détail" (GET /products/:id) ET comme
+ * pré-vérification d'existence par updateProduct — le blocage "produit
+ * verrouillé" ci-dessous s'applique donc naturellement aux deux : ni
+ * consultable, ni modifiable, tant que le plan ne le permet pas. Jamais
+ * utilisée par deactivate/reactivate (qui font leur propre vérification
+ * minimale) : désactiver un produit verrouillé reste toujours possible,
+ * c'est justement l'échappatoire qui fait de la place pour un autre.
+ */
 async function getProductById(storeId, productId) {
   const { rows } = await pool.query(
     `SELECT id, category_id AS "categoryId", name, reference, description,
@@ -185,7 +233,21 @@ async function getProductById(storeId, productId) {
   if (rows.length === 0) {
     throw new AppError('Produit introuvable.', 404, 'PRODUCT_NOT_FOUND');
   }
-  return rows[0];
+  const product = rows[0];
+
+  if (product.status === 'ACTIVE') {
+    const plan = await getEffectivePlan(storeId);
+    const lockedIds = await getLockedProductIds(storeId, plan);
+    if (lockedIds.has(product.id)) {
+      throw new AppError(
+        `Ce produit est verrouillé — le plan ${plan.planName} est limité à ${plan.maxProductsPerStore} produit(s) actif(s). Passez à un plan supérieur pour le débloquer.`,
+        403,
+        'PLAN_PRODUCT_LOCKED'
+      );
+    }
+  }
+
+  return product;
 }
 
 async function createProduct(storeId, userId, data) {
@@ -198,6 +260,25 @@ async function createProduct(storeId, userId, data) {
   if (data.sellingPrice == null || data.sellingPrice < 0) {
     throw new AppError('Le prix de vente est invalide.', 400, 'VALIDATION_ERROR');
   }
+  // Plafond de produits actifs par plan (§41_max_products_per_store.sql,
+  // décidé en conversation) — même principe que le plafond d'utilisateurs
+  // (employees.service.js#addEmployee) : on compte, on compare, on refuse
+  // AVANT toute écriture. Seuls les produits ACTIVE comptent : désactiver
+  // un produit libère de la place dans le plan.
+  const plan = await getEffectivePlan(storeId);
+  const productCountResult = await pool.query(
+    `SELECT COUNT(*) AS count FROM products WHERE store_id = $1 AND status = 'ACTIVE'`,
+    [storeId]
+  );
+  const currentProductCount = parseInt(productCountResult.rows[0].count, 10);
+  if (currentProductCount >= plan.maxProductsPerStore) {
+    throw new AppError(
+      `Le plan ${plan.planName} est limité à ${plan.maxProductsPerStore} produit(s) actif(s) par boutique.`,
+      403,
+      'PLAN_PRODUCT_LIMIT_REACHED'
+    );
+  }
+
   const priceTiers = validateAndNormalizeTiers(data.priceTiers, data.sellingPrice);
 
   const initialQuantity = data.quantity || 0;
@@ -322,11 +403,29 @@ async function updateProduct(storeId, productId, data) {
 }
 
 /**
+ * Vérification d'existence minimale, sans le blocage "produit verrouillé"
+ * de getProductById ci-dessus — utilisée uniquement par deactivate/
+ * reactivate : désactiver un produit doit TOUJOURS rester possible, même
+ * verrouillé, puisque c'est justement l'échappatoire qui libère une place
+ * pour qu'un autre produit redevienne déverrouillé (les plus anciens
+ * ACTIFS priment — voir getLockedProductIds).
+ */
+async function assertProductExists(storeId, productId) {
+  const { rows } = await pool.query('SELECT id FROM products WHERE store_id = $1 AND id = $2', [
+    storeId,
+    productId,
+  ]);
+  if (rows.length === 0) {
+    throw new AppError('Produit introuvable.', 404, 'PRODUCT_NOT_FOUND');
+  }
+}
+
+/**
  * Désactivation (jamais de suppression physique — cf. §12 du cahier des
  * charges : un produit déjà vendu doit conserver son historique).
  */
 async function deactivateProduct(storeId, productId) {
-  await getProductById(storeId, productId);
+  await assertProductExists(storeId, productId);
   await pool.query(
     `UPDATE products SET status = 'INACTIVE' WHERE store_id = $1 AND id = $2`,
     [storeId, productId]
@@ -335,7 +434,7 @@ async function deactivateProduct(storeId, productId) {
 }
 
 async function reactivateProduct(storeId, productId) {
-  await getProductById(storeId, productId);
+  await assertProductExists(storeId, productId);
   await pool.query(
     `UPDATE products SET status = 'ACTIVE' WHERE store_id = $1 AND id = $2`,
     [storeId, productId]
@@ -350,6 +449,21 @@ async function reactivateProduct(storeId, productId) {
 async function adjustStock(storeId, productId, delta, userId, note) {
   if (!Number.isInteger(delta) || delta === 0) {
     throw new AppError('La quantité d\'ajustement doit être un entier non nul.', 400, 'VALIDATION_ERROR');
+  }
+
+  // Un produit verrouillé (plafond de plan dépassé) ne peut pas non plus
+  // voir son stock ajusté — même règle que consulter/modifier. Number()
+  // ici est important : productId arrive en chaîne depuis la route
+  // (req.params.id), alors que le Set contient des entiers PostgreSQL —
+  // sans cette conversion, .has() ne trouverait jamais de correspondance.
+  const plan = await getEffectivePlan(storeId);
+  const lockedIds = await getLockedProductIds(storeId, plan);
+  if (lockedIds.has(Number(productId))) {
+    throw new AppError(
+      `Ce produit est verrouillé — le plan ${plan.planName} est limité à ${plan.maxProductsPerStore} produit(s) actif(s). Passez à un plan supérieur pour le débloquer.`,
+      403,
+      'PLAN_PRODUCT_LOCKED'
+    );
   }
 
   const client = await pool.connect();
@@ -451,4 +565,5 @@ module.exports = {
   getStoreStockMovements,
   getStockHistory,
   getEffectiveUnitPrice,
+  getLockedProductIds,
 };

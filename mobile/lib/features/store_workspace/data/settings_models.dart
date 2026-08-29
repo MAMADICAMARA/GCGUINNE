@@ -49,6 +49,57 @@ class ReceiptSettings {
       };
 }
 
+/// Informations générales de la boutique (§ décidé en conversation, "tout
+/// modifiable sauf l'e-mail") — miroir de GET/PUT /stores/info. Distinct de
+/// StoreContactInfo ci-dessous (sous-ensemble en lecture seule utilisé par
+/// l'aperçu du reçu) : celui-ci porte les champs éditables au complet, y
+/// compris la localisation.
+class StoreInfo {
+  const StoreInfo({
+    required this.name,
+    required this.address,
+    required this.phone,
+    required this.region,
+    required this.city,
+    required this.country,
+  });
+
+  factory StoreInfo.fromJson(Map<String, dynamic> json) => StoreInfo(
+        name: json['name'] as String? ?? '',
+        address: json['address'] as String? ?? '',
+        phone: json['phone'] as String? ?? '',
+        region: json['region'] as String? ?? '',
+        city: json['city'] as String? ?? '',
+        country: json['country'] as String? ?? 'Guinée',
+      );
+
+  final String name;
+  final String address;
+  final String phone;
+  final String region;
+  final String city;
+  final String country;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'address': address,
+        'phone': phone,
+        'region': region,
+        'city': city,
+        'country': country,
+      };
+
+  StoreInfo copyWith({String? name, String? address, String? phone, String? region, String? city, String? country}) =>
+      StoreInfo(
+        name: name ?? this.name,
+        address: address ?? this.address,
+        phone: phone ?? this.phone,
+        region: region ?? this.region,
+        city: city ?? this.city,
+        country: country ?? this.country,
+      );
+}
+
 class StoreContactInfo {
   const StoreContactInfo({required this.name, required this.address, required this.phone});
 

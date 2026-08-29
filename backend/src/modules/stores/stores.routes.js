@@ -98,6 +98,41 @@ router.put(
   }
 );
 
+// --- Informations générales de la boutique ACTIVE (§ décidé en
+// conversation) — nom, adresse, téléphone, région, ville, pays,
+// modifiables après création par le Owner (le type de boutique reste à
+// part, voir /type ci-dessous : lui seul est définitif une fois choisi).
+router.get('/info', requireActiveStore, requireRole('OWNER'), async (req, res, next) => {
+  try {
+    const result = await storesService.getStoreInfo(req.auth.storeId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put(
+  '/info',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [
+    body('name').trim().notEmpty().withMessage('Le nom de la boutique est requis.'),
+    body('phone').trim().notEmpty().withMessage('Le numéro de la boutique est requis.'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updateStoreInfo(req.auth.storeId, req.body);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // --- Logo de la boutique (§ cahier des charges "Upload et stockage réel
 // des images", décidé en conversation) — réservé au Owner, comme les
 // autres réglages de la boutique active.

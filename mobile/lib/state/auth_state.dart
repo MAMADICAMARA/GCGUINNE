@@ -78,6 +78,25 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reflète immédiatement un profil modifié (§ décidé en conversation,
+  /// ProfilePage) — même principe que applyStoreSwitch, jamais besoin de
+  /// recharger l'app ou de se reconnecter.
+  void setUser(AppUser newUser) {
+    user = newUser;
+    _persist();
+    notifyListeners();
+  }
+
+  /// Remplace le jeton après un changement de mot de passe depuis une
+  /// session déjà connectée — le backend renvoie un nouveau jeton pour que
+  /// CETTE session continue sans forcer une reconnexion, même si les
+  /// AUTRES sessions ouvertes ailleurs sont invalidées côté serveur.
+  void setToken(String newToken) {
+    token = newToken;
+    _persist();
+    notifyListeners();
+  }
+
   void setCanVoidReturn(bool value) {
     canVoidReturn = value;
     notifyListeners();

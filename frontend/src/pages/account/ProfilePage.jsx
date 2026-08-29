@@ -1,4 +1,9 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
+import apiClient from '@/services/apiClient';
 import { useAuthStore } from '@/store/authStore';
+import PasswordInput from '@/components/PasswordInput';
 
 const GENDER_LABELS = { HOMME: 'Homme', FEMME: 'Femme', AUTRE: 'Autre' };
 
@@ -30,71 +35,73 @@ function getAvatarStyle(fullName) {
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
 }
 
-function computeAge(birthDate) {
-  if (!birthDate) return null;
-  const birth = new Date(birthDate);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
+// AAAA-MM-JJ tel qu'attendu par <input type="date"> — birthDate arrive du
+// backend en ISO complet (2026-01-01T00:00:00.000Z).
+function toDateInputValue(isoDate) {
+  if (!isoDate) return '';
+  return String(isoDate).slice(0, 10);
 }
 
-function InfoRow({ icon, label, value }) {
-  return (
-    <div className="flex items-center gap-4 py-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-        <p className="truncate text-sm font-medium text-slate-800">{value}</p>
-      </div>
-    </div>
-  );
-}
+const MAIL_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 6-10 7L2 6" />
+  </svg>
+);
 
-const ICONS = {
-  mail: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m22 6-10 7L2 6" />
-    </svg>
-  ),
-  phone: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.804 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" />
-    </svg>
-  ),
-  user: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M6 21v-1a6 6 0 0 1 12 0v1" />
-    </svg>
-  ),
-  cake: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" />
-      <path d="M4 16s.5-1 2-1 2 1 3.5 1 2-1 3.5-1 2 1 3.5 1 2-1 3.5-1" />
-      <path d="M12 8v3M12 4a1.5 1.5 0 1 0-1.5-1.5A1.5 1.5 0 0 0 12 4Z" />
-    </svg>
-  ),
-};
-
+/**
+ * Profil personnel (§ décidé en conversation) — tout modifiable SAUF
+ * l'e-mail (identifiant de connexion, affiché en lecture seule ci-dessous
+ * avec une explication). Deux formulaires distincts : informations
+ * (nom/téléphone/sexe/naissance) et mot de passe (nécessite l'actuel),
+ * chacun avec son propre état de chargement/erreur — jamais couplés,
+ * une erreur sur l'un ne doit jamais bloquer l'autre.
+ */
 export default function ProfilePage() {
   const user = useAuthStore((s) => s.user);
-  const age = computeAge(user?.birthDate);
+  const setUser = useAuthStore((s) => s.setUser);
+  const setToken = useAuthStore((s) => s.setToken);
+
   const initials = getInitials(user?.fullName);
   const avatar = getAvatarStyle(user?.fullName);
+
+  const [form, setForm] = useState({
+    fullName: user?.fullName || '',
+    phone: user?.phone || '',
+    gender: user?.gender || '',
+    birthDate: toDateInputValue(user?.birthDate),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  function update(field) {
+    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  }
+
+  async function handleSaveProfile(e) {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setSaving(true);
+    try {
+      const { data } = await apiClient.put('/auth/profile', form);
+      setUser(data);
+      setSuccess('Profil mis à jour.');
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Enregistrement impossible.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div>
       <h1 className="text-xl font-semibold text-slate-800 mb-1">Profil</h1>
       <p className="text-sm text-slate-500 mb-6">Vos informations personnelles.</p>
 
-      <div className="max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white mb-6">
         {/* En-tête signature : avatar à initiales, coloré de façon stable
             selon le nom — donne une identité visuelle à chaque personne
             sans jamais sortir de la palette déjà établie dans l'app. */}
@@ -112,35 +119,325 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="divide-y divide-slate-100 px-6">
-          <InfoRow icon={ICONS.mail} label="E-mail" value={user?.email || '—'} />
-          <InfoRow icon={ICONS.phone} label="Téléphone" value={user?.phone || '—'} />
-          <InfoRow
-            icon={ICONS.user}
-            label="Sexe"
-            value={user?.gender ? GENDER_LABELS[user.gender] : '—'}
-          />
-          <InfoRow icon={ICONS.cake} label="Âge" value={age !== null ? `${age} ans` : '—'} />
-        </div>
+        <form onSubmit={handleSaveProfile} className="px-6 py-5 space-y-3">
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{error}</p>
+          )}
+          {success && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2">
+              {success}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">E-mail</label>
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+              <span className="text-slate-400">{MAIL_ICON}</span>
+              <span className="truncate">{user?.email}</span>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">Non modifiable — c'est votre identifiant de connexion.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Nom complet</label>
+            <input
+              required
+              value={form.fullName}
+              onChange={update('fullName')}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Téléphone</label>
+              <input
+                required
+                value={form.phone}
+                onChange={update('phone')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Sexe</label>
+              <select
+                required
+                value={form.gender}
+                onChange={update('gender')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="" disabled>
+                  Choisir...
+                </option>
+                {Object.entries(GENDER_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Date de naissance</label>
+            <input
+              required
+              type="date"
+              value={form.birthDate}
+              onChange={update('birthDate')}
+              max={new Date().toISOString().slice(0, 10)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 sm:w-1/2"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
+          >
+            {saving ? 'Enregistrement...' : 'Enregistrer'}
+          </button>
+        </form>
       </div>
 
-      <div className="mt-4 flex max-w-md items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50/60 px-4 py-3">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          className="mt-0.5 shrink-0 text-slate-400"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4M12 8h.01" />
-        </svg>
-        <p className="text-xs leading-relaxed text-slate-500">
-          La modification du profil (nom, mot de passe) sera disponible prochainement.
-        </p>
-      </div>
+      <ChangePasswordCard onTokenRefreshed={setToken} />
     </div>
+  );
+}
+
+function ChangePasswordCard({ onTokenRefreshed }) {
+  const email = useAuthStore((s) => s.user?.email);
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', newPasswordConfirm: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  // true dès que le mot de passe actuel saisi est refusé — propose alors
+  // l'option "recevoir un code par e-mail" plutôt que de laisser la
+  // personne bloquée (§ décidé en conversation).
+  const [wrongCurrentPassword, setWrongCurrentPassword] = useState(false);
+
+  // Repli par e-mail (réutilise le même mécanisme que "mot de passe
+  // oublié" — ForgotPasswordPage.jsx — plutôt qu'un second système de
+  // vérification). L'e-mail est déjà connu (celui du compte connecté),
+  // jamais resaisi.
+  const [emailStep, setEmailStep] = useState('IDLE'); // 'IDLE' | 'SENDING' | 'CODE_SENT'
+  const [resetForm, setResetForm] = useState({ code: '', newPassword: '', newPasswordConfirm: '' });
+  const [resetError, setResetError] = useState('');
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+
+  function update(field) {
+    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  }
+
+  function updateReset(field) {
+    return (e) => setResetForm((f) => ({ ...f, [field]: e.target.value }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setWrongCurrentPassword(false);
+
+    if (form.newPassword !== form.newPasswordConfirm) {
+      setError('Les mots de passe ne correspondent pas.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data } = await apiClient.put('/auth/password', form);
+      // La session en cours continue avec le nouveau jeton — les AUTRES
+      // sessions ouvertes ailleurs sont invalidées côté serveur, jamais
+      // celle-ci (cf. auth.service.js#changePassword).
+      onTokenRefreshed(data.token);
+      setForm({ currentPassword: '', newPassword: '', newPasswordConfirm: '' });
+      setSuccess('Mot de passe modifié. Vos autres sessions ont été déconnectées.');
+      setTimeout(() => setSuccess(''), 8000);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Modification impossible.');
+      if (err.response?.data?.error?.code === 'INVALID_CURRENT_PASSWORD') {
+        setWrongCurrentPassword(true);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSendCode() {
+    setResetError('');
+    setEmailStep('SENDING');
+    try {
+      await apiClient.post('/auth/request-password-reset', { email });
+      setEmailStep('CODE_SENT');
+    } catch (err) {
+      setResetError(err.response?.data?.error?.message || "Envoi impossible. Réessayez.");
+      setEmailStep('IDLE');
+    }
+  }
+
+  async function handleResetViaCode(e) {
+    e.preventDefault();
+    setResetError('');
+    if (resetForm.newPassword !== resetForm.newPasswordConfirm) {
+      setResetError('Les mots de passe ne correspondent pas.');
+      return;
+    }
+    setResetSubmitting(true);
+    try {
+      await apiClient.post('/auth/reset-password', { email, ...resetForm });
+      // Le code par e-mail invalide la session en cours (aucun nouveau
+      // jeton renvoyé, contrairement au changement via mot de passe actuel
+      // — cf. auth.service.js#resetPassword) : reconnexion obligatoire,
+      // même comportement que ForgotPasswordPage.jsx.
+      setRedirecting(true);
+      setTimeout(() => {
+        logout();
+        navigate('/login', { state: { prefillEmail: email } });
+      }, 1800);
+    } catch (err) {
+      setResetError(err.response?.data?.error?.message || 'Code invalide ou expiré.');
+    } finally {
+      setResetSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="max-w-md rounded-xl border border-slate-200 bg-white p-5">
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">Mot de passe</h2>
+      <p className="text-xs text-slate-500 mb-3">
+        Changer votre mot de passe déconnecte automatiquement vos autres sessions ouvertes.
+      </p>
+
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-3">{error}</p>
+      )}
+      {success && (
+        <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2 mb-3">
+          {success}
+        </p>
+      )}
+
+      {redirecting ? (
+        <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2">
+          Mot de passe mis à jour. Reconnexion nécessaire — redirection...
+        </p>
+      ) : emailStep === 'CODE_SENT' ? (
+        <form onSubmit={handleResetViaCode} className="space-y-3">
+          <p className="text-xs text-slate-500">
+            Un code a été envoyé à <span className="font-medium text-slate-700">{email}</span> — vérifiez aussi vos
+            courriers indésirables.
+          </p>
+          {resetError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{resetError}</p>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Code reçu par e-mail</label>
+            <input
+              required
+              inputMode="numeric"
+              pattern="\d{6}"
+              maxLength={6}
+              value={resetForm.code}
+              onChange={(e) => setResetForm((f) => ({ ...f, code: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-lg tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="000000"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Nouveau mot de passe</label>
+            <PasswordInput
+              required
+              minLength={6}
+              value={resetForm.newPassword}
+              onChange={updateReset('newPassword')}
+              placeholder="Au moins 6 caractères"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Confirmer le nouveau mot de passe</label>
+            <PasswordInput
+              required
+              minLength={6}
+              value={resetForm.newPasswordConfirm}
+              onChange={updateReset('newPasswordConfirm')}
+              placeholder="Retapez le mot de passe"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={resetSubmitting || resetForm.code.length !== 6}
+            className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
+          >
+            {resetSubmitting ? 'Validation...' : 'Réinitialiser le mot de passe'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEmailStep('IDLE');
+              setResetError('');
+            }}
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+          >
+            <ChevronLeft size={14} /> Retour
+          </button>
+        </form>
+      ) : (
+        <>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Mot de passe actuel</label>
+              <PasswordInput required value={form.currentPassword} onChange={update('currentPassword')} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Nouveau mot de passe</label>
+              <PasswordInput
+                required
+                minLength={6}
+                value={form.newPassword}
+                onChange={update('newPassword')}
+                placeholder="Au moins 6 caractères"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Confirmer le nouveau mot de passe</label>
+              <PasswordInput
+                required
+                minLength={6}
+                value={form.newPasswordConfirm}
+                onChange={update('newPasswordConfirm')}
+                placeholder="Retapez le mot de passe"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
+            >
+              {saving ? 'Modification...' : 'Changer le mot de passe'}
+            </button>
+          </form>
+
+          {wrongCurrentPassword && (
+            <div className="mt-3 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5">
+              <p className="text-xs text-amber-800 mb-1.5">Mot de passe actuel oublié ?</p>
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={emailStep === 'SENDING'}
+                className="text-xs font-medium text-brand-600 hover:text-brand-700 disabled:opacity-60"
+              >
+                {emailStep === 'SENDING' ? 'Envoi du code...' : 'Recevoir un code par e-mail'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }

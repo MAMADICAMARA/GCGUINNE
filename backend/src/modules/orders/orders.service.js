@@ -1,7 +1,8 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { getReceiptSettings, canUserEditPrice } = require('../stores/stores.service');
-const { getEffectiveUnitPrice } = require('../products/products.service');
+const { getEffectiveUnitPrice, getLockedProductIds } = require('../products/products.service');
+const { getEffectivePlan } = require('../../utils/planContext');
 
 /**
  * Crée une commande de vente atomique
@@ -85,6 +86,14 @@ async function createOrder(storeId, userId, roleCode, orderData) {
       productsMap[p.id] = p;
     });
 
+    // Produits verrouillés par plafond de plan (§ décidé en conversation —
+    // ex: boutique retombée en FREEMIUM avec plus de produits que la
+    // nouvelle limite) — un produit verrouillé ne peut plus être vendu du
+    // tout, même règle que consulter/modifier/ajuster son stock (voir
+    // products.service.js#getLockedProductIds).
+    const plan = await getEffectivePlan(storeId);
+    const lockedProductIds = await getLockedProductIds(storeId, plan);
+
     // Prix dégressif par palier de quantité (§31_prix_degressif_grossiste.sql,
     // décidé en conversation) — le prix appliqué est TOUJOURS recalculé ici,
     // côté serveur, à partir des paliers réellement enregistrés pour chaque
@@ -107,6 +116,13 @@ async function createOrder(storeId, userId, roleCode, orderData) {
       const product = productsMap[item.productId];
       if (!product) {
         throw new AppError(`Produit ID ${item.productId} introuvable`, 404);
+      }
+      if (lockedProductIds.has(product.id)) {
+        throw new AppError(
+          `"${product.name}" est verrouillé — le plan ${plan.planName} est limité à ${plan.maxProductsPerStore} produit(s) actif(s). Passez à un plan supérieur pour le vendre.`,
+          403,
+          'PLAN_PRODUCT_LOCKED'
+        );
       }
       if (item.quantity > product.quantity) {
         throw new AppError(

@@ -82,6 +82,31 @@ async function resetPassword(req, res, next) {
   }
 }
 
+async function updateProfile(req, res, next) {
+  try {
+    checkValidation(req);
+    const result = await authService.updateProfile(req.auth.userId, req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function changePassword(req, res, next) {
+  try {
+    checkValidation(req);
+    const result = await authService.changePassword({
+      userId: req.auth.userId,
+      storeId: req.auth.storeId,
+      roleCode: req.auth.roleCode,
+      ...req.body,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -90,4 +115,6 @@ module.exports = {
   resendVerificationCode,
   requestPasswordReset,
   resetPassword,
+  updateProfile,
+  changePassword,
 };

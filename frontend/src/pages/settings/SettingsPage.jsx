@@ -6,6 +6,95 @@ import SalesEditPricePermissionSection from './SalesEditPricePermissionSection';
 import AddProductPermissionSection from './AddProductPermissionSection';
 import SubscriptionSection from './SubscriptionSection';
 import StoreLogoSection from './StoreLogoSection';
+import StoreInfoSection from './StoreInfoSection';
+import {
+  SlidersHorizontal,
+  Crown,
+  Store,
+  Share2,
+  ShoppingBag,
+  FileText,
+  KeyRound,
+  Tag,
+  Copy,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
+
+// Une teinte par groupe (au lieu d'un bleu unique partout) — repère visuel
+// rapide entre Abonnement / Boutique / Partage / Ventes, cohérent avec la
+// palette déjà utilisée ailleurs dans l'app (ProfilePage.jsx notamment).
+const ACCENTS = {
+  amber: { icon: 'bg-amber-50 text-amber-600', ring: 'focus:ring-amber-500 focus:border-amber-500', chip: 'bg-amber-50 text-amber-700', solidBtn: 'bg-amber-500 hover:bg-amber-600' },
+  sky: { icon: 'bg-sky-50 text-sky-600', ring: 'focus:ring-sky-500 focus:border-sky-500', chip: 'bg-sky-50 text-sky-700', solidBtn: 'bg-sky-500 hover:bg-sky-600' },
+  violet: { icon: 'bg-violet-50 text-violet-600', ring: 'focus:ring-violet-500 focus:border-violet-500', chip: 'bg-violet-50 text-violet-700', solidBtn: 'bg-violet-500 hover:bg-violet-600' },
+  emerald: { icon: 'bg-emerald-50 text-emerald-600', ring: 'focus:ring-emerald-500 focus:border-emerald-500', chip: 'bg-emerald-50 text-emerald-700', solidBtn: 'bg-emerald-500 hover:bg-emerald-600' },
+  slate: { icon: 'bg-slate-100 text-slate-500', ring: 'focus:ring-slate-400 focus:border-slate-400', chip: 'bg-slate-100 text-slate-600', solidBtn: 'bg-slate-500 hover:bg-slate-600' },
+};
+
+function SectionHeader({ icon: Icon, title, description, accent = 'sky' }) {
+  return (
+    <div className="flex items-start gap-3 mb-4">
+      <div className={`rounded-xl p-2.5 shrink-0 ${ACCENTS[accent].icon}`}>
+        <Icon className="h-5 w-5" strokeWidth={1.75} />
+      </div>
+      <div>
+        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+        {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
+      </div>
+    </div>
+  );
+}
+
+// Les codes de supervision et fournisseur partagent exactement la même
+// mécanique (afficher, copier, régénérer avec confirmation) — un seul
+// composant paramétré plutôt que deux blocs JSX dupliqués.
+function ShareCodeCard({ title, description, code, loading, error, copied, regenerating, onCopy, onRegenerate, accent = 'violet' }) {
+  return (
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center gap-2 mb-1">
+        <KeyRound className={`h-4 w-4 ${ACCENTS[accent].icon.split(' ')[1]}`} strokeWidth={1.75} />
+        <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+      </div>
+      <p className="text-xs text-slate-500 mb-4">{description}</p>
+
+      {error && (
+        <div className="flex items-center gap-1.5 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-slate-400">Chargement…</p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 mb-3">
+            <code className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm font-mono text-slate-800 truncate">
+              {code}
+            </code>
+            <button
+              onClick={onCopy}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-200 transition"
+            >
+              <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {copied ? 'Copié !' : 'Copier'}
+            </button>
+          </div>
+          <button
+            onClick={onRegenerate}
+            disabled={regenerating}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50 transition"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${regenerating ? 'animate-spin' : ''}`} strokeWidth={1.75} />
+            {regenerating ? 'Régénération…' : 'Régénérer le code'}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
 
 /**
  * Paramètres de la boutique active (§8 du cahier des charges).
@@ -14,69 +103,11 @@ import StoreLogoSection from './StoreLogoSection';
  * (§12_supervision.sql, lecture seule sur toute la boutique) et code
  * fournisseur (§18_fournisseurs_inter_boutiques.sql, lecture seule du
  * catalogue produit uniquement — deux codes volontairement distincts, deux
- * niveaux de confiance différents). Le reste (infos boutique, facturation)
- * reste à construire.
+ * niveaux de confiance différents).
  *
- * Réorganisée en groupes thématiques (Abonnement / Boutique / Partage &
- * accès / Ventes) plutôt qu'une liste plate de cartes — les composants
- * importés (SubscriptionSection, ReceiptSettingsSection...) gardent leur
- * implémentation interne intacte, seul leur regroupement change ici.
+ * Groupée en sections thématiques, chacune avec sa propre teinte d'accent
+ * (voir ACCENTS ci-dessus) plutôt qu'une liste plate de cartes bleu uniforme.
  */
-
-// Petit en-tête de groupe cohérent avec le style déjà utilisé ailleurs dans
-// l'app (libellés en majuscules discrètes) — encode une vraie catégorie de
-// réglages, pas une simple décoration entre les cartes.
-function SectionGroup({ title, description, children }) {
-  return (
-    <div className="mb-10">
-      <div className="mb-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</h2>
-        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
-      </div>
-      <div className="space-y-6">{children}</div>
-    </div>
-  );
-}
-
-// Les codes de supervision et fournisseur partagent exactement la même
-// mécanique (afficher, copier, régénérer avec confirmation) — un seul
-// composant paramétré plutôt que deux blocs JSX dupliqués.
-function ShareCodeCard({ title, description, code, loading, error, copied, regenerating, onCopy, onRegenerate }) {
-  return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h3 className="text-sm font-semibold text-slate-700 mb-1">{title}</h3>
-      <p className="text-xs text-slate-500 mb-3">{description}</p>
-
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-
-      {loading ? (
-        <p className="text-sm text-slate-400">Chargement...</p>
-      ) : (
-        <>
-          <div className="flex items-center gap-2 mb-3">
-            <code className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm font-mono text-slate-800">
-              {code}
-            </code>
-            <button
-              onClick={onCopy}
-              className="rounded-lg bg-slate-100 text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-200 transition"
-            >
-              {copied ? 'Copié !' : 'Copier'}
-            </button>
-          </div>
-          <button
-            onClick={onRegenerate}
-            disabled={regenerating}
-            className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
-          >
-            {regenerating ? 'Régénération...' : 'Régénérer le code'}
-          </button>
-        </>
-      )}
-    </section>
-  );
-}
-
 export default function SettingsPage() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(true);
@@ -219,78 +250,112 @@ export default function SettingsPage() {
   }
 
   return (
-    <div>
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Paramètres</h1>
-      <p className="text-sm text-slate-500 mb-8">Informations boutique, abonnement, facturation.</p>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-10">
+      {/* En-tête général */}
+      <div className="flex items-center gap-3">
+        <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-700 p-3 text-white shadow-sm">
+          <SlidersHorizontal className="h-6 w-6" strokeWidth={1.75} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Paramètres</h1>
+          <p className="text-sm text-slate-500">Informations boutique, abonnement, facturation.</p>
+        </div>
+      </div>
 
-      <SectionGroup title="Abonnement">
+      {/* Abonnement */}
+      <div className="space-y-4">
+        <SectionHeader icon={Crown} title="Abonnement" description="Gérez votre plan et vos factures." accent="amber" />
         <SubscriptionSection />
-      </SectionGroup>
+      </div>
 
-      <SectionGroup
-        title="Boutique"
-        description="Identité visuelle et catégorisation de votre activité."
-      >
-        <StoreLogoSection />
+      {/* Boutique */}
+      <div className="space-y-4">
+        <SectionHeader icon={Store} title="Boutique" description="Identité visuelle et catégorisation de votre activité." accent="sky" />
+        <div className="grid gap-6">
+          <StoreLogoSection />
+          <StoreInfoSection />
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Type de boutique</h3>
-          <p className="text-xs text-slate-500 mb-3">
-            Détermine les catégories de produits suggérées. Une boutique ne peut avoir qu'un
-            seul type — le choix est définitif une fois enregistré.
-          </p>
-
-          {storeTypeError && <p className="text-sm text-red-600 mb-3">{storeTypeError}</p>}
-          {storeTypeSuccess && (
-            <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2 mb-3">
-              {storeTypeSuccess}
+          {/* Type de boutique */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-center gap-2 mb-1">
+              <Tag className="h-4 w-4 text-sky-500" strokeWidth={1.75} />
+              <h3 className="text-sm font-semibold text-slate-800">Type de boutique</h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Détermine les catégories de produits suggérées. Une boutique ne peut avoir qu'un seul type — le choix est définitif une fois enregistré.
             </p>
-          )}
 
-          {storeTypeLoading ? (
-            <p className="text-sm text-slate-400">Chargement...</p>
-          ) : storeType?.storeTypeId ? (
-            <p className="text-sm text-slate-600">
-              Type : <span className="font-medium text-slate-800">{storeType.storeTypeLabel}</span>
-            </p>
-          ) : (
-            <form onSubmit={handleSaveStoreType}>
-              <p className="text-sm text-slate-600 mb-2">Aucun type défini pour l'instant.</p>
-              <select
-                required
-                value={selectedStoreTypeId}
-                onChange={(e) => setSelectedStoreTypeId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              >
-                <option value="" disabled>
-                  Choisir un type...
-                </option>
-                {allStoreTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                disabled={savingStoreType || !selectedStoreTypeId}
-                className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
-              >
-                {savingStoreType ? 'Enregistrement...' : 'Définir le type'}
-              </button>
-            </form>
-          )}
-        </section>
-      </SectionGroup>
+            {storeTypeError && (
+              <div className="flex items-center gap-1.5 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {storeTypeError}
+              </div>
+            )}
+            {storeTypeSuccess && (
+              <div className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-3">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                {storeTypeSuccess}
+              </div>
+            )}
 
-      <SectionGroup
-        title="Partage & accès"
-        description="Deux codes distincts, deux niveaux de confiance différents."
-      >
+            {storeTypeLoading ? (
+              <p className="text-sm text-slate-400">Chargement…</p>
+            ) : storeType?.storeTypeId ? (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <span>Type actuel :</span>
+                <span className="font-medium text-sky-700 bg-sky-50 px-3 py-1 rounded-full">
+                  {storeType.storeTypeLabel}
+                </span>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveStoreType} className="space-y-3">
+                <p className="text-sm text-slate-600">Aucun type défini pour l'instant.</p>
+                <select
+                  required
+                  value={selectedStoreTypeId}
+                  onChange={(e) => setSelectedStoreTypeId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                >
+                  <option value="" disabled>Choisir un type…</option>
+                  {allStoreTypes.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  disabled={savingStoreType || !selectedStoreTypeId}
+                  className="inline-flex items-center gap-2 rounded-lg bg-sky-500 text-white text-sm font-medium px-5 py-2.5 hover:bg-sky-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {savingStoreType ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Enregistrement…
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Définir le type
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {/* Partage & accès */}
+      <div className="space-y-4">
+        <SectionHeader
+          icon={Share2}
+          title="Partage & accès"
+          description="Deux codes distincts, deux niveaux de confiance différents."
+          accent="violet"
+        />
         <div className="grid gap-6 sm:grid-cols-2">
           <ShareCodeCard
             title="Code de supervision"
-            description="Donne une vue en lecture seule à un propriétaire multi-boutiques — aucun droit d'action (pas de caisse, pas de gestion produit/équipe)."
+            description="Donne une vue en lecture seule à un propriétaire multi-boutiques — aucun droit d'action."
             code={code}
             loading={loading}
             error={error}
@@ -301,7 +366,7 @@ export default function SettingsPage() {
           />
           <ShareCodeCard
             title="Code fournisseur"
-            description="Permet à une autre boutique de vous ajouter comme fournisseur — elle voit uniquement votre catalogue (nom, image, catégorie), jamais vos prix ni stocks."
+            description="Permet à une autre boutique de vous ajouter comme fournisseur — elle voit uniquement votre catalogue."
             code={supplierCode}
             loading={supplierCodeLoading}
             error={supplierCodeError}
@@ -311,20 +376,32 @@ export default function SettingsPage() {
             onRegenerate={handleRegenerateSupplierCode}
           />
         </div>
-      </SectionGroup>
+      </div>
 
-      <SectionGroup title="Ventes" description="Règles applicables à la caisse et aux reçus.">
-        <SalesVoidReturnPermissionSection />
-        <SalesEditPricePermissionSection />
-        <AddProductPermissionSection />
-        <ReceiptSettingsSection />
-      </SectionGroup>
+      {/* Ventes */}
+      <div className="space-y-4">
+        <SectionHeader
+          icon={ShoppingBag}
+          title="Ventes"
+          description="Règles applicables à la caisse et aux reçus."
+          accent="emerald"
+        />
+        <div className="grid gap-6">
+          <SalesVoidReturnPermissionSection />
+          <SalesEditPricePermissionSection />
+          <AddProductPermissionSection />
+          <ReceiptSettingsSection />
+        </div>
+      </div>
 
-      <SectionGroup title="Facturation">
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400 text-sm">
+      {/* Facturation */}
+      <div className="space-y-4">
+        <SectionHeader icon={FileText} title="Facturation" description="Gestion des factures et documents." accent="slate" />
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400 text-sm shadow-sm">
+          <FileText className="h-8 w-8 mx-auto text-slate-300 mb-2" strokeWidth={1.5} />
           Reste à implémenter.
         </div>
-      </SectionGroup>
+      </div>
     </div>
   );
 }

@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import { Package, Plus } from 'lucide-react';
+import { Lock, Package, Plus } from 'lucide-react';
 import { formatGNF } from '@/utils/format';
 
 export default function PosProductCard({ product, cartQuantity, onAdd }) {
   const [quantity, setQuantity] = useState(1);
   const isOutOfStock = product.quantity === 0;
+  // Verrouillé par plafond de plan (§ décidé en conversation) — onAdd
+  // gère déjà le clic (ouvre le message d'upgrade au lieu d'ajouter), ce
+  // badge/désactivation n'est qu'un confort visuel pour ne pas laisser
+  // croire que le produit est disponible.
+  const isLocked = Boolean(product.locked);
   const isLow = product.quantity <= product.lowStockThreshold;
   const hasTiers = Array.isArray(product.priceTiers) && product.priceTiers.length > 0;
   const cheapestTier = hasTiers ? product.priceTiers[product.priceTiers.length - 1] : null;
@@ -34,10 +39,19 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
 
   return (
     <div
-      className={`rounded-xl border bg-white p-2 md:p-3 flex flex-col gap-2 ${
-        cartQuantity > 0 ? 'border-brand-400 ring-1 ring-brand-100' : 'border-slate-200'
+      className={`relative rounded-xl border bg-white p-2 md:p-3 flex flex-col gap-2 ${
+        isLocked
+          ? 'border-amber-200 opacity-75'
+          : cartQuantity > 0
+            ? 'border-brand-400 ring-1 ring-brand-100'
+            : 'border-slate-200'
       }`}
     >
+      {isLocked && (
+        <div className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center" title="Verrouillé — passez à un plan supérieur">
+          <Lock size={12} className="text-amber-700" />
+        </div>
+      )}
       {/* ---- Version mobile : carte verticale, 3 par ligne (maquette fournie) ---- */}
       <div className="flex md:hidden flex-col gap-1.5 min-w-0">
         <div className="min-w-0">
@@ -83,9 +97,11 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
               setQuantity(1);
             }}
             disabled={isOutOfStock}
-            className="shrink-0 rounded-full bg-brand-500 text-white p-1.5 hover:bg-brand-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className={`shrink-0 rounded-full text-white p-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              isLocked ? 'bg-amber-500 hover:bg-amber-600' : 'bg-brand-500 hover:bg-brand-600'
+            }`}
           >
-            <Plus size={14} />
+            {isLocked ? <Lock size={14} /> : <Plus size={14} />}
           </button>
         </div>
       </div>
@@ -133,9 +149,16 @@ export default function PosProductCard({ product, cartQuantity, onAdd }) {
               setQuantity(1);
             }}
             disabled={isOutOfStock}
-            className="flex-1 rounded-lg bg-brand-500 text-white text-sm font-medium py-1.5 hover:bg-brand-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            title={isLocked ? 'Verrouillé — passez à un plan supérieur' : undefined}
+            className={`flex-1 rounded-lg text-white text-sm font-medium py-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 ${
+              isLocked ? 'bg-amber-500 hover:bg-amber-600' : 'bg-brand-500 hover:bg-brand-600'
+            }`}
           >
-            + Ajouter
+            {isLocked ? <Lock size={14} /> : (
+              <>
+                <Plus size={13} /> Ajouter
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -24,6 +24,7 @@ async function getEffectivePlan(storeId) {
     `SELECT s.plan_expires_at AS "planExpiresAt",
             sp.name AS "planName", sp.price AS "planPrice",
             sp.max_users_per_store AS "maxUsersPerStore",
+            sp.max_products_per_store AS "maxProductsPerStore",
             sp.allows_supervision AS "allowsSupervision", sp.allows_suppliers AS "allowsSuppliers",
             sp.allows_purchase_orders AS "allowsPurchaseOrders"
      FROM stores s
@@ -39,7 +40,8 @@ async function getEffectivePlan(storeId) {
 
   if (!store.planName || isExpired) {
     const freeResult = await pool.query(
-      `SELECT name, max_users_per_store AS "maxUsersPerStore",
+      `SELECT name, max_users_per_store AS "maxUsersPerStore", 
+      max_products_per_store AS "maxProductsPerStore",
               allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
               allows_purchase_orders AS "allowsPurchaseOrders"
        FROM subscription_plans WHERE price = 0 ORDER BY id ASC LIMIT 1`
@@ -51,6 +53,7 @@ async function getEffectivePlan(storeId) {
     return {
       planName: freePlan.name,
       maxUsersPerStore: freePlan.maxUsersPerStore,
+      maxProductsPerStore: freePlan.maxProductsPerStore,
       allowsSupervision: freePlan.allowsSupervision,
       allowsSuppliers: freePlan.allowsSuppliers,
       allowsPurchaseOrders: freePlan.allowsPurchaseOrders,
@@ -64,6 +67,7 @@ async function getEffectivePlan(storeId) {
   return {
     planName: store.planName,
     maxUsersPerStore: store.maxUsersPerStore,
+    maxProductsPerStore: store.maxProductsPerStore,
     allowsSupervision: store.allowsSupervision,
     allowsSuppliers: store.allowsSuppliers,
     allowsPurchaseOrders: store.allowsPurchaseOrders,

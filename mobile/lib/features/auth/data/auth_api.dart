@@ -1,4 +1,5 @@
 import '../../../core/network/api_client.dart';
+import '../../../state/models/user.dart';
 
 /// Miroir de la partie "auth" de frontend/src/services/apiClient.js.
 class AuthApi {
@@ -83,5 +84,40 @@ class AuthApi {
       'newPassword': newPassword,
       'newPasswordConfirm': newPasswordConfirm,
     });
+  }
+
+  /// Profil personnel (§ décidé en conversation, "tout modifiable sauf
+  /// l'e-mail") — miroir de PUT /auth/profile. Retourne l'utilisateur à
+  /// jour, à répercuter immédiatement via AuthState.setUser.
+  Future<AppUser> updateProfile({
+    required String fullName,
+    required String phone,
+    required String gender,
+    required String birthDate,
+  }) async {
+    final data = await _client.put('/auth/profile', data: {
+      'fullName': fullName,
+      'phone': phone,
+      'gender': gender,
+      'birthDate': birthDate,
+    });
+    return AppUser.fromJson(data);
+  }
+
+  /// Miroir de PUT /auth/password — nécessite le mot de passe actuel.
+  /// Retourne un nouveau jeton : la session en cours doit continuer sans
+  /// reconnexion (voir auth_state.dart#setToken), seules les AUTRES
+  /// sessions ouvertes ailleurs sont invalidées côté serveur.
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirm,
+  }) async {
+    final data = await _client.put('/auth/password', data: {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+      'newPasswordConfirm': newPasswordConfirm,
+    });
+    return data['token'] as String;
   }
 }

@@ -37,6 +37,7 @@ class Product {
     this.description,
     this.status = 'ACTIVE',
     this.attributes = const {},
+    this.locked = false,
   });
 
   // GET /products renvoie toujours le même contrat complet — la Caisse
@@ -60,6 +61,7 @@ class Product {
         status: json['status'] as String? ?? 'ACTIVE',
         attributes: (json['attributes'] as Map<String, dynamic>? ?? {})
             .map((key, value) => MapEntry(key, value.toString())),
+        locked: json['locked'] as bool? ?? false,
       );
 
   final int id;
@@ -75,6 +77,14 @@ class Product {
   final String? description;
   final String status;
   final Map<String, String> attributes;
+  // Au-delà de la limite de produits actifs du plan de la boutique (§ décidé
+  // en conversation, "plan gratuit limité à 50 produits") — miroir de
+  // products.service.js#getLockedProductIds : les plus anciens restent
+  // toujours débloqués, seuls les plus récents au-delà du plafond se
+  // verrouillent. Un produit verrouillé reste visible mais toute action
+  // dessus (détail, édition, ajout au panier) doit ouvrir l'écran d'upgrade
+  // plutôt que d'agir normalement.
+  final bool locked;
 
   /// Miroir de getEffectiveUnitPrice() côté web (PosPage.jsx) — le serveur
   /// reste seul autorité sur le prix réellement facturé, ceci n'est qu'un
@@ -149,6 +159,31 @@ class CartItem {
   bool priceEdited;
 
   num get lineTotal => quantity * unitPrice;
+
+  // Persistance du panier (§ décidé en conversation, "survivre à la
+  // navigation et à un redémarrage à froid de l'app") — miroir de
+  // posCartStore.js côté web, mais via shared_preferences ici (voir
+  // PosPage._persistCart). availableStock n'est jamais rechargé depuis le
+  // JSON : au montage, le panier restauré est toujours revérifié contre le
+  // catalogue fraîchement rechargé (_loadCatalog), donc une valeur figée
+  // ici ne serait jamais qu'un doublon potentiellement périmé.
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
+        productId: json['productId'] as int,
+        productName: json['productName'] as String,
+        quantity: json['quantity'] as int,
+        unitPrice: _parseNum(json['unitPrice']) ?? 0,
+        availableStock: json['availableStock'] as int? ?? 0,
+        priceEdited: json['priceEdited'] as bool? ?? false,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'productId': productId,
+        'productName': productName,
+        'quantity': quantity,
+        'unitPrice': unitPrice,
+        'availableStock': availableStock,
+        'priceEdited': priceEdited,
+      };
 }
 
 class CashDrawer {

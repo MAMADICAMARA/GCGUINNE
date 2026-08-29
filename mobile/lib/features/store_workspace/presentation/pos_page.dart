@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
@@ -12,7 +14,23 @@ import '../data/pos_models.dart';
 import 'pos/cash_drawer_banner.dart';
 import 'pos/customer_step_sheet.dart';
 import 'pos/order_summary_sheet.dart';
+import 'pos/pos_product_list_row.dart';
 import 'pos/receipt_sheet.dart';
+import 'upgrade_plan_dialog.dart';
+
+// Clé de préférence légère (§ décidé en conversation, "affichage liste sur
+// mobile et sur desktop") — persistée par appareil, jamais synchronisée
+// (pas une donnée métier), même principe que localStorage côté web.
+const _kPosViewModePrefKey = 'pos_view_mode';
+
+// Persistance du panier (§ décidé en conversation, "survivre à la
+// navigation et à un redémarrage à froid de l'app") — miroir de
+// posCartStore.js côté web (sessionStorage), mais shared_preferences ici :
+// pas d'équivalent mobile à "fermeture du navigateur", le panier survit
+// donc tant que l'app n'est pas désinstallée, jusqu'à la prochaine vente
+// ou changement de boutique (voir _kPosCartStoreIdPrefKey ci-dessous).
+const _kPosCartItemsPrefKey = 'pos_cart_items';
+const _kPosCartStoreIdPrefKey = 'pos_cart_store_id';
 
 /// Miroir de PosPage.jsx — catalogue + panier + validation de vente en 3
 /// étapes (client, récapitulatif/paiement, reçu). Sur mobile, le panier
@@ -32,6 +50,8 @@ class _PosPageState extends State<PosPage> {
   List<ProductCategory> _categories = [];
   bool _loadingProducts = true;
   String? _error;
+  String? _planName;
+  int? _maxProductsPerStore;
 
   String _searchTerm = '';
   int? _selectedCategoryId;
@@ -43,21 +63,112 @@ class _PosPageState extends State<PosPage> {
   bool _submitting = false;
   int _drawerRefreshSignal = 0;
 
+  // Mode d'affichage du catalogue (§ décidé en conversation) — "Grille"
+  // (défaut, historique) avec image, ou "Liste" sans image pour un scan
+  // rapide. Miroir exact de PosPage.jsx côté web.
+  bool _listView = false;
+
   @override
   void initState() {
     super.initState();
     _loadCatalog();
+    _loadViewModePreference();
+    _loadPersistedCart();
+  }
+
+  // Un panier laissé pour une autre boutique (produits/prix différents) ne
+  // doit jamais réapparaître ici — comparé au storeId sauvegardé plutôt
+  // que de simplement restaurer aveuglément (même garde-fou que
+  // posCartStore.js côté web).
+  Future<void> _loadPersistedCart() async {
+    final activeStoreId = context.read<AuthState>().activeStore?.id;
+    if (activeStoreId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final savedStoreId = prefs.getInt(_kPosCartStoreIdPrefKey);
+    if (savedStoreId != activeStoreId) {
+      // Boutique différente (ou premier lancement) : rien à restaurer, on
+      // marque simplement cette boutique comme référence pour la suite.
+      await prefs.setInt(_kPosCartStoreIdPrefKey, activeStoreId);
+      await prefs.remove(_kPosCartItemsPrefKey);
+      return;
+    }
+    final raw = prefs.getString(_kPosCartItemsPrefKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      final restored = decoded.map((e) => CartItem.fromJson(e as Map<String, dynamic>)).toList();
+      if (!mounted) return;
+      setState(() {
+        _cart.clear();
+        _cart.addAll(restored);
+      });
+    } catch (_) {
+      // Panier sauvegardé corrompu ou format obsolète — ignoré plutôt que
+      // de faire planter l'écran Caisse.
+      await prefs.remove(_kPosCartItemsPrefKey);
+    }
+  }
+
+  Future<void> _persistCart() async {
+    final activeStoreId = context.read<AuthState>().activeStore?.id;
+    if (activeStoreId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kPosCartStoreIdPrefKey, activeStoreId);
+    await prefs.setString(_kPosCartItemsPrefKey, jsonEncode(_cart.map((i) => i.toJson()).toList()));
+  }
+
+  Future<void> _clearPersistedCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kPosCartItemsPrefKey);
+  }
+
+  Future<void> _handleClearCart() async {
+    if (_cart.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Vider le panier ?'),
+        content: const Text('Tous les articles ajoutés seront retirés.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Vider')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() {
+      _cart.clear();
+      _error = null;
+    });
+    await _clearPersistedCart();
+  }
+
+  Future<void> _loadViewModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _listView = prefs.getString(_kPosViewModePrefKey) == 'list');
+  }
+
+  Future<void> _toggleViewMode() async {
+    setState(() => _listView = !_listView);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kPosViewModePrefKey, _listView ? 'list' : 'grid');
   }
 
   Future<void> _loadCatalog() async {
     setState(() => _loadingProducts = true);
     try {
       final catalogApi = context.read<CatalogApi>();
-      final results = await Future.wait([catalogApi.listActiveProducts(), catalogApi.listCategories()]);
+      final catalogFuture = catalogApi.listActiveProducts();
+      final categoriesFuture = catalogApi.listCategories();
+      final catalog = await catalogFuture;
+      final categories = await categoriesFuture;
       if (!mounted) return;
       setState(() {
-        _products = results[0] as List<Product>;
-        _categories = results[1] as List<ProductCategory>;
+        _products = catalog.products;
+        _planName = catalog.planName;
+        _maxProductsPerStore = catalog.maxProductsPerStore;
+        _categories = categories;
         _error = null;
         _loadingProducts = false;
       });
@@ -72,11 +183,18 @@ class _PosPageState extends State<PosPage> {
 
   List<Product> get _filteredProducts {
     final term = _searchTerm.toLowerCase();
-    return _products.where((p) {
+    final matched = _products.where((p) {
       final matchesSearch = p.name.toLowerCase().contains(term) || (p.reference ?? '').toLowerCase().contains(term);
       final matchesCategory = _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
       return matchesSearch && matchesCategory;
-    }).toList();
+    });
+    // Les produits verrouillés (plafond du plan, § décidé en conversation)
+    // passent tous après les produits utilisables — partition plutôt qu'un
+    // tri, pour garantir que l'ordre relatif à l'intérieur de chaque
+    // groupe reste exactement celui du serveur.
+    final unlocked = matched.where((p) => !p.locked);
+    final locked = matched.where((p) => p.locked);
+    return [...unlocked, ...locked];
   }
 
   int _cartQuantityFor(int productId) {
@@ -88,6 +206,15 @@ class _PosPageState extends State<PosPage> {
 
   void _addToCart(Product product, int requestedQty) {
     if (requestedQty <= 0) return;
+    if (product.locked) {
+      showUpgradePlanDialog(
+        context,
+        planName: _planName,
+        maxProductsPerStore: _maxProductsPerStore,
+        productName: product.name,
+      );
+      return;
+    }
     final existingIndex = _cart.indexWhere((i) => i.productId == product.id);
     final currentQty = existingIndex >= 0 ? _cart[existingIndex].quantity : 0;
     final newQuantity = currentQty + requestedQty;
@@ -121,6 +248,7 @@ class _PosPageState extends State<PosPage> {
         ));
       }
     });
+    _persistCart();
   }
 
   void _removeFromCart(int productId) {
@@ -128,6 +256,7 @@ class _PosPageState extends State<PosPage> {
       _cart.removeWhere((i) => i.productId == productId);
       _error = null;
     });
+    _persistCart();
   }
 
   void _updateQuantity(int productId, int newQty) {
@@ -160,6 +289,7 @@ class _PosPageState extends State<PosPage> {
         }
       }
     });
+    _persistCart();
   }
 
   // Prix négocié à la vente (§39_prix_editable_vente.sql, décidé en
@@ -178,6 +308,7 @@ class _PosPageState extends State<PosPage> {
         _cart[index].priceEdited = true;
       }
     });
+    _persistCart();
   }
 
   num _normalUnitPriceFor(CartItem item) {
@@ -250,6 +381,7 @@ class _PosPageState extends State<PosPage> {
         _paymentMethod = 'CASH';
         _drawerRefreshSignal++;
       });
+      await _clearPersistedCart();
       await _loadCatalog();
       if (!mounted) return;
       await showReceiptSheet(context, order);
@@ -303,6 +435,23 @@ class _PosPageState extends State<PosPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Semantics(
+                      label: _listView ? 'Passer en affichage grille' : 'Passer en affichage liste',
+                      button: true,
+                      child: Material(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: _toggleViewMode,
+                          child: Padding(
+                            padding: const EdgeInsets.all(11),
+                            child: Icon(_listView ? Icons.grid_view_rounded : Icons.view_list_rounded, size: 20, color: Colors.grey.shade700),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 if (_categories.isNotEmpty) ...[
@@ -340,6 +489,20 @@ class _PosPageState extends State<PosPage> {
                   const Padding(
                     padding: EdgeInsets.only(top: 40),
                     child: Center(child: Text('Aucun produit trouvé.', style: TextStyle(color: Colors.grey))),
+                  )
+                else if (_listView)
+                  Column(
+                    children: [
+                      for (final product in _filteredProducts)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: PosProductListRow(
+                            product: product,
+                            cartQuantity: _cartQuantityFor(product.id),
+                            onAdd: (qty) => _addToCart(product, qty),
+                          ),
+                        ),
+                    ],
                   )
                 else
                   GridView.builder(
@@ -387,6 +550,7 @@ class _PosPageState extends State<PosPage> {
           onTap: _cart.isEmpty
               ? null
               : () => _showCartSheet(context, canEditPrice),
+          onClear: _cart.isEmpty ? null : _handleClearCart,
         ),
       ],
     );
@@ -649,36 +813,58 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _CartSummaryBar extends StatelessWidget {
-  const _CartSummaryBar({required this.itemCount, required this.total, required this.submitting, required this.onTap});
+  const _CartSummaryBar({required this.itemCount, required this.total, required this.submitting, required this.onTap, this.onClear});
 
   final int itemCount;
   final num total;
   final bool submitting;
   final VoidCallback? onTap;
+  // Vider le panier (§ décidé en conversation, "visible sans devoir
+  // ouvrir le panier") — bouton séparé au coin droit de cette même barre,
+  // plutôt qu'enterré dans la feuille modale du panier.
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       elevation: 8,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          color: Theme.of(context).colorScheme.surface,
-          child: Row(
-            children: [
-              Icon(Icons.shopping_cart_outlined, color: onTap == null ? Colors.grey : Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  itemCount == 0 ? 'Panier vide' : '$itemCount article${itemCount > 1 ? 's' : ''} — ${formatGNF(total)}',
-                  style: TextStyle(fontWeight: FontWeight.w600, color: onTap == null ? Colors.grey : null),
+      color: Theme.of(context).colorScheme.surface,
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(Icons.shopping_cart_outlined, color: onTap == null ? Colors.grey : Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        itemCount == 0 ? 'Panier vide' : '$itemCount article${itemCount > 1 ? 's' : ''} — ${formatGNF(total)}',
+                        style: TextStyle(fontWeight: FontWeight.w600, color: onTap == null ? Colors.grey : null),
+                      ),
+                    ),
+                    if (onTap != null) const Icon(Icons.chevron_right),
+                  ],
                 ),
               ),
-              if (onTap != null) const Icon(Icons.chevron_right),
-            ],
+            ),
           ),
-        ),
+          if (onClear != null)
+            Semantics(
+              label: 'Vider le panier',
+              button: true,
+              child: InkWell(
+                onTap: onClear,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Icon(Icons.delete_outline, size: 20, color: Colors.grey.shade500),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -712,6 +898,7 @@ class _PosProductCardState extends State<_PosProductCard> {
     final hasTiers = product.priceTiers.isNotEmpty;
     final primary = Theme.of(context).colorScheme.primary;
     final inCart = widget.cartQuantity > 0;
+    final locked = product.locked;
 
     final Color stockColor = isOutOfStock ? Colors.red.shade600 : (isLow ? Colors.amber.shade800 : Colors.green.shade700);
     final String stockLabel = isOutOfStock ? 'Rupture de stock' : (isLow ? 'Stock faible : ${product.quantity}' : 'En stock : ${product.quantity}');
@@ -721,7 +908,10 @@ class _PosProductCardState extends State<_PosProductCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: inCart ? primary : Colors.grey.shade200, width: inCart ? 1.5 : 1),
+        border: Border.all(
+          color: locked ? Colors.amber.shade200 : (inCart ? primary : Colors.grey.shade200),
+          width: inCart ? 1.5 : 1,
+        ),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
@@ -762,6 +952,12 @@ class _PosProductCardState extends State<_PosProductCard> {
                     child: Text('${widget.cartQuantity} au panier',
                         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                   ),
+                ),
+              if (locked)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _Badge(color: Colors.amber.shade600, icon: Icons.lock, tooltip: 'Verrouillé par votre plan'),
                 ),
             ],
           ),
@@ -806,6 +1002,24 @@ class _PosProductCardState extends State<_PosProductCard> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
                     child: Text('Indisponible', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                  )
+                else if (locked)
+                  SizedBox(
+                    height: 34,
+                    child: Semantics(
+                      label: '${product.name} verrouillé par votre plan',
+                      button: true,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor: Colors.amber.shade500,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => widget.onAdd(1),
+                        icon: const Icon(Icons.lock_outline, size: 14),
+                        label: const Text('Verrouillé', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
                   )
                 else ...[
                   // Compteur à taper (+/-) plutôt qu'un champ clavier : plus

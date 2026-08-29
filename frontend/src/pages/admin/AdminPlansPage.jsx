@@ -68,6 +68,7 @@ export default function AdminPlansPage() {
               </p>
               <ul className="text-sm text-slate-600 space-y-1.5 mb-4">
                 <li>{plan.maxUsersPerStore} utilisateur(s) / boutique</li>
+                <li>{plan.maxProductsPerStore} produit(s) actif(s) / boutique</li>
                 <li
                   className={`flex items-center gap-1.5 ${
                     plan.allowsSupervision ? 'text-slate-500' : 'text-slate-300'
@@ -171,6 +172,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
   const [name, setName] = useState(plan.name);
   const [price, setPrice] = useState(String(plan.price));
   const [maxUsersPerStore, setMaxUsersPerStore] = useState(String(plan.maxUsersPerStore));
+  const [maxProductsPerStore, setMaxProductsPerStore] = useState(String(plan.maxProductsPerStore));
   const [allowsSupervision, setAllowsSupervision] = useState(plan.allowsSupervision);
   const [allowsSuppliers, setAllowsSuppliers] = useState(plan.allowsSuppliers);
   const [allowsPurchaseOrders, setAllowsPurchaseOrders] = useState(plan.allowsPurchaseOrders);
@@ -187,6 +189,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
         name: name.trim(),
         price: Number(price),
         maxUsersPerStore: Number(maxUsersPerStore),
+        maxProductsPerStore: Number(maxProductsPerStore),
         allowsSupervision,
         allowsSuppliers,
         allowsPurchaseOrders,
@@ -250,6 +253,19 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
             step="1"
             value={maxUsersPerStore}
             onChange={(e) => setMaxUsersPerStore(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+
+          <label className="block text-sm font-medium text-slate-600 mb-1">
+            Produits actifs / boutique
+          </label>
+          <input
+            required
+            type="number"
+            min="1"
+            step="1"
+            value={maxProductsPerStore}
+            onChange={(e) => setMaxProductsPerStore(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
 

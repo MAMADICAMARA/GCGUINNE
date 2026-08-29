@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore } from '@/store/authStore';
@@ -7,8 +7,12 @@ import PasswordInput from '@/components/PasswordInput';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const setSession = useAuthStore((s) => s.setSession);
-  const [email, setEmail] = useState('');
+  // Préremplit après une réinitialisation de mot de passe par code e-mail
+  // depuis le profil (§ décidé en conversation) — la session y est
+  // invalidée sans nouveau jeton, une reconnexion est donc obligatoire.
+  const [email, setEmail] = useState(location.state?.prefillEmail || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);

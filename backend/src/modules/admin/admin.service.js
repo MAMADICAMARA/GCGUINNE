@@ -231,6 +231,7 @@ async function getStoreDetail(storeId) {
 async function listPlans() {
   const { rows } = await pool.query(
     `SELECT id, name, max_users_per_store AS "maxUsersPerStore",
+            max_products_per_store AS "maxProductsPerStore",
             allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
             allows_purchase_orders AS "allowsPurchaseOrders",
             allows_marketplace AS "allowsMarketplace",
@@ -704,7 +705,16 @@ async function revokeSuperAdmin(userId, adminUserId) {
  */
 async function updatePlan(
   planId,
-  { name, price, maxUsersPerStore, allowsSupervision, allowsSuppliers, allowsPurchaseOrders, allowsMarketplace },
+  {
+    name,
+    price,
+    maxUsersPerStore,
+    maxProductsPerStore,
+    allowsSupervision,
+    allowsSuppliers,
+    allowsPurchaseOrders,
+    allowsMarketplace,
+  },
   adminUserId
 ) {
   if (!name || !name.trim()) {
@@ -716,15 +726,19 @@ async function updatePlan(
   if (!Number.isInteger(maxUsersPerStore) || maxUsersPerStore < 1) {
     throw new AppError('Le nombre d\'utilisateurs doit être un entier positif.', 400, 'VALIDATION_ERROR');
   }
+  if (!Number.isInteger(maxProductsPerStore) || maxProductsPerStore < 1) {
+    throw new AppError('Le nombre de produits doit être un entier positif.', 400, 'VALIDATION_ERROR');
+  }
 
   try {
     const { rows } = await pool.query(
       `UPDATE subscription_plans
-       SET name = $2, price = $3, max_users_per_store = $4,
-           allows_supervision = $5, allows_suppliers = $6, allows_purchase_orders = $7,
-           allows_marketplace = $8
+       SET name = $2, price = $3, max_users_per_store = $4, max_products_per_store = $5,
+           allows_supervision = $6, allows_suppliers = $7, allows_purchase_orders = $8,
+           allows_marketplace = $9
        WHERE id = $1
        RETURNING id, name, max_users_per_store AS "maxUsersPerStore",
+                 max_products_per_store AS "maxProductsPerStore",
                  allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
                  allows_purchase_orders AS "allowsPurchaseOrders",
                  allows_marketplace AS "allowsMarketplace",
@@ -734,6 +748,7 @@ async function updatePlan(
         name.trim(),
         price,
         maxUsersPerStore,
+        maxProductsPerStore,
         !!allowsSupervision,
         !!allowsSuppliers,
         !!allowsPurchaseOrders,

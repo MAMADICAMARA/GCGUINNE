@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Package, PackageSearch, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Package, PackageSearch, Plus, Search } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore, useIsPlanFrozen } from '@/store/authStore';
 import { formatGNF } from '@/utils/format';
+import UpgradePlanModal from '@/components/UpgradePlanModal';
 import ProductForm from './ProductForm';
 import ProductDetail from './ProductDetail';
 
@@ -37,9 +38,15 @@ export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
+  // Produit verrouillé sur lequel le marchand vient de cliquer (§ décidé en
+  // conversation) — déclenche le message d'upgrade plutôt que le détail
+  // normal. planInfo vient de la même réponse que la liste, jamais une
+  // requête séparée.
+  const [upgradeModalProduct, setUpgradeModalProduct] = useState(null);
+  const [planInfo, setPlanInfo] = useState(null);
 
   const [categories, setCategories] = useState([]);
-  
+
 
   async function loadProducts() {
     if (!activeStore) return;
@@ -58,6 +65,7 @@ export default function ProductsPage() {
       });
       setProducts(data.products);
       setTotal(data.total);
+      setPlanInfo({ planName: data.planName, maxProductsPerStore: data.maxProductsPerStore });
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Erreur lors du chargement des produits.');
     } finally {
@@ -90,11 +98,19 @@ export default function ProductsPage() {
   }
 
   function handleEdit(product) {
+    if (product.locked) {
+      setUpgradeModalProduct(product);
+      return;
+    }
     setSelectedProduct(product);
     setShowForm(true);
   }
 
   function handleViewDetail(product) {
+    if (product.locked) {
+      setUpgradeModalProduct(product);
+      return;
+    }
     setSelectedProduct(product);
     setShowDetail(true);
   }
@@ -230,11 +246,16 @@ export default function ProductsPage() {
               {products.map((product) => {
                 const isLow = product.quantity <= product.lowStockThreshold;
                 return (
-                  <div key={product.id} className="p-4">
+                  <div key={product.id} className={`p-4 ${product.locked ? 'bg-slate-50/60' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-800 truncate">{product.name}</p>
-                        <p className="text-xs text-slate-400">{product.reference || '—'}</p>
+                      <div className="min-w-0 flex items-center gap-1.5">
+                        {product.locked && (
+                          <Lock size={13} className="shrink-0 text-amber-600" aria-label="Verrouillé" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-800 truncate">{product.name}</p>
+                          <p className="text-xs text-slate-400">{product.reference || '—'}</p>
+                        </div>
                       </div>
                       <span
                         className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -307,8 +328,15 @@ export default function ProductsPage() {
                 {products.map((product) => {
                   const isLow = product.quantity <= product.lowStockThreshold;
                   return (
-                    <tr key={product.id} className="border-t border-slate-100">
-                      <td className="px-4 py-3 font-medium text-slate-800">{product.name}</td>
+                    <tr key={product.id} className={`border-t border-slate-100 ${product.locked ? 'bg-slate-50/60' : ''}`}>
+                      <td className="px-4 py-3 font-medium text-slate-800">
+                        <span className="inline-flex items-center gap-1.5">
+                          {product.locked && (
+                            <Lock size={13} className="shrink-0 text-amber-600" aria-label="Verrouillé" />
+                          )}
+                          {product.name}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-slate-500">{product.reference || '—'}</td>
                       <td className="px-4 py-3 text-right text-slate-700">
                         {formatGNF(product.purchasePrice)}
@@ -406,6 +434,15 @@ export default function ProductsPage() {
 
       {showDetail && selectedProduct && (
         <ProductDetail product={selectedProduct} onClose={() => setShowDetail(false)} />
+      )}
+
+      {upgradeModalProduct && planInfo && (
+        <UpgradePlanModal
+          planName={planInfo.planName}
+          maxProductsPerStore={planInfo.maxProductsPerStore}
+          productName={upgradeModalProduct.name}
+          onClose={() => setUpgradeModalProduct(null)}
+        />
       )}
     </div>
   );

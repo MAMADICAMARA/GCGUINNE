@@ -443,6 +443,47 @@ async function getStoreContactInfo(storeId) {
   return rows[0];
 }
 
+/**
+ * Informations générales de la boutique (§ décidé en conversation) — tout
+ * modifiable après création SAUF le type de boutique, qui reste
+ * définitif une fois choisi (voir adoptStoreType ci-dessus, règle déjà
+ * établie séparément). Mêmes champs, mêmes règles que createStore() pour
+ * le nom et le téléphone (seuls obligatoires) — région/ville/adresse/pays
+ * restent optionnels ici comme à la création.
+ */
+async function getStoreInfo(storeId) {
+  const { rows } = await pool.query(
+    `SELECT name, address, phone, region, city, country
+     FROM stores WHERE id = $1`,
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updateStoreInfo(storeId, { name, address, phone, region, city, country }) {
+  if (!name || !name.trim()) {
+    throw new AppError('Le nom de la boutique est requis.', 400, 'VALIDATION_ERROR');
+  }
+  if (!phone || !phone.trim()) {
+    throw new AppError('Le numéro de la boutique est requis.', 400, 'VALIDATION_ERROR');
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE stores
+     SET name = $1, address = $2, phone = $3, region = $4, city = $5, country = $6
+     WHERE id = $7
+     RETURNING name, address, phone, region, city, country`,
+    [name.trim(), address || null, phone.trim(), region || null, city || null, country || null, storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
 async function getReceiptSettings(storeId) {
   const { rows } = await pool.query('SELECT receipt_settings AS "receiptSettings" FROM stores WHERE id = $1', [
     storeId,
@@ -684,6 +725,8 @@ module.exports = {
   getReceiptSettings,
   updateReceiptSettings,
   getStoreContactInfo,
+  getStoreInfo,
+  updateStoreInfo,
   getStoreLogo,
   updateStoreLogo,
   getVoidReturnSettings,

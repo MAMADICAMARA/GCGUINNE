@@ -177,4 +177,39 @@ router.post(
   controller.resetPassword
 );
 
+// --- Informations personnelles du compte connecté (§ décidé en
+// conversation) — tout modifiable sauf l'e-mail, jamais exposé ici. ---
+
+router.put(
+  '/profile',
+  requireAuth,
+  [
+    body('fullName').trim().notEmpty().withMessage('Le nom complet est requis.'),
+    body('phone').trim().notEmpty().withMessage('Le numéro de téléphone est requis.'),
+    body('gender')
+      .isIn(['HOMME', 'FEMME', 'AUTRE'])
+      .withMessage('Le sexe doit être HOMME, FEMME ou AUTRE.'),
+    body('birthDate').isISO8601().withMessage('Date de naissance invalide.'),
+  ],
+  controller.updateProfile
+);
+
+router.put(
+  '/password',
+  requireAuth,
+  [
+    body('currentPassword').notEmpty().withMessage('Le mot de passe actuel est requis.'),
+    body('newPassword')
+      .isLength({ min: 6 })
+      .withMessage('Le mot de passe doit contenir au moins 6 caractères.'),
+    body('newPasswordConfirm').custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Les mots de passe ne correspondent pas.');
+      }
+      return true;
+    }),
+  ],
+  controller.changePassword
+);
+
 module.exports = router;

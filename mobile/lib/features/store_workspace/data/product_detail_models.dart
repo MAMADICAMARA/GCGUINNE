@@ -7,6 +7,8 @@ class ProductListResult {
     required this.total,
     required this.page,
     required this.pages,
+    this.planName,
+    this.maxProductsPerStore,
   });
 
   factory ProductListResult.fromJson(Map<String, dynamic> json) => ProductListResult(
@@ -16,12 +18,18 @@ class ProductListResult {
         total: (json['total'] as num).toInt(),
         page: (json['page'] as num).toInt(),
         pages: (json['pages'] as num).toInt(),
+        planName: json['planName'] as String?,
+        maxProductsPerStore: (json['maxProductsPerStore'] as num?)?.toInt(),
       );
 
   final List<Product> products;
   final int total;
   final int page;
   final int pages;
+  // Présents sur la même réponse que "products" (§ décidé en conversation) —
+  // évite un second appel juste pour savoir quel plan explique le verrou.
+  final String? planName;
+  final int? maxProductsPerStore;
 }
 
 /// Miroir de MOVEMENT_LABELS côté web (ProductDetail.jsx) — un mouvement de

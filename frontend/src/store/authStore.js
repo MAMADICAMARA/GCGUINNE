@@ -67,6 +67,18 @@ export const useAuthStore = create(
 
       setActiveStore: (store) => set({ activeStore: store }),
 
+      // Reflète immédiatement un profil modifié (§ décidé en conversation,
+      // ProfilePage.jsx) — même principe que setActiveStore ci-dessus,
+      // jamais besoin de recharger la page ou de se reconnecter.
+      setUser: (user) => set({ user }),
+
+      // Remplace le jeton après un changement de mot de passe depuis une
+      // session déjà connectée (§ décidé en conversation) — le backend
+      // renvoie un nouveau jeton pour que CETTE session continue sans
+      // forcer une reconnexion, même si les AUTRES sessions ouvertes
+      // ailleurs sont invalidées (token_version incrémenté côté serveur).
+      setToken: (token) => set({ token }),
+
       setStores: (stores) => set({ stores }),
 
       setPlanBanner: (planBanner) => set({ planBanner }),

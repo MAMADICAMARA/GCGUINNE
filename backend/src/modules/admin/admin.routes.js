@@ -32,6 +32,7 @@ router.put(
     body('name').trim().notEmpty().withMessage('Le nom du plan est requis.'),
     body('price').isFloat({ min: 0 }).withMessage('Le prix doit être un nombre positif.'),
     body('maxUsersPerStore').isInt({ min: 1 }).withMessage('Le nombre d\'utilisateurs doit être un entier positif.'),
+    body('maxProductsPerStore').isInt({ min: 1 }).withMessage('Le nombre de produits doit être un entier positif.'),
   ],
   checkValidation,
   controller.updatePlan

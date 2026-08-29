@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/data/guinee_regions.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/icon_badge.dart';
@@ -31,7 +32,7 @@ class SettingsPage extends StatelessWidget {
           _SectionGroup(
             title: 'BOUTIQUE',
             description: 'Identité visuelle et catégorisation de votre activité.',
-            children: [_StoreLogoSection(), _StoreTypeSection()],
+            children: [_StoreLogoSection(), _StoreInfoSection(), _StoreTypeSection()],
           ),
           _SectionGroup(
             title: 'PARTAGE & ACCÈS',
@@ -442,6 +443,257 @@ class _StoreLogoSectionState extends State<_StoreLogoSection> {
               onChanged: (url) => setState(() => _logoUrl = url),
             ),
             const SizedBox(height: 12),
+            FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Enregistrement...' : 'Enregistrer')),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// --- Informations générales de la boutique -------------------------------
+
+const _kOtherCity = '__AUTRE__';
+
+/// Miroir de StoreInfoSection.jsx — tout modifiable après création SAUF le
+/// type de boutique (section à part juste en dessous, définitif une fois
+/// choisi — règle déjà établie séparément). Même patron de sélection
+/// pays/région/ville en cascade que MyStorePage.dart, pour rester cohérent
+/// visuellement et fonctionnellement.
+class _StoreInfoSection extends StatefulWidget {
+  const _StoreInfoSection();
+
+  @override
+  State<_StoreInfoSection> createState() => _StoreInfoSectionState();
+}
+
+class _StoreInfoSectionState extends State<_StoreInfoSection> {
+  final _nameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _freeRegionController = TextEditingController();
+  final _freeCityController = TextEditingController();
+  final _otherCityController = TextEditingController();
+
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+  String? _success;
+
+  String _country = 'Guinée';
+  String? _guineeRegion;
+  String? _cityChoice;
+
+  bool get _isGuinee => _country == 'Guinée';
+  List<String> get _citiesForRegion => _isGuinee && _guineeRegion != null ? (kGuineeRegions[_guineeRegion!] ?? []) : [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    _freeRegionController.dispose();
+    _freeCityController.dispose();
+    _otherCityController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final info = await context.read<StoresApi>().getStoreInfo();
+      if (!mounted) return;
+      _applyInfo(info);
+      setState(() => _loading = false);
+    } on ApiException catch (err) {
+      if (mounted) {
+        setState(() {
+          _error = err.message;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  void _applyInfo(StoreInfo info) {
+    _nameController.text = info.name;
+    _addressController.text = info.address;
+    _phoneController.text = info.phone;
+    _country = info.country.isEmpty ? 'Guinée' : info.country;
+    if (_isGuinee) {
+      _guineeRegion = info.region.isEmpty ? null : info.region;
+      final known = _guineeRegion != null ? (kGuineeRegions[_guineeRegion!] ?? []) : <String>[];
+      // Une ville déjà enregistrée qui ne fait pas partie du référentiel
+      // (saisie via "Autre..." à l'époque) doit rester visible et
+      // modifiable, jamais silencieusement vidée.
+      if (info.city.isNotEmpty && !known.contains(info.city)) {
+        _cityChoice = _kOtherCity;
+        _otherCityController.text = info.city;
+      } else {
+        _cityChoice = info.city.isEmpty ? null : info.city;
+      }
+    } else {
+      _freeRegionController.text = info.region;
+      _freeCityController.text = info.city;
+    }
+  }
+
+  void _updateCountry(String? value) {
+    if (value == null) return;
+    setState(() {
+      _country = value;
+      _guineeRegion = null;
+      _cityChoice = null;
+      _freeRegionController.clear();
+      _freeCityController.clear();
+      _otherCityController.clear();
+    });
+  }
+
+  void _updateGuineeRegion(String? value) {
+    setState(() {
+      _guineeRegion = value;
+      _cityChoice = null;
+      _otherCityController.clear();
+    });
+  }
+
+  String _resolvedCity() {
+    if (!_isGuinee) return _freeCityController.text.trim();
+    if (_cityChoice == _kOtherCity) return _otherCityController.text.trim();
+    return _cityChoice ?? '';
+  }
+
+  String _resolvedRegion() => _isGuinee ? (_guineeRegion ?? '') : _freeRegionController.text.trim();
+
+  Future<void> _save() async {
+    setState(() {
+      _error = null;
+      _success = null;
+      _saving = true;
+    });
+    try {
+      final saved = await context.read<StoresApi>().updateStoreInfo(StoreInfo(
+            name: _nameController.text.trim(),
+            address: _addressController.text.trim(),
+            phone: _phoneController.text.trim(),
+            region: _resolvedRegion(),
+            city: _resolvedCity(),
+            country: _country,
+          ));
+      if (!mounted) return;
+      _applyInfo(saved);
+      setState(() => _success = 'Informations enregistrées.');
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _success = null);
+      });
+    } on ApiException catch (err) {
+      setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle(
+            title: 'Informations générales',
+            subtitle: 'Nom, coordonnées et localisation de votre boutique — modifiables à tout moment.',
+            icon: Icons.storefront_outlined,
+            iconColor: AppColors.blue,
+          ),
+          if (_error != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
+              child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+            ),
+          if (_success != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
+              child: Text(_success!, style: TextStyle(color: Colors.green.shade800, fontSize: 12.5)),
+            ),
+          if (_loading)
+            Text('Chargement...', style: TextStyle(color: Colors.grey.shade400, fontSize: 13))
+          else ...[
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nom de la boutique', isDense: true),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Numéro de la boutique', isDense: true),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _country,
+              decoration: const InputDecoration(labelText: 'Pays', isDense: true),
+              items: [for (final c in kCountries) DropdownMenuItem(value: c, child: Text(c))],
+              onChanged: _updateCountry,
+            ),
+            const SizedBox(height: 12),
+            Text('Région administrative', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            if (_isGuinee)
+              DropdownButtonFormField<String>(
+                initialValue: _guineeRegion,
+                decoration: const InputDecoration(isDense: true),
+                hint: const Text('Choisir une région'),
+                items: [for (final r in kGuineeRegionNames) DropdownMenuItem(value: r, child: Text(r))],
+                onChanged: _updateGuineeRegion,
+              )
+            else
+              TextField(
+                controller: _freeRegionController,
+                decoration: const InputDecoration(hintText: 'Région / province', isDense: true),
+              ),
+            const SizedBox(height: 12),
+            Text('Ville', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            if (_isGuinee)
+              DropdownButtonFormField<String>(
+                initialValue: _cityChoice,
+                decoration: const InputDecoration(isDense: true),
+                hint: Text(_guineeRegion != null ? 'Choisir une ville' : 'Choisissez une région d\'abord'),
+                items: [
+                  for (final city in _citiesForRegion) DropdownMenuItem(value: city, child: Text(city)),
+                  const DropdownMenuItem(value: _kOtherCity, child: Text('Autre...')),
+                ],
+                onChanged: _guineeRegion == null ? null : (value) => setState(() => _cityChoice = value),
+              )
+            else
+              TextField(
+                controller: _freeCityController,
+                decoration: const InputDecoration(hintText: 'Ville', isDense: true),
+              ),
+            if (_isGuinee && _cityChoice == _kOtherCity) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _otherCityController,
+                decoration: const InputDecoration(labelText: 'Précisez la ville', isDense: true),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _addressController,
+              decoration: const InputDecoration(labelText: 'Adresse (quartier)', hintText: 'Ex : Quartier Timbo, non loin du marché central', isDense: true),
+            ),
+            const SizedBox(height: 14),
             FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Enregistrement...' : 'Enregistrer')),
           ],
         ],
