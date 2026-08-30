@@ -9,6 +9,9 @@ class ReceiptSettings {
     required this.showAddress,
     required this.showPhone,
     required this.showSellerName,
+    required this.showSignature,
+    required this.signatureLabel,
+    required this.invoiceTitle,
   });
 
   factory ReceiptSettings.fromJson(Map<String, dynamic> json) => ReceiptSettings(
@@ -17,6 +20,9 @@ class ReceiptSettings {
         showAddress: json['showAddress'] as bool? ?? false,
         showPhone: json['showPhone'] as bool? ?? false,
         showSellerName: json['showSellerName'] as bool? ?? false,
+        showSignature: json['showSignature'] as bool? ?? false,
+        signatureLabel: json['signatureLabel'] as String? ?? 'Signature',
+        invoiceTitle: json['invoiceTitle'] as String? ?? 'FACTURE',
       );
 
   final String headerMessage;
@@ -24,6 +30,9 @@ class ReceiptSettings {
   final bool showAddress;
   final bool showPhone;
   final bool showSellerName;
+  final bool showSignature;
+  final String signatureLabel;
+  final String invoiceTitle;
 
   ReceiptSettings copyWith({
     String? headerMessage,
@@ -31,6 +40,9 @@ class ReceiptSettings {
     bool? showAddress,
     bool? showPhone,
     bool? showSellerName,
+    bool? showSignature,
+    String? signatureLabel,
+    String? invoiceTitle,
   }) =>
       ReceiptSettings(
         headerMessage: headerMessage ?? this.headerMessage,
@@ -38,6 +50,9 @@ class ReceiptSettings {
         showAddress: showAddress ?? this.showAddress,
         showPhone: showPhone ?? this.showPhone,
         showSellerName: showSellerName ?? this.showSellerName,
+        showSignature: showSignature ?? this.showSignature,
+        signatureLabel: signatureLabel ?? this.signatureLabel,
+        invoiceTitle: invoiceTitle ?? this.invoiceTitle,
       );
 
   Map<String, dynamic> toJson() => {
@@ -46,6 +61,9 @@ class ReceiptSettings {
         'showAddress': showAddress,
         'showPhone': showPhone,
         'showSellerName': showSellerName,
+        'showSignature': showSignature,
+        'signatureLabel': signatureLabel,
+        'invoiceTitle': invoiceTitle,
       };
 }
 

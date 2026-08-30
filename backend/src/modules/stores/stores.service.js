@@ -428,6 +428,9 @@ const DEFAULT_RECEIPT_SETTINGS = {
   showAddress: false,
   showPhone: false,
   showSellerName: false,
+  showSignature: false,
+  signatureLabel: 'Signature',
+  invoiceTitle: 'FACTURE',
 };
 
 /**
@@ -501,6 +504,9 @@ async function updateReceiptSettings(storeId, settings) {
     showAddress: Boolean(settings.showAddress),
     showPhone: Boolean(settings.showPhone),
     showSellerName: Boolean(settings.showSellerName),
+    showSignature: Boolean(settings.showSignature),
+    signatureLabel: (settings.signatureLabel || '').trim().slice(0, 60) || 'Signature',
+    invoiceTitle: (settings.invoiceTitle || '').trim().slice(0, 40) || 'FACTURE',
   };
 
   const { rows } = await pool.query(

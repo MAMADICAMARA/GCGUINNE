@@ -66,6 +66,24 @@ class ApiClient {
     }
   }
 
+  /// Réponse binaire brute (PDF, image...) — miroir de `responseType: 'blob'`
+  /// côté web (cf. utils/invoicePdf.js). Un éventuel corps d'erreur JSON
+  /// arrive ici sous forme d'octets bruts (jamais décodé, `responseType`
+  /// s'applique à toute la requête) : [_mapError] retombe alors sur son
+  /// message générique plutôt que le vrai message serveur, seul compromis
+  /// de cette approche.
+  Future<List<int>> getBytes(String path) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data ?? <int>[];
+    } on DioException catch (err) {
+      throw _mapError(err);
+    }
+  }
+
   Future<Map<String, dynamic>> post(String path, {Object? data}) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(path, data: data);

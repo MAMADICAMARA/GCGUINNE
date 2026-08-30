@@ -55,6 +55,11 @@ dependencies:
   # flutter_secure_storage ci-dessus.
   shared_preferences: ^2.3.3
 
+  # Répertoire temporaire pour écrire la Facture PDF reçue du serveur avant
+  # de la partager (share_plus a besoin d'un vrai chemin de fichier pour lui
+  # donner un nom correct dans la feuille de partage — cf. orders_api.dart).
+  path_provider: ^2.1.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

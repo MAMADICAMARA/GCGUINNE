@@ -154,14 +154,19 @@ async function streamInvoicePdf(res, order, items, context) {
     .font('Helvetica-Bold')
     .fontSize(14)
     .fillColor(COLORS.white)
-    .text('FACTURE', invoiceBoxX, headerTop + 13, { width: invoiceBoxWidth, align: 'center' });
+    .text(receiptSettings.invoiceTitle || 'FACTURE', invoiceBoxX, headerTop + 13, {
+      width: invoiceBoxWidth,
+      align: 'center',
+    });
 
   let cursorY = Math.max(leftY, headerTop + invoiceBoxHeight) + 20;
 
   if (receiptSettings.headerMessage) {
-    doc.font('Helvetica').fontSize(9).fillColor(COLORS.gray).text(receiptSettings.headerMessage, contentLeft, cursorY, {
-      width: contentWidth,
-    });
+    doc
+      .font('Helvetica')
+      .fontSize(9)
+      .fillColor(COLORS.gray)
+      .text(receiptSettings.headerMessage, contentLeft, cursorY, { width: contentWidth, align: 'center' });
     cursorY = doc.y + 15;
   }
 
@@ -318,6 +323,20 @@ async function streamInvoicePdf(res, order, items, context) {
   });
 
   cursorY = totalsY + totalBandH + 40;
+
+  // ---- Espace signature (optionnel, § décidé en conversation) ----
+  if (receiptSettings.showSignature) {
+    const sigWidth = 180;
+    const sigX = contentRight - sigWidth;
+    const sigLineY = cursorY + 25;
+    doc.moveTo(sigX, sigLineY).lineTo(sigX + sigWidth, sigLineY).strokeColor(COLORS.border).lineWidth(0.5).stroke();
+    doc
+      .font('Helvetica')
+      .fontSize(8)
+      .fillColor(COLORS.gray)
+      .text(receiptSettings.signatureLabel || 'Signature', sigX, sigLineY + 4, { width: sigWidth, align: 'center' });
+    cursorY = sigLineY + 20;
+  }
 
   // ---- Pied de page ----
   doc

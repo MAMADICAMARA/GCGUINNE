@@ -1367,7 +1367,16 @@ class _ReceiptSettingsSection extends StatefulWidget {
 }
 
 class _ReceiptSettingsSectionState extends State<_ReceiptSettingsSection> {
-  ReceiptSettings _form = const ReceiptSettings(headerMessage: '', footerMessage: 'Merci de votre visite !', showAddress: false, showPhone: false, showSellerName: false);
+  ReceiptSettings _form = const ReceiptSettings(
+    headerMessage: '',
+    footerMessage: 'Merci de votre visite !',
+    showAddress: false,
+    showPhone: false,
+    showSellerName: false,
+    showSignature: false,
+    signatureLabel: 'Signature',
+    invoiceTitle: 'FACTURE',
+  );
   StoreContactInfo? _store;
   bool _loading = true;
   bool _saving = false;
@@ -1375,12 +1384,16 @@ class _ReceiptSettingsSectionState extends State<_ReceiptSettingsSection> {
   String? _success;
   late final TextEditingController _headerController;
   late final TextEditingController _footerController;
+  late final TextEditingController _signatureLabelController;
+  late final TextEditingController _invoiceTitleController;
 
   @override
   void initState() {
     super.initState();
     _headerController = TextEditingController();
     _footerController = TextEditingController(text: _form.footerMessage);
+    _signatureLabelController = TextEditingController(text: _form.signatureLabel);
+    _invoiceTitleController = TextEditingController(text: _form.invoiceTitle);
     _load();
   }
 
@@ -1388,6 +1401,8 @@ class _ReceiptSettingsSectionState extends State<_ReceiptSettingsSection> {
   void dispose() {
     _headerController.dispose();
     _footerController.dispose();
+    _signatureLabelController.dispose();
+    _invoiceTitleController.dispose();
     super.dispose();
   }
 
@@ -1400,6 +1415,8 @@ class _ReceiptSettingsSectionState extends State<_ReceiptSettingsSection> {
         _store = result.$2;
         _headerController.text = _form.headerMessage;
         _footerController.text = _form.footerMessage;
+        _signatureLabelController.text = _form.signatureLabel;
+        _invoiceTitleController.text = _form.invoiceTitle;
         _loading = false;
       });
     } on ApiException catch (err) {
@@ -1418,7 +1435,12 @@ class _ReceiptSettingsSectionState extends State<_ReceiptSettingsSection> {
       _saving = true;
     });
     try {
-      final saved = await context.read<StoresApi>().updateReceiptSettings(_form.copyWith(headerMessage: _headerController.text, footerMessage: _footerController.text));
+      final saved = await context.read<StoresApi>().updateReceiptSettings(_form.copyWith(
+            headerMessage: _headerController.text,
+            footerMessage: _footerController.text,
+            signatureLabel: _signatureLabelController.text,
+            invoiceTitle: _invoiceTitleController.text,
+          ));
       if (!mounted) return;
       setState(() {
         _form = saved;
@@ -1520,6 +1542,47 @@ class _ReceiptSettingsSectionState extends State<_ReceiptSettingsSection> {
               dense: true,
               title: const Text('Afficher le nom du vendeur', style: TextStyle(fontSize: 13)),
             ),
+            const SizedBox(height: 14),
+            Container(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 14),
+            Text(
+              "S'applique à la mise en page de la Facture PDF (bouton « Télécharger la facture "
+              '(PDF) » après une vente).',
+              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500, height: 1.35),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _invoiceTitleController,
+              maxLength: 40,
+              onChanged: (_) => setState(() {}),
+              style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.4),
+              decoration: const InputDecoration(
+                labelText: 'Titre de la facture',
+                hintText: 'FACTURE',
+                helperText: 'Affiché en gros caractères gras en haut de la facture. Ex : « Vente accessoire ».',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 10),
+            CheckboxListTile(
+              value: _form.showSignature,
+              onChanged: (value) => setState(() => _form = _form.copyWith(showSignature: value ?? false)),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              title: const Text('Réserver un espace signature (facture)', style: TextStyle(fontSize: 13)),
+            ),
+            if (_form.showSignature) ...[
+              const SizedBox(height: 4),
+              TextField(
+                controller: _signatureLabelController,
+                maxLength: 60,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(labelText: 'Libellé de la signature', hintText: 'Signature', border: OutlineInputBorder(), isDense: true),
+              ),
+              const SizedBox(height: 10),
+            ],
             const SizedBox(height: 8),
             FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Enregistrement...' : 'Enregistrer')),
             const SizedBox(height: 16),

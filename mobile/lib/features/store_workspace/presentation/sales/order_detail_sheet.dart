@@ -6,6 +6,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../state/auth_state.dart';
 import '../../data/order_models.dart';
 import '../../data/orders_api.dart';
+import 'invoice_pdf_share.dart';
 import 'return_order_sheet.dart';
 
 /// Miroir de OrderDetailModal.jsx — détail d'une vente, avec Annuler/
@@ -38,6 +39,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   OrderDetail? _detail;
   String? _error;
   bool _voiding = false;
+  bool _downloadingInvoice = false;
   bool _changed = false;
 
   @override
@@ -90,6 +92,12 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     } finally {
       if (mounted) setState(() => _voiding = false);
     }
+  }
+
+  Future<void> _handleDownloadInvoice() async {
+    setState(() => _downloadingInvoice = true);
+    await shareInvoicePdf(context, orderId: widget.orderId, orderNumber: _detail!.orderNumber);
+    if (mounted) setState(() => _downloadingInvoice = false);
   }
 
   Future<void> _openReturn() async {
@@ -200,6 +208,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
+                  OutlinedButton(
+                    onPressed: _downloadingInvoice ? null : _handleDownloadInvoice,
+                    child: Text(_downloadingInvoice ? 'Génération...' : 'Télécharger la facture (PDF)'),
+                  ),
                   if (canAct)
                     OutlinedButton(
                       onPressed: _voiding ? null : _handleVoid,

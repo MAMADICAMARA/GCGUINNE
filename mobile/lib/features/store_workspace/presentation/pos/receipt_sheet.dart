@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../data/pos_models.dart';
+import '../sales/invoice_pdf_share.dart';
 
-/// Miroir (partiel) de ReceiptModal.jsx — affiche le reçu texte renvoyé par
-/// le serveur et propose de le partager (miroir du bouton "Partager", Web
+/// Miroir de ReceiptModal.jsx — affiche le reçu texte renvoyé par le
+/// serveur et propose de le partager (miroir du bouton "Partager", Web
 /// Share API côté web — usage visé : envoyer le reçu par WhatsApp
-/// directement depuis la caisse). Le téléchargement PDF et la facture PDF
-/// du web restent à faire dans une passe dédiée : générer/manipuler un PDF
-/// côté mobile est un sujet à part entière, pas une simple adaptation.
+/// directement depuis la caisse), ainsi que la Facture PDF formelle (§
+/// cahier des charges "Facture PDF") via [shareInvoicePdf].
 Future<void> showReceiptSheet(BuildContext context, OrderResult order) {
   return showModalBottomSheet(
     context: context,
@@ -19,10 +19,25 @@ Future<void> showReceiptSheet(BuildContext context, OrderResult order) {
   );
 }
 
-class _ReceiptSheet extends StatelessWidget {
+class _ReceiptSheet extends StatefulWidget {
   const _ReceiptSheet({required this.order});
 
   final OrderResult order;
+
+  @override
+  State<_ReceiptSheet> createState() => _ReceiptSheetState();
+}
+
+class _ReceiptSheetState extends State<_ReceiptSheet> {
+  bool _downloadingInvoice = false;
+
+  OrderResult get order => widget.order;
+
+  Future<void> _handleDownloadInvoice() async {
+    setState(() => _downloadingInvoice = true);
+    await shareInvoicePdf(context, orderId: order.orderId, orderNumber: order.orderNumber);
+    if (mounted) setState(() => _downloadingInvoice = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +64,14 @@ class _ReceiptSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _downloadingInvoice ? null : _handleDownloadInvoice,
+                child: Text(_downloadingInvoice ? 'Génération...' : 'Télécharger la facture (PDF)'),
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(

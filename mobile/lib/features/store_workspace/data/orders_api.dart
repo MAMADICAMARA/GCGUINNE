@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../core/network/api_client.dart';
 import 'order_models.dart';
 import 'pos_models.dart';
@@ -29,6 +31,15 @@ class OrdersApi {
   Future<OrderDetail> getDetail(int id) async {
     final data = await _client.get('/orders/$id');
     return OrderDetail.fromJson(data);
+  }
+
+  /// Facture PDF mise en forme (§ cahier des charges "Facture PDF"),
+  /// générée côté serveur (PDFKit) — miroir de utils/invoicePdf.js côté
+  /// web. Retourne les octets bruts pour être partagés/enregistrés via
+  /// share_plus, jamais rendus dans l'app.
+  Future<Uint8List> getInvoicePdf(int orderId) async {
+    final bytes = await _client.getBytes('/orders/$orderId/invoice-pdf');
+    return Uint8List.fromList(bytes);
   }
 
   /// Annule la commande entière : stock remis, dette éventuelle du client

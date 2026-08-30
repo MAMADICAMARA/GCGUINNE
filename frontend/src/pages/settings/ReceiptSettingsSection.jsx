@@ -8,6 +8,9 @@ const DEFAULTS = {
   showAddress: false,
   showPhone: false,
   showSellerName: false,
+  showSignature: false,
+  signatureLabel: 'Signature',
+  invoiceTitle: 'FACTURE',
 };
 
 /**
@@ -113,6 +116,21 @@ export default function ReceiptSettingsSection() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="space-y-2 pt-1">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={form.showAddress} onChange={update('showAddress')} />
+                Afficher l'adresse de la boutique
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={form.showPhone} onChange={update('showPhone')} />
+                Afficher le numéro de téléphone
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={form.showSellerName} onChange={update('showSellerName')} />
+                Afficher le nom du vendeur
+              </label>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">
                 Message d'en-tête (optionnel)
@@ -139,19 +157,41 @@ export default function ReceiptSettingsSection() {
               />
             </div>
 
-            <div className="space-y-2 pt-1">
-              <label className="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" checked={form.showAddress} onChange={update('showAddress')} />
-                Afficher l'adresse de la boutique
-              </label>
-              <label className="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" checked={form.showPhone} onChange={update('showPhone')} />
-                Afficher le numéro de téléphone
-              </label>
-              <label className="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" checked={form.showSellerName} onChange={update('showSellerName')} />
-                Afficher le nom du vendeur
-              </label>
+            <div className="pt-1 space-y-3">
+              <p className="text-xs text-slate-500">
+                S'applique à la mise en page de la <strong>Facture PDF</strong> (bouton « Télécharger la facture
+                (PDF) » après une vente).
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Titre de la facture</label>
+                <input
+                  value={form.invoiceTitle}
+                  onChange={update('invoiceTitle')}
+                  maxLength={40}
+                  placeholder="FACTURE"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Affiché en gros caractères gras en haut de la facture. Ex : « Vente accessoire ».
+                </p>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" checked={form.showSignature} onChange={update('showSignature')} />
+                  Réserver un espace signature
+                </label>
+                {form.showSignature && (
+                  <input
+                    value={form.signatureLabel}
+                    onChange={update('signatureLabel')}
+                    maxLength={60}
+                    placeholder="Signature"
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                )}
+              </div>
             </div>
 
             <button
