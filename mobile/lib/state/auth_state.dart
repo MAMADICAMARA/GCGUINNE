@@ -97,6 +97,17 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reflète immédiatement un nouveau taux de taxe par défaut (§ Facturation,
+  /// décidé en conversation) — même principe que setUser ci-dessus : la
+  /// Caisse lit `activeStore.defaultTaxPercent` à l'ouverture d'une vente,
+  /// jamais besoin de se reconnecter pour voir le nouveau réglage.
+  void updateActiveStoreDefaultTaxPercent(num value) {
+    if (activeStore == null) return;
+    activeStore = activeStore!.copyWith(defaultTaxPercent: value);
+    _persist();
+    notifyListeners();
+  }
+
   void setCanVoidReturn(bool value) {
     canVoidReturn = value;
     notifyListeners();

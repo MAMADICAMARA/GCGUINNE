@@ -72,10 +72,11 @@ class ApiClient {
   /// s'applique à toute la requête) : [_mapError] retombe alors sur son
   /// message générique plutôt que le vrai message serveur, seul compromis
   /// de cette approche.
-  Future<List<int>> getBytes(String path) async {
+  Future<List<int>> getBytes(String path, {Map<String, dynamic>? query}) async {
     try {
       final response = await _dio.get<List<int>>(
         path,
+        queryParameters: query,
         options: Options(responseType: ResponseType.bytes),
       );
       return response.data ?? <int>[];

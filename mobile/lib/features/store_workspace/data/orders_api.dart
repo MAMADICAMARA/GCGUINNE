@@ -42,6 +42,16 @@ class OrdersApi {
     return Uint8List.fromList(bytes);
   }
 
+  /// Export comptable CSV (§42_facturation_boutique.sql, décidé en
+  /// conversation) — miroir de utils/ordersExport.js côté web. `endDate`
+  /// est une borne EXCLUSIVE côté serveur (même convention que `list`
+  /// ci-dessus) : à l'appelant d'ajouter un jour pour inclure le jour de
+  /// fin choisi.
+  Future<Uint8List> exportCsv({required String startDate, required String endDate}) async {
+    final bytes = await _client.getBytes('/orders/export', query: {'startDate': startDate, 'endDate': endDate});
+    return Uint8List.fromList(bytes);
+  }
+
   /// Annule la commande entière : stock remis, dette éventuelle du client
   /// annulée. Irréversible (confirmé côté UI avant l'appel).
   Future<void> voidOrder(int id) => _client.post('/orders/$id/void');

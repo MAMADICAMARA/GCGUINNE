@@ -67,6 +67,63 @@ class ReceiptSettings {
       };
 }
 
+/// Réglages "Facturation" (§42_facturation_boutique.sql, décidé en
+/// conversation) — miroir de GET/PUT /stores/billing-settings. Regroupe taux
+/// de taxe par défaut, informations légales et numérotation de facture
+/// dédiée dans un même formulaire, même principe que ReceiptSettings.
+class BillingSettings {
+  const BillingSettings({
+    required this.defaultTaxPercent,
+    required this.legalRccm,
+    required this.legalNif,
+    required this.legalTaxRegime,
+    required this.invoiceNumberingEnabled,
+    required this.invoicePrefix,
+  });
+
+  factory BillingSettings.fromJson(Map<String, dynamic> json) => BillingSettings(
+        defaultTaxPercent: (json['defaultTaxPercent'] as num?) ?? 0,
+        legalRccm: json['legalRccm'] as String? ?? '',
+        legalNif: json['legalNif'] as String? ?? '',
+        legalTaxRegime: json['legalTaxRegime'] as String? ?? '',
+        invoiceNumberingEnabled: json['invoiceNumberingEnabled'] as bool? ?? false,
+        invoicePrefix: json['invoicePrefix'] as String? ?? 'FACT-',
+      );
+
+  final num defaultTaxPercent;
+  final String legalRccm;
+  final String legalNif;
+  final String legalTaxRegime;
+  final bool invoiceNumberingEnabled;
+  final String invoicePrefix;
+
+  BillingSettings copyWith({
+    num? defaultTaxPercent,
+    String? legalRccm,
+    String? legalNif,
+    String? legalTaxRegime,
+    bool? invoiceNumberingEnabled,
+    String? invoicePrefix,
+  }) =>
+      BillingSettings(
+        defaultTaxPercent: defaultTaxPercent ?? this.defaultTaxPercent,
+        legalRccm: legalRccm ?? this.legalRccm,
+        legalNif: legalNif ?? this.legalNif,
+        legalTaxRegime: legalTaxRegime ?? this.legalTaxRegime,
+        invoiceNumberingEnabled: invoiceNumberingEnabled ?? this.invoiceNumberingEnabled,
+        invoicePrefix: invoicePrefix ?? this.invoicePrefix,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'defaultTaxPercent': defaultTaxPercent,
+        'legalRccm': legalRccm,
+        'legalNif': legalNif,
+        'legalTaxRegime': legalTaxRegime,
+        'invoiceNumberingEnabled': invoiceNumberingEnabled,
+        'invoicePrefix': invoicePrefix,
+      };
+}
+
 /// Informations générales de la boutique (§ décidé en conversation, "tout
 /// modifiable sauf l'e-mail") — miroir de GET/PUT /stores/info. Distinct de
 /// StoreContactInfo ci-dessous (sous-ensemble en lecture seule utilisé par

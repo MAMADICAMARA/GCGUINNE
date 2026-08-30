@@ -121,6 +121,16 @@ class StoresApi {
     return ReceiptSettings.fromJson(data);
   }
 
+  Future<BillingSettings> getBillingSettings() async {
+    final data = await _client.get('/stores/billing-settings');
+    return BillingSettings.fromJson(data);
+  }
+
+  Future<BillingSettings> updateBillingSettings(BillingSettings settings) async {
+    final data = await _client.put('/stores/billing-settings', data: settings.toJson());
+    return BillingSettings.fromJson(data);
+  }
+
   Future<bool> getVoidReturnSettings() async {
     final data = await _client.get('/stores/void-return-settings');
     return data['allowAllSellers'] as bool? ?? false;

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import ReceiptSettingsSection from './ReceiptSettingsSection';
+import BillingSettingsSection from './BillingSettingsSection';
+import OrdersExportSection from './OrdersExportSection';
 import SalesVoidReturnPermissionSection from './SalesVoidReturnPermissionSection';
 import SalesEditPricePermissionSection from './SalesEditPricePermissionSection';
 import AddProductPermissionSection from './AddProductPermissionSection';
@@ -397,9 +399,9 @@ export default function SettingsPage() {
       {/* Facturation */}
       <div className="space-y-4">
         <SectionHeader icon={FileText} title="Facturation" description="Gestion des factures et documents." accent="slate" />
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400 text-sm shadow-sm">
-          <FileText className="h-8 w-8 mx-auto text-slate-300 mb-2" strokeWidth={1.5} />
-          Reste à implémenter.
+        <div className="grid gap-6">
+          <BillingSettingsSection />
+          <OrdersExportSection />
         </div>
       </div>
     </div>

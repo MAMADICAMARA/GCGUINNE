@@ -44,7 +44,8 @@ function generateSupplierCode() {
 async function listMyStores(userId) {
   const { rows } = await pool.query(
     `SELECT s.id, s.name, s.category, s.country, s.region, s.city, s.address, s.status,
-            s.logo_url AS "logoUrl", r.code AS "roleCode", us.is_default_store AS "isDefaultStore"
+            s.logo_url AS "logoUrl", s.default_tax_percent AS "defaultTaxPercent",
+            r.code AS "roleCode", us.is_default_store AS "isDefaultStore"
      FROM user_store us
      JOIN stores s ON s.id = us.store_id
      JOIN roles r  ON r.id = us.role_id
@@ -520,6 +521,73 @@ async function updateReceiptSettings(storeId, settings) {
 }
 
 /**
+ * Réglages "Facturation" (§42_facturation_boutique.sql, décidé en
+ * conversation) — regroupe taux de taxe par défaut, informations légales et
+ * numérotation de facture dédiée dans un même formulaire (même principe que
+ * receipt_settings : un blob JSONB fusionné avec des valeurs par défaut,
+ * jamais un éditeur libre). defaultTaxPercent reste une colonne dédiée
+ * (pas dans le JSONB) : elle voyage dans listMyStores/getStoresForUser pour
+ * être disponible côté Caisse sans appel réseau supplémentaire — mais se
+ * règle ici, dans le même geste que le reste de "Facturation".
+ *
+ * invoiceNumberingEnabled/invoicePrefix pilotent
+ * orders.service.js#getInvoiceData (attribution du numéro dédié) ;
+ * legalRccm/legalNif/legalTaxRegime sont imprimés sur la Facture PDF (cf.
+ * invoicePdf.js) sous les coordonnées de la boutique.
+ */
+const DEFAULT_BILLING_SETTINGS = {
+  legalRccm: '',
+  legalNif: '',
+  legalTaxRegime: '',
+  invoiceNumberingEnabled: false,
+  invoicePrefix: 'FACT-',
+};
+
+async function getBillingSettings(storeId) {
+  const { rows } = await pool.query(
+    'SELECT billing_settings AS "billingSettings", default_tax_percent AS "defaultTaxPercent" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return {
+    ...DEFAULT_BILLING_SETTINGS,
+    ...rows[0].billingSettings,
+    defaultTaxPercent: Number(rows[0].defaultTaxPercent),
+  };
+}
+
+async function updateBillingSettings(storeId, settings) {
+  const merged = {
+    legalRccm: (settings.legalRccm || '').trim().slice(0, 60),
+    legalNif: (settings.legalNif || '').trim().slice(0, 60),
+    legalTaxRegime: (settings.legalTaxRegime || '').trim().slice(0, 60),
+    invoiceNumberingEnabled: Boolean(settings.invoiceNumberingEnabled),
+    invoicePrefix: (settings.invoicePrefix || '').trim().slice(0, 20) || 'FACT-',
+  };
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const taxResult = await client.query(
+      'UPDATE stores SET default_tax_percent = $1, billing_settings = $2 WHERE id = $3 RETURNING default_tax_percent AS "defaultTaxPercent"',
+      [Math.min(100, Math.max(0, Number(settings.defaultTaxPercent) || 0)), JSON.stringify(merged), storeId]
+    );
+    if (taxResult.rows.length === 0) {
+      throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+    }
+    await client.query('COMMIT');
+    return { ...merged, defaultTaxPercent: taxResult.rows[0].defaultTaxPercent };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Logo de la boutique (§ cahier des charges "Upload et stockage réel des
  * images", décidé en conversation) — `logo_url` existait déjà en base
  * depuis le tout début du projet mais n'était lu ni écrit nulle part.
@@ -730,6 +798,8 @@ module.exports = {
   adoptStoreType,
   getReceiptSettings,
   updateReceiptSettings,
+  getBillingSettings,
+  updateBillingSettings,
   getStoreContactInfo,
   getStoreInfo,
   updateStoreInfo,

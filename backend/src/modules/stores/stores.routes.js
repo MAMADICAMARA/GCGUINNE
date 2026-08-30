@@ -98,6 +98,44 @@ router.put(
   }
 );
 
+// --- Facturation (§42_facturation_boutique.sql, décidé en conversation) —
+// taux de taxe par défaut, informations légales, numérotation de facture
+// dédiée. Réservé au Owner, comme les autres réglages de la boutique.
+router.get('/billing-settings', requireActiveStore, requireRole('OWNER'), async (req, res, next) => {
+  try {
+    const settings = await storesService.getBillingSettings(req.auth.storeId);
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put(
+  '/billing-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [
+    body('defaultTaxPercent').isFloat({ min: 0, max: 100 }).withMessage('Taux de taxe invalide (0 à 100).'),
+    body('legalRccm').optional({ checkFalsy: true }).isString().isLength({ max: 60 }),
+    body('legalNif').optional({ checkFalsy: true }).isString().isLength({ max: 60 }),
+    body('legalTaxRegime').optional({ checkFalsy: true }).isString().isLength({ max: 60 }),
+    body('invoiceNumberingEnabled').optional().isBoolean(),
+    body('invoicePrefix').optional({ checkFalsy: true }).isString().isLength({ max: 20 }),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const settings = await storesService.updateBillingSettings(req.auth.storeId, req.body);
+      res.json(settings);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // --- Informations générales de la boutique ACTIVE (§ décidé en
 // conversation) — nom, adresse, téléphone, région, ville, pays,
 // modifiables après création par le Owner (le type de boutique reste à

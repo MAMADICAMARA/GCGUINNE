@@ -1,6 +1,7 @@
 const { validationResult } = require('express-validator');
 const ordersService = require('./orders.service');
 const { streamInvoicePdf } = require('./invoicePdf');
+const { buildOrdersExportCsv } = require('./ordersExport');
 const { AppError } = require('../../middlewares/errorHandler');
 
 function checkValidation(req) {
@@ -64,7 +65,7 @@ async function getOrder(req, res, next) {
 async function getInvoicePdf(req, res, next) {
   try {
     const ownSellerId = req.auth.roleCode === 'OWNER' ? null : req.auth.userId;
-    const { order, items, store, receiptSettings } = await ordersService.getInvoiceData(
+    const { order, items, store, receiptSettings, billingSettings } = await ordersService.getInvoiceData(
       req.auth.storeId,
       req.params.id,
       ownSellerId
@@ -75,8 +76,27 @@ async function getInvoicePdf(req, res, next) {
     // les en-têtes envoyés, une erreur ne peut plus jamais devenir un JSON
     // d'erreur propre côté client.
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="facture-${order.orderNumber}.pdf"`);
-    await streamInvoicePdf(res, order, items, { store, receiptSettings });
+    res.setHeader('Content-Disposition', `attachment; filename="facture-${order.invoiceNumber || order.orderNumber}.pdf"`);
+    await streamInvoicePdf(res, order, items, { store, receiptSettings, billingSettings });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// --- Export comptable (§42_facturation_boutique.sql, décidé en
+// conversation) — CSV généré à la volée sur la période choisie, réservé au
+// Owner (requireRole('OWNER'), cf. orders.routes.js) : une donnée
+// financière consolidée, pas un usage quotidien de Vendeur.
+async function exportOrders(req, res, next) {
+  try {
+    const orders = await ordersService.exportOrdersData(req.auth.storeId, {
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+    });
+    const csv = buildOrdersExportCsv(orders);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="export-ventes.csv"');
+    res.send(csv);
   } catch (err) {
     next(err);
   }
@@ -114,4 +134,4 @@ async function returnOrderItem(req, res, next) {
   }
 }
 
-module.exports = { createOrder, listOrders, getOrder, getInvoicePdf, voidOrder, returnOrderItem };
+module.exports = { createOrder, listOrders, getOrder, getInvoicePdf, exportOrders, voidOrder, returnOrderItem };

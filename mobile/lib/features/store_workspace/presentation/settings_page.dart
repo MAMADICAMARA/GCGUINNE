@@ -5,10 +5,13 @@ import 'package:provider/provider.dart';
 import '../../../core/data/guinee_regions.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/share_file.dart';
 import '../../../core/widgets/icon_badge.dart';
+import '../../../state/auth_state.dart';
 import '../../account/data/stores_api.dart';
 import '../data/employee_models.dart';
 import '../data/employees_api.dart';
+import '../data/orders_api.dart';
 import '../data/settings_models.dart';
 import '../data/subscription_payments_api.dart';
 import 'products/image_picker_field.dart';
@@ -56,7 +59,7 @@ class SettingsPage extends StatelessWidget {
             description: 'Règles applicables à la caisse et aux reçus.',
             children: [_VoidReturnSection(), _EditPriceSection(), _AddProductSection(), _ReceiptSettingsSection()],
           ),
-          _SectionGroup(title: 'FACTURATION', children: [_BillingStub()]),
+          _SectionGroup(title: 'FACTURATION', children: [_BillingSettingsSection(), _OrdersExportSection()]),
         ],
       ),
     );
@@ -1601,28 +1604,343 @@ class _ReceiptSettingsSectionState extends State<_ReceiptSettingsSection> {
   }
 }
 
-// --- Facturation (stub) ---------------------------------------------------
+// --- Facturation (§42_facturation_boutique.sql) ---------------------------
+// Miroir de BillingSettingsSection.jsx — même patron exact que
+// _ReceiptSettingsSection juste au-dessus.
 
-class _BillingStub extends StatelessWidget {
-  const _BillingStub();
+class _BillingSettingsSection extends StatefulWidget {
+  const _BillingSettingsSection();
+
+  @override
+  State<_BillingSettingsSection> createState() => _BillingSettingsSectionState();
+}
+
+class _BillingSettingsSectionState extends State<_BillingSettingsSection> {
+  BillingSettings _form = const BillingSettings(
+    defaultTaxPercent: 0,
+    legalRccm: '',
+    legalNif: '',
+    legalTaxRegime: '',
+    invoiceNumberingEnabled: false,
+    invoicePrefix: 'FACT-',
+  );
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+  String? _success;
+  late final TextEditingController _taxController;
+  late final TextEditingController _rccmController;
+  late final TextEditingController _nifController;
+  late final TextEditingController _taxRegimeController;
+  late final TextEditingController _invoicePrefixController;
+
+  @override
+  void initState() {
+    super.initState();
+    _taxController = TextEditingController(text: _form.defaultTaxPercent.toString());
+    _rccmController = TextEditingController();
+    _nifController = TextEditingController();
+    _taxRegimeController = TextEditingController();
+    _invoicePrefixController = TextEditingController(text: _form.invoicePrefix);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _taxController.dispose();
+    _rccmController.dispose();
+    _nifController.dispose();
+    _taxRegimeController.dispose();
+    _invoicePrefixController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final result = await context.read<StoresApi>().getBillingSettings();
+      if (!mounted) return;
+      setState(() {
+        _form = result;
+        _taxController.text = _formatTax(result.defaultTaxPercent);
+        _rccmController.text = result.legalRccm;
+        _nifController.text = result.legalNif;
+        _taxRegimeController.text = result.legalTaxRegime;
+        _invoicePrefixController.text = result.invoicePrefix;
+        _loading = false;
+      });
+    } on ApiException catch (err) {
+      if (mounted) {
+        setState(() {
+          _error = err.message;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String _formatTax(num value) => value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toString();
+
+  Future<void> _save() async {
+    setState(() {
+      _error = null;
+      _saving = true;
+    });
+    try {
+      final taxValue = num.tryParse(_taxController.text.replaceAll(',', '.')) ?? 0;
+      final saved = await context.read<StoresApi>().updateBillingSettings(_form.copyWith(
+            defaultTaxPercent: taxValue,
+            legalRccm: _rccmController.text,
+            legalNif: _nifController.text,
+            legalTaxRegime: _taxRegimeController.text,
+            invoicePrefix: _invoicePrefixController.text,
+          ));
+      if (!mounted) return;
+      setState(() {
+        _form = saved;
+        _taxController.text = _formatTax(saved.defaultTaxPercent);
+        _rccmController.text = saved.legalRccm;
+        _nifController.text = saved.legalNif;
+        _taxRegimeController.text = saved.legalTaxRegime;
+        _invoicePrefixController.text = saved.invoicePrefix;
+        _success = 'Réglages de facturation enregistrés.';
+      });
+      // Reflète immédiatement le nouveau taux dans AuthState.activeStore —
+      // sans ça, la Caisse repartirait de l'ancien taux jusqu'au prochain
+      // changement de boutique. Même principe que BillingSettingsSection.jsx.
+      context.read<AuthState>().updateActiveStoreDefaultTaxPercent(saved.defaultTaxPercent);
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _success = null);
+      });
+    } on ApiException catch (err) {
+      setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.payments_outlined, color: Colors.grey.shade300, size: 26),
-            const SizedBox(height: 8),
-            Text('Reste à implémenter.', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-          ],
+    if (_loading) {
+      return const _Card(child: Text('Chargement...', style: TextStyle(color: Colors.grey, fontSize: 13)));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+          ),
+        if (_success != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
+            child: Text(_success!, style: TextStyle(color: Colors.green.shade800, fontSize: 12.5)),
+          ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _CardTitle(
+                title: 'Taxe par défaut',
+                subtitle: "Taux appliqué automatiquement à l'ouverture d'une nouvelle vente en Caisse — toujours modifiable au cas par cas pour une vente précise.",
+                icon: Icons.percent_outlined,
+                iconColor: AppColors.blue,
+              ),
+              SizedBox(
+                width: 160,
+                child: TextField(
+                  controller: _taxController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Taux de taxe par défaut',
+                    suffixText: '%',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 16),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _CardTitle(
+                title: 'Informations légales',
+                subtitle: 'Affichées sur la Facture PDF, sous les coordonnées de la boutique.',
+                icon: Icons.gavel_outlined,
+                iconColor: AppColors.blue,
+              ),
+              TextField(
+                controller: _rccmController,
+                maxLength: 60,
+                decoration: const InputDecoration(labelText: 'RCCM', hintText: 'Ex : GC-2024-B-1234', border: OutlineInputBorder(), isDense: true),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _nifController,
+                maxLength: 60,
+                decoration: const InputDecoration(labelText: 'NIF', hintText: 'Ex : 123456789', border: OutlineInputBorder(), isDense: true),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _taxRegimeController,
+                maxLength: 60,
+                decoration: const InputDecoration(labelText: 'Régime fiscal', hintText: 'Ex : Réel simplifié', border: OutlineInputBorder(), isDense: true),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _CardTitle(
+                title: 'Numérotation de facture',
+                subtitle: 'Par défaut, la Facture PDF reprend le numéro de la vente (ex : ORD-2026-000032). Active une numérotation dédiée, séquentielle et indépendante, si ta comptabilité en a besoin.',
+                icon: Icons.tag_outlined,
+                iconColor: AppColors.blue,
+              ),
+              CheckboxListTile(
+                value: _form.invoiceNumberingEnabled,
+                onChanged: (value) => setState(() => _form = _form.copyWith(invoiceNumberingEnabled: value ?? false)),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                title: const Text('Activer la numérotation dédiée des factures', style: TextStyle(fontSize: 13)),
+              ),
+              if (_form.invoiceNumberingEnabled) ...[
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 200,
+                  child: TextField(
+                    controller: _invoicePrefixController,
+                    maxLength: 20,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(labelText: 'Préfixe', hintText: 'FACT-', border: OutlineInputBorder(), isDense: true),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Ex : « ${_invoicePrefixController.text.isEmpty ? 'FACT-' : _invoicePrefixController.text}000001 »',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Enregistrement...' : 'Enregistrer')),
+      ],
+    );
+  }
+}
+
+// --- Export comptable (§42_facturation_boutique.sql) — miroir de
+// OrdersExportSection.jsx. Téléchargement direct (pas de formulaire à
+// enregistrer, contrairement aux deux sections ci-dessus).
+
+class _OrdersExportSection extends StatefulWidget {
+  const _OrdersExportSection();
+
+  @override
+  State<_OrdersExportSection> createState() => _OrdersExportSectionState();
+}
+
+class _OrdersExportSectionState extends State<_OrdersExportSection> {
+  late DateTime _startDate;
+  late DateTime _endDate;
+  bool _downloading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, 1);
+    _endDate = DateTime(now.year, now.month, now.day);
+  }
+
+  String _formatDate(DateTime date) => '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(context: context, initialDate: _startDate, firstDate: DateTime(2020), lastDate: _endDate);
+    if (picked != null) setState(() => _startDate = picked);
+  }
+
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(context: context, initialDate: _endDate, firstDate: _startDate, lastDate: DateTime(now.year, now.month, now.day));
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
+  String _isoDate(DateTime date) => '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  Future<void> _handleExport() async {
+    setState(() {
+      _error = null;
+      _downloading = true;
+    });
+    try {
+      // endDate est une borne EXCLUSIVE côté serveur (même convention que
+      // OrdersApi.list) — on ajoute un jour pour inclure le jour choisi.
+      final endExclusive = _endDate.add(const Duration(days: 1));
+      final bytes = await context.read<OrdersApi>().exportCsv(startDate: _isoDate(_startDate), endDate: _isoDate(endExclusive));
+      await shareBytesAsFile(bytes, fileName: 'export-ventes.csv', mimeType: 'text/csv', subject: 'Export des ventes');
+    } on ApiException catch (err) {
+      setState(() => _error = err.message);
+    } catch (_) {
+      setState(() => _error = "Impossible de générer l'export.");
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle(
+            title: 'Export comptable',
+            subtitle: 'Exporte les ventes de la période choisie au format CSV (compatible Excel), à donner à ton comptable.',
+            icon: Icons.file_download_outlined,
+            iconColor: AppColors.blue,
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+            ),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _pickStartDate,
+                icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                label: Text('Du ${_formatDate(_startDate)}'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _pickEndDate,
+                icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                label: Text('Au ${_formatDate(_endDate)}'),
+              ),
+              FilledButton(
+                onPressed: _downloading ? null : _handleExport,
+                child: Text(_downloading ? 'Génération...' : 'Exporter (CSV)'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

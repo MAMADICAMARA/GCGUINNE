@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const { body, param } = require('express-validator');
 const controller = require('./orders.controller');
-const { requireAuth, requireActiveStore } = require('../../middlewares/auth');
+const { requireAuth, requireActiveStore, requireRole } = require('../../middlewares/auth');
 const { canUserVoidReturn } = require('../stores/stores.service');
 const { AppError } = require('../../middlewares/errorHandler');
 
@@ -43,6 +43,13 @@ router.post(
 );
 
 router.get('/', controller.listOrders);
+
+// Export comptable (§42_facturation_boutique.sql) — enregistré AVANT
+// /:id ci-dessous : sinon Express matcherait "export" comme un :id (chaîne
+// non numérique passée telle quelle à une comparaison SQL entière) plutôt
+// que cette route précise, express-validator ne bloquant jamais seul un
+// mauvais matching de route.
+router.get('/export', requireRole('OWNER'), controller.exportOrders);
 
 router.get('/:id', [param('id').isInt()], controller.getOrder);
 

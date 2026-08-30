@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/utils/share_file.dart';
 import '../../data/orders_api.dart';
 
 /// Facture PDF téléchargeable (§ cahier des charges "Facture PDF") — miroir
@@ -23,10 +20,7 @@ Future<void> shareInvoicePdf(
   final messenger = ScaffoldMessenger.of(context);
   try {
     final bytes = await context.read<OrdersApi>().getInvoicePdf(orderId);
-    final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/facture-$orderNumber.pdf');
-    await file.writeAsBytes(bytes);
-    await Share.shareXFiles([XFile(file.path, mimeType: 'application/pdf')], subject: 'Facture $orderNumber');
+    await shareBytesAsFile(bytes, fileName: 'facture-$orderNumber.pdf', mimeType: 'application/pdf', subject: 'Facture $orderNumber');
   } on ApiException catch (err) {
     messenger.showSnackBar(SnackBar(content: Text(err.message)));
   } catch (_) {

@@ -13,6 +13,7 @@ class StoreRef {
     this.category,
     this.status,
     this.isDefaultStore = false,
+    this.defaultTaxPercent = 0,
   });
 
   factory StoreRef.fromJson(Map<String, dynamic> json) {
@@ -25,6 +26,7 @@ class StoreRef {
       category: json['category'] as String?,
       status: json['status'] as String?,
       isDefaultStore: json['isDefaultStore'] as bool? ?? false,
+      defaultTaxPercent: (json['defaultTaxPercent'] as num?) ?? 0,
     );
   }
 
@@ -36,6 +38,19 @@ class StoreRef {
   final String? category;
   final String? status;
   final bool isDefaultStore;
+  final num defaultTaxPercent;
+
+  StoreRef copyWith({num? defaultTaxPercent}) => StoreRef(
+        id: id,
+        name: name,
+        roleCode: roleCode,
+        city: city,
+        region: region,
+        category: category,
+        status: status,
+        isDefaultStore: isDefaultStore,
+        defaultTaxPercent: defaultTaxPercent ?? this.defaultTaxPercent,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -46,5 +61,6 @@ class StoreRef {
         'category': category,
         'status': status,
         'isDefaultStore': isDefaultStore,
+        'defaultTaxPercent': defaultTaxPercent,
       };
 }

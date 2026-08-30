@@ -104,7 +104,7 @@ async function fetchLogoBuffer(logoUrl) {
  * @param {object} context - { store: {name, address, phone, logoUrl}, receiptSettings }
  */
 async function streamInvoicePdf(res, order, items, context) {
-  const { store = {}, receiptSettings = {} } = context;
+  const { store = {}, receiptSettings = {}, billingSettings = {} } = context;
   const logoBuffer = await fetchLogoBuffer(store.logoUrl);
 
   const doc = new PDFDocument({ size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
@@ -149,6 +149,19 @@ async function streamInvoicePdf(res, order, items, context) {
     leftY = doc.y;
   }
 
+  // ---- Informations légales (§42_facturation_boutique.sql, décidé en
+  // conversation) — RCCM/NIF/régime fiscal, sous les coordonnées de la
+  // boutique. N'apparaît que si au moins un champ est renseigné.
+  const legalParts = [
+    billingSettings.legalRccm && `RCCM : ${billingSettings.legalRccm}`,
+    billingSettings.legalNif && `NIF : ${billingSettings.legalNif}`,
+    billingSettings.legalTaxRegime && `Régime : ${billingSettings.legalTaxRegime}`,
+  ].filter(Boolean);
+  if (legalParts.length > 0) {
+    doc.fontSize(8).text(legalParts.join('  ·  '), contentLeft, leftY, { width: leftBlockWidth });
+    leftY = doc.y;
+  }
+
   doc.rect(invoiceBoxX, headerTop, invoiceBoxWidth, invoiceBoxHeight).fill(COLORS.blue);
   doc
     .font('Helvetica-Bold')
@@ -176,7 +189,7 @@ async function streamInvoicePdf(res, order, items, context) {
   const sellerDisplay = receiptSettings.showSellerName && order.sellerName ? order.sellerName : '—';
 
   const fieldRows = [
-    ['N° DE FACTURE', order.orderNumber, "DATE D'ÉMISSION", formatDate(order.createdAt)],
+    ['N° DE FACTURE', order.invoiceNumber || order.orderNumber, "DATE D'ÉMISSION", formatDate(order.createdAt)],
     ['CLIENT', order.customerName || 'Client anonyme', 'VENDEUR', sellerDisplay],
     ['STATUT DU PAIEMENT', paymentStatusLabel, 'MODE DE PAIEMENT', paymentMethodLabel],
   ];

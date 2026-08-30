@@ -62,7 +62,10 @@ export default function PosPage() {
   const setCartForStoreId = usePosCartStore((s) => s.setForStoreId);
   const clearCart = usePosCartStore((s) => s.clearCart);
   const [discountPercent, setDiscountPercent] = useState(0);
-  const [taxPercent, setTaxPercent] = useState(0);
+  // Initialisé au taux de taxe par défaut de la boutique (§ Facturation,
+  // décidé en conversation) — modifiable au cas par cas pour cette vente
+  // précise, sans jamais changer le réglage de la boutique.
+  const [taxPercent, setTaxPercent] = useState(() => activeStore?.defaultTaxPercent ?? 0);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
 
   const [submitting, setSubmitting] = useState(false);
@@ -354,7 +357,7 @@ export default function PosPage() {
       setSelectedCustomer(null);
       clearCart();
       setDiscountPercent(0);
-      setTaxPercent(0);
+      setTaxPercent(activeStore?.defaultTaxPercent ?? 0);
       setPaymentMethod('CASH');
       setDrawerRefreshSignal((s) => s + 1);
       await loadCatalog();

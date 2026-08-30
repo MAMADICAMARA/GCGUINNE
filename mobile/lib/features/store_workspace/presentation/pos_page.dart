@@ -71,6 +71,10 @@ class _PosPageState extends State<PosPage> {
   @override
   void initState() {
     super.initState();
+    // Taux de taxe par défaut de la boutique (§ Facturation, décidé en
+    // conversation) — modifiable au cas par cas pour cette vente précise,
+    // sans jamais changer le réglage de la boutique. Miroir de PosPage.jsx.
+    _taxPercent = context.read<AuthState>().activeStore?.defaultTaxPercent ?? 0;
     _loadCatalog();
     _loadViewModePreference();
     _loadPersistedCart();
@@ -377,7 +381,7 @@ class _PosPageState extends State<PosPage> {
       setState(() {
         _cart.clear();
         _discountPercent = 0;
-        _taxPercent = 0;
+        _taxPercent = context.read<AuthState>().activeStore?.defaultTaxPercent ?? 0;
         _paymentMethod = 'CASH';
         _drawerRefreshSignal++;
       });

@@ -1,6 +1,6 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
-const { getReceiptSettings, canUserEditPrice } = require('../stores/stores.service');
+const { getReceiptSettings, getBillingSettings, canUserEditPrice } = require('../stores/stores.service');
 const { getEffectiveUnitPrice, getLockedProductIds } = require('../products/products.service');
 const { getEffectivePlan } = require('../../utils/planContext');
 
@@ -461,7 +461,7 @@ async function getOrders(storeId, options = {}) {
 
   const dataParams = [...params, limit, offset];
   const result = await pool.query(
-    `SELECT o.id, o.order_number AS "orderNumber", o.total_amount AS "totalAmount",
+    `SELECT o.id, o.order_number AS "orderNumber", o.invoice_number AS "invoiceNumber", o.total_amount AS "totalAmount",
             o.discount_amount AS "discountAmount", o.tax_amount AS "taxAmount",
             o.status, o.payment_method AS "paymentMethod", o.amount_paid AS "amountPaid", o.payment_status AS "paymentStatus",
             o.created_at AS "createdAt",
@@ -485,6 +485,45 @@ async function getOrders(storeId, options = {}) {
 }
 
 /**
+ * Ventes/factures sur une période, pour l'export comptable (§42_
+ * facturation_boutique.sql, décidé en conversation) — même filtre
+ * startDate/endDate que getOrders ci-dessus, mais SANS pagination (l'export
+ * doit couvrir toute la période choisie) et avec quelques colonnes en plus
+ * utiles à un comptable (invoiceNumber, amountPaid) déjà jointes.
+ * @param {number} storeId
+ * @param {object} options - {startDate, endDate}
+ */
+async function exportOrdersData(storeId, { startDate, endDate } = {}) {
+  const conditions = ['o.store_id = $1'];
+  const params = [storeId];
+  let idx = 2;
+
+  if (startDate) {
+    conditions.push(`o.created_at >= $${idx++}`);
+    params.push(startDate);
+  }
+  if (endDate) {
+    conditions.push(`o.created_at < $${idx++}`);
+    params.push(endDate);
+  }
+
+  const { rows } = await pool.query(
+    `SELECT o.order_number AS "orderNumber", o.invoice_number AS "invoiceNumber",
+            o.created_at AS "createdAt", c.name AS "customerName", u.full_name AS "sellerName",
+            o.status, o.payment_method AS "paymentMethod", o.payment_status AS "paymentStatus",
+            o.discount_amount AS "discountAmount", o.tax_amount AS "taxAmount",
+            o.total_amount AS "totalAmount", o.amount_paid AS "amountPaid"
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.seller_id
+     LEFT JOIN customers c ON c.id = o.customer_id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY o.created_at ASC`,
+    params
+  );
+  return rows;
+}
+
+/**
  * Récupérer une commande avec ses lignes — champs en camelCase.
  * @param {number} storeId
  * @param {number} orderId
@@ -503,7 +542,7 @@ async function getOrderById(storeId, orderId, ownSellerId = null) {
   }
 
   const orderResult = await pool.query(
-    `SELECT o.id, o.order_number AS "orderNumber", o.total_amount AS "totalAmount",
+    `SELECT o.id, o.order_number AS "orderNumber", o.invoice_number AS "invoiceNumber", o.total_amount AS "totalAmount",
             o.discount_amount AS "discountAmount", o.tax_amount AS "taxAmount",
             o.status, o.payment_method AS "paymentMethod", o.amount_paid AS "amountPaid", o.payment_status AS "paymentStatus",
             o.created_at AS "createdAt",
@@ -551,13 +590,48 @@ async function getOrderById(storeId, orderId, ownSellerId = null) {
  * @param {number|null} ownSellerId - cf. getOrderById
  */
 async function getInvoiceData(storeId, orderId, ownSellerId = null) {
-  const [{ order, items }, storeResult, receiptSettings] = await Promise.all([
+  const [{ order, items }, storeResult, receiptSettings, billingSettings] = await Promise.all([
     getOrderById(storeId, orderId, ownSellerId),
     pool.query('SELECT name, address, phone, logo_url AS "logoUrl" FROM stores WHERE id = $1', [storeId]),
     getReceiptSettings(storeId),
+    getBillingSettings(storeId),
   ]);
 
-  return { order, items, store: storeResult.rows[0], receiptSettings };
+  if (billingSettings.invoiceNumberingEnabled && !order.invoiceNumber) {
+    order.invoiceNumber = await ensureInvoiceNumber(storeId, orderId, billingSettings.invoicePrefix);
+  }
+
+  return { order, items, store: storeResult.rows[0], receiptSettings, billingSettings };
+}
+
+/**
+ * Attribue le numéro de facture dédié d'une commande (§42_facturation_
+ * boutique.sql, décidé en conversation) — une seule fois, au premier
+ * téléchargement de sa Facture PDF, jamais à la création de la commande
+ * (la numérotation dédiée peut être activée après coup, sur des commandes
+ * déjà existantes). Compteur incrémenté atomiquement (UPDATE ... RETURNING)
+ * puis attribution protégée par `WHERE invoice_number IS NULL` : si deux
+ * requêtes concurrentes tombent sur la même commande jamais numérotée, la
+ * seconde perd sa place dans le compteur (numéro "sauté", accepté — normal
+ * dans n'importe quel système de facturation réel) mais relit le numéro
+ * gagnant plutôt que d'en attribuer un second à la même commande.
+ */
+async function ensureInvoiceNumber(storeId, orderId, invoicePrefix) {
+  const counterResult = await pool.query(
+    'UPDATE stores SET invoice_next_number = invoice_next_number + 1 WHERE id = $1 RETURNING invoice_next_number - 1 AS "assignedNumber"',
+    [storeId]
+  );
+  const invoiceNumber = `${invoicePrefix}${String(counterResult.rows[0].assignedNumber).padStart(6, '0')}`;
+
+  const assignResult = await pool.query(
+    'UPDATE orders SET invoice_number = $1 WHERE id = $2 AND invoice_number IS NULL RETURNING invoice_number AS "invoiceNumber"',
+    [invoiceNumber, orderId]
+  );
+  if (assignResult.rows.length > 0) {
+    return assignResult.rows[0].invoiceNumber;
+  }
+  const existing = await pool.query('SELECT invoice_number AS "invoiceNumber" FROM orders WHERE id = $1', [orderId]);
+  return existing.rows[0].invoiceNumber;
 }
 
 /**
@@ -881,6 +955,7 @@ function generateReceipt(orderData, context = {}) {
 module.exports = {
   createOrder,
   getOrders,
+  exportOrdersData,
   getOrderById,
   getInvoiceData,
   voidOrder,
