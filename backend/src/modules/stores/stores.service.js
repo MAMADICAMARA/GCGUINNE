@@ -36,6 +36,10 @@ function generateSupplierCode() {
   return generateShareCode(12);
 }
 
+function generateTransferCode() {
+  return generateShareCode(12);
+}
+
 /**
  * Liste les boutiques auxquelles un utilisateur est rattaché, avec son rôle
  * dans chacune. Toujours interrogée en base (jamais lue depuis un token
@@ -131,8 +135,8 @@ async function createStore(
 
     const storeResult = await client.query(
       `INSERT INTO stores
-         (name, owner_id, plan_id, category, store_type_id, country, region, city, address, phone, email, supervision_code, supplier_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         (name, owner_id, plan_id, category, store_type_id, country, region, city, address, phone, email, supervision_code, supplier_code, transfer_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, name, category, store_type_id AS "storeTypeId", country, region, city, address`,
       [
         name.trim(),
@@ -152,6 +156,7 @@ async function createStore(
         email || null,
         generateSupervisionCode(),
         generateSupplierCode(),
+        generateTransferCode(),
       ]
     );
     const store = storeResult.rows[0];
@@ -283,6 +288,34 @@ async function regenerateSupplierCode(storeId) {
   const newCode = generateSupplierCode();
   await pool.query('UPDATE stores SET supplier_code = $1 WHERE id = $2', [newCode, storeId]);
   return { supplierCode: newCode };
+}
+
+/**
+ * Renvoie le code de transfert actuel de la boutique
+ * (§45_transfert_de_stock.sql) — à afficher dans les paramètres pour que
+ * le propriétaire le transmette lui-même à qui il souhaite. Même principe
+ * exact que getSupervisionCode/getSupplierCode.
+ */
+async function getTransferCode(storeId) {
+  const { rows } = await pool.query(
+    'SELECT transfer_code AS "transferCode" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+/**
+ * Régénère le code de transfert. N'affecte aucun transfert déjà effectué
+ * (l'historique reste immuable) — seuls les nouveaux transferts nécessitent
+ * le nouveau code. Même décision que pour supervision_code/supplier_code.
+ */
+async function regenerateTransferCode(storeId) {
+  const newCode = generateTransferCode();
+  await pool.query('UPDATE stores SET transfer_code = $1 WHERE id = $2', [newCode, storeId]);
+  return { transferCode: newCode };
 }
 
 /**
@@ -962,6 +995,8 @@ module.exports = {
   regenerateSupervisionCode,
   getSupplierCode,
   regenerateSupplierCode,
+  getTransferCode,
+  regenerateTransferCode,
   getPlanBanner,
   getStoreType,
   adoptStoreType,

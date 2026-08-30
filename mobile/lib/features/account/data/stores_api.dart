@@ -49,6 +49,15 @@ class StoresApi {
     return PlanStatus.fromJson(data);
   }
 
+  /// GET /stores/plan-banner — accessible à TOUTE l'équipe (§20_plans_
+  /// abonnement.sql, décidé en conversation) : un Vendeur gelé doit lui
+  /// aussi comprendre pourquoi il ne peut plus agir. Miroir de
+  /// PlanStatusBanner.jsx côté web.
+  Future<PlanBanner> getPlanBanner() async {
+    final data = await _client.get('/stores/plan-banner');
+    return PlanBanner.fromJson(data);
+  }
+
   Future<String?> getSupervisionCode() async {
     final data = await _client.get('/stores/supervision-code');
     return data['supervisionCode'] as String?;
@@ -67,6 +76,19 @@ class StoresApi {
   Future<String> regenerateSupplierCode() async {
     final data = await _client.post('/stores/supplier-code/regenerate');
     return data['supplierCode'] as String;
+  }
+
+  /// Code de transfert de stock (§45_transfert_de_stock.sql) — même
+  /// mécanique exacte que supervision/fournisseur, troisième niveau de
+  /// confiance dédié.
+  Future<String?> getTransferCode() async {
+    final data = await _client.get('/stores/transfer-code');
+    return data['transferCode'] as String?;
+  }
+
+  Future<String> regenerateTransferCode() async {
+    final data = await _client.post('/stores/transfer-code/regenerate');
+    return data['transferCode'] as String;
   }
 
   /// {storeTypeId, storeTypeLabel} — les deux sont null tant qu'aucun type
@@ -248,6 +270,7 @@ class PlanStatus {
     required this.allowsSupervision,
     required this.allowsSuppliers,
     required this.allowsPurchaseOrders,
+    required this.allowsStockTransfer,
     required this.maxUsersPerStore,
     required this.planExpiresAt,
     required this.expired,
@@ -260,6 +283,7 @@ class PlanStatus {
         allowsSupervision: json['allowsSupervision'] as bool? ?? false,
         allowsSuppliers: json['allowsSuppliers'] as bool? ?? false,
         allowsPurchaseOrders: json['allowsPurchaseOrders'] as bool? ?? false,
+        allowsStockTransfer: json['allowsStockTransfer'] as bool? ?? false,
         maxUsersPerStore: json['maxUsersPerStore'] as int? ?? 1,
         planExpiresAt: json['planExpiresAt'] as String?,
         expired: json['expired'] as bool? ?? false,
@@ -271,8 +295,24 @@ class PlanStatus {
   final bool allowsSupervision;
   final bool allowsSuppliers;
   final bool allowsPurchaseOrders;
+  final bool allowsStockTransfer;
   final int maxUsersPerStore;
   final String? planExpiresAt;
   final bool expired;
   final String? previousPlanName;
+}
+
+/// Miroir de authStore.js#planBanner côté web — `show` est déjà calculé
+/// côté serveur (FREEMIUM effectif ET au moins un employé), `planName`
+/// n'est présent que lorsque `show` est vrai.
+class PlanBanner {
+  const PlanBanner({required this.show, required this.planName});
+
+  factory PlanBanner.fromJson(Map<String, dynamic> json) => PlanBanner(
+        show: json['show'] as bool? ?? false,
+        planName: json['planName'] as String?,
+      );
+
+  final bool show;
+  final String? planName;
 }

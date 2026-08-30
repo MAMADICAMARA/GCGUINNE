@@ -121,6 +121,12 @@ export default function SettingsPage() {
   const [supplierCodeCopied, setSupplierCodeCopied] = useState(false);
   const [supplierCodeRegenerating, setSupplierCodeRegenerating] = useState(false);
 
+  const [transferCode, setTransferCode] = useState('');
+  const [transferCodeLoading, setTransferCodeLoading] = useState(true);
+  const [transferCodeError, setTransferCodeError] = useState('');
+  const [transferCodeCopied, setTransferCodeCopied] = useState(false);
+  const [transferCodeRegenerating, setTransferCodeRegenerating] = useState(false);
+
   const [storeType, setStoreType] = useState(null);
   const [storeTypeLoading, setStoreTypeLoading] = useState(true);
   const [storeTypeError, setStoreTypeError] = useState('');
@@ -155,6 +161,19 @@ export default function SettingsPage() {
     }
   }
 
+  async function loadTransferCode() {
+    setTransferCodeLoading(true);
+    setTransferCodeError('');
+    try {
+      const { data } = await apiClient.get('/stores/transfer-code');
+      setTransferCode(data.transferCode);
+    } catch (err) {
+      setTransferCodeError(err.response?.data?.error?.message || 'Impossible de charger le code.');
+    } finally {
+      setTransferCodeLoading(false);
+    }
+  }
+
   async function loadStoreType() {
     setStoreTypeLoading(true);
     setStoreTypeError('');
@@ -175,6 +194,7 @@ export default function SettingsPage() {
   useEffect(() => {
     loadCode();
     loadSupplierCode();
+    loadTransferCode();
     loadStoreType();
   }, []);
 
@@ -235,6 +255,31 @@ export default function SettingsPage() {
     } finally {
       setSupplierCodeRegenerating(false);
     }
+  }
+
+  async function handleRegenerateTransferCode() {
+    if (
+      !window.confirm(
+        "Régénérer le code ? L'ancien ne pourra plus être utilisé pour recevoir de nouveaux transferts de stock."
+      )
+    ) {
+      return;
+    }
+    setTransferCodeRegenerating(true);
+    try {
+      const { data } = await apiClient.post('/stores/transfer-code/regenerate');
+      setTransferCode(data.transferCode);
+    } catch (err) {
+      setTransferCodeError(err.response?.data?.error?.message || 'Régénération impossible.');
+    } finally {
+      setTransferCodeRegenerating(false);
+    }
+  }
+
+  function handleCopyTransferCode() {
+    navigator.clipboard.writeText(transferCode);
+    setTransferCodeCopied(true);
+    setTimeout(() => setTransferCodeCopied(false), 2000);
   }
 
   function handleCopy() {
@@ -349,10 +394,10 @@ export default function SettingsPage() {
         <SectionHeader
           icon={Share2}
           title="Partage & accès"
-          description="Deux codes distincts, deux niveaux de confiance différents."
+          description="Trois codes distincts, trois niveaux de confiance différents."
           accent="violet"
         />
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <ShareCodeCard
             title="Code de supervision"
             description="Donne une vue en lecture seule à un propriétaire multi-boutiques — aucun droit d'action."
@@ -374,6 +419,18 @@ export default function SettingsPage() {
             regenerating={supplierCodeRegenerating}
             onCopy={handleCopySupplierCode}
             onRegenerate={handleRegenerateSupplierCode}
+          />
+          <ShareCodeCard
+            title="Code de transfert de stock"
+            description="À transmettre à une boutique du même type pour qu'elle puisse vous envoyer du stock."
+            code={transferCode}
+            loading={transferCodeLoading}
+            error={transferCodeError}
+            copied={transferCodeCopied}
+            regenerating={transferCodeRegenerating}
+            onCopy={handleCopyTransferCode}
+            onRegenerate={handleRegenerateTransferCode}
+            accent="amber"
           />
         </div>
       </div>

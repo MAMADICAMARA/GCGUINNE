@@ -117,6 +117,18 @@ export default function AdminPlansPage() {
                   )}
                   Visible sur MARCHÉ
                 </li>
+                <li
+                  className={`flex items-center gap-1.5 ${
+                    plan.allowsStockTransfer ? 'text-slate-500' : 'text-slate-300'
+                  }`}
+                >
+                  {plan.allowsStockTransfer ? (
+                    <Check size={14} className="text-green-600" />
+                  ) : (
+                    <X size={14} className="text-slate-300" />
+                  )}
+                  Transfert de stock entre boutiques
+                </li>
               </ul>
               <div className="flex items-center gap-3">
                 <button
@@ -177,6 +189,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
   const [allowsSuppliers, setAllowsSuppliers] = useState(plan.allowsSuppliers);
   const [allowsPurchaseOrders, setAllowsPurchaseOrders] = useState(plan.allowsPurchaseOrders);
   const [allowsMarketplace, setAllowsMarketplace] = useState(plan.allowsMarketplace);
+  const [allowsStockTransfer, setAllowsStockTransfer] = useState(plan.allowsStockTransfer);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -194,6 +207,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
         allowsSuppliers,
         allowsPurchaseOrders,
         allowsMarketplace,
+        allowsStockTransfer,
       });
       onSaved();
     } catch (err) {
@@ -301,6 +315,14 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
                 onChange={(e) => setAllowsMarketplace(e.target.checked)}
               />
               Visible sur MARCHÉ (catalogue public)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={allowsStockTransfer}
+                onChange={(e) => setAllowsStockTransfer(e.target.checked)}
+              />
+              Autorise le transfert de stock entre boutiques
             </label>
           </div>
         </div>

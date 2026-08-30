@@ -235,6 +235,7 @@ async function listPlans() {
             allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
             allows_purchase_orders AS "allowsPurchaseOrders",
             allows_marketplace AS "allowsMarketplace",
+            allows_stock_transfer AS "allowsStockTransfer",
             price, created_at AS "createdAt"
      FROM subscription_plans
      ORDER BY price ASC`
@@ -714,6 +715,7 @@ async function updatePlan(
     allowsSuppliers,
     allowsPurchaseOrders,
     allowsMarketplace,
+    allowsStockTransfer,
   },
   adminUserId
 ) {
@@ -735,13 +737,14 @@ async function updatePlan(
       `UPDATE subscription_plans
        SET name = $2, price = $3, max_users_per_store = $4, max_products_per_store = $5,
            allows_supervision = $6, allows_suppliers = $7, allows_purchase_orders = $8,
-           allows_marketplace = $9
+           allows_marketplace = $9, allows_stock_transfer = $10
        WHERE id = $1
        RETURNING id, name, max_users_per_store AS "maxUsersPerStore",
                  max_products_per_store AS "maxProductsPerStore",
                  allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
                  allows_purchase_orders AS "allowsPurchaseOrders",
                  allows_marketplace AS "allowsMarketplace",
+                 allows_stock_transfer AS "allowsStockTransfer",
                  price, created_at AS "createdAt"`,
       [
         planId,
@@ -753,6 +756,7 @@ async function updatePlan(
         !!allowsSuppliers,
         !!allowsPurchaseOrders,
         !!allowsMarketplace,
+        !!allowsStockTransfer,
       ]
     );
     if (rows.length === 0) {

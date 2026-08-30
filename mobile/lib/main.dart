@@ -19,6 +19,7 @@ import 'features/store_workspace/data/notes_api.dart';
 import 'features/store_workspace/data/orders_api.dart';
 import 'features/store_workspace/data/products_api.dart';
 import 'features/store_workspace/data/purchases_api.dart';
+import 'features/store_workspace/data/stock_transfers_api.dart';
 import 'features/store_workspace/data/subscription_payments_api.dart';
 import 'features/store_workspace/data/suppliers_api.dart';
 import 'features/store_workspace/data/uploads_api.dart';
@@ -63,6 +64,7 @@ Future<void> main() async {
         Provider<EmployeesApi>(create: (_) => EmployeesApi(apiClient)),
         Provider<SuppliersApi>(create: (_) => SuppliersApi(apiClient)),
         Provider<PurchasesApi>(create: (_) => PurchasesApi(apiClient)),
+        Provider<StockTransfersApi>(create: (_) => StockTransfersApi(apiClient)),
         Provider<SubscriptionPaymentsApi>(create: (_) => SubscriptionPaymentsApi(apiClient)),
       ],
       child: const App(),

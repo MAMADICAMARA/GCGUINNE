@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowLeftRight,
   BadgeCheck,
   Check,
   Crown,
@@ -155,6 +156,7 @@ function PlanCard({ plan, renewalDays, isCurrent, isHighlighted, onChoose }) {
     { icon: Truck, label: 'Fournisseurs inter-boutiques', included: plan.allowsSuppliers },
     { icon: ShoppingBag, label: "Commandes d'achat", included: plan.allowsPurchaseOrders },
     { icon: Store, label: 'Visible sur le MARCHÉ', included: plan.allowsMarketplace },
+    { icon: ArrowLeftRight, label: 'Transfert de stock entre boutiques', included: plan.allowsStockTransfer },
   ];
 
   return (

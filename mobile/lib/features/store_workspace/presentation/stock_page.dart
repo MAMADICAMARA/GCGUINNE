@@ -4,9 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../state/auth_state.dart';
+import '../../account/data/stores_api.dart';
 import '../data/pos_models.dart';
 import '../data/products_api.dart';
+import 'settings/subscription_plans_page.dart';
 import 'stock/adjust_stock_sheet.dart';
+import 'stock/stock_transfer_confirm_sheet.dart';
+import 'stock/stock_transfer_product_sheet.dart';
 
 /// Miroir de StockPage.jsx — vue transversale distincte du catalogue :
 /// 1. Alertes de rupture/stock faible, à surveiller.
@@ -31,10 +36,22 @@ class _StockPageState extends State<StockPage> {
 
   String? _successMessage;
 
+  // Transfert de stock réservé aux plans STANDARD et PROFESSIONNEL
+  // (§46_transfert_stock_plan.sql, décidé en conversation) — même logique
+  // que PurchasesPage pour allowsPurchaseOrders.
+  PlanStatus? _planStatus;
+  bool get _allowsStockTransfer => _planStatus?.allowsStockTransfer ?? false;
+
   @override
   void initState() {
     super.initState();
     _loadAlerts();
+    final isOwner = context.read<AuthState>().activeStore?.roleCode == 'OWNER';
+    if (isOwner) {
+      context.read<StoresApi>().getPlanStatus().then((status) {
+        if (mounted) setState(() => _planStatus = status);
+      }).catchError((_) {});
+    }
   }
 
   @override
@@ -117,13 +134,69 @@ class _StockPageState extends State<StockPage> {
     });
   }
 
+  Future<void> _startTransfer() async {
+    final product = await showStockTransferProductSheet(context);
+    if (product == null || !mounted) return;
+    final result = await showStockTransferConfirmSheet(context, product);
+    if (result == null || !mounted) return;
+    setState(() {
+      _successMessage = '${result.quantity} × "${result.productName}" transféré(s) vers "${result.toStoreName}".';
+    });
+    _loadAlerts();
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _successMessage = null);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isOwner = context.watch<AuthState>().activeStore?.roleCode == 'OWNER';
     return RefreshIndicator(
       onRefresh: _loadAlerts,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (isOwner) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _allowsStockTransfer ? _startTransfer : null,
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: const Text('Transférer le stock'),
+                ),
+              ),
+            ),
+            if (_planStatus != null && !_allowsStockTransfer)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(10)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Le transfert de stock entre boutiques est réservé aux plans STANDARD et PROFESSIONNEL — passez à l\'un de ces plans pour en profiter.',
+                      style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 30,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage())),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.amber.shade600,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        child: const Text('Passer au plan supérieur'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
           if (_successMessage != null)
             Container(
               margin: const EdgeInsets.only(bottom: 14),

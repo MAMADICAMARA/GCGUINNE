@@ -38,7 +38,7 @@ class SettingsPage extends StatelessWidget {
           ),
           _SectionGroup(
             title: 'PARTAGE & ACCÈS',
-            description: 'Deux codes distincts, deux niveaux de confiance différents.',
+            description: 'Trois codes distincts, trois niveaux de confiance différents.',
             children: [
               _ShareCodeCard(
                 shareCodeKind: _ShareCodeKind.supervision,
@@ -50,6 +50,12 @@ class SettingsPage extends StatelessWidget {
                 shareCodeKind: _ShareCodeKind.supplier,
                 title: 'Code fournisseur',
                 description: 'Permet à une autre boutique de vous ajouter comme fournisseur — elle voit uniquement votre catalogue (nom, image, catégorie), jamais vos prix ni stocks.',
+              ),
+              SizedBox(height: 12),
+              _ShareCodeCard(
+                shareCodeKind: _ShareCodeKind.transfer,
+                title: 'Code de transfert de stock',
+                description: 'À transmettre à une boutique du même type pour qu\'elle puisse vous envoyer du stock.',
               ),
             ],
           ),
@@ -840,7 +846,7 @@ class _StoreTypeSectionState extends State<_StoreTypeSection> {
 
 // --- Codes de partage (supervision / fournisseur) ------------------------
 
-enum _ShareCodeKind { supervision, supplier }
+enum _ShareCodeKind { supervision, supplier, transfer }
 
 class _ShareCodeCard extends StatefulWidget {
   const _ShareCodeCard({required this.shareCodeKind, required this.title, required this.description});
@@ -869,9 +875,18 @@ class _ShareCodeCardState extends State<_ShareCodeCard> {
   Future<void> _load() async {
     try {
       final storesApi = context.read<StoresApi>();
-      final code = widget.shareCodeKind == _ShareCodeKind.supervision
-          ? await storesApi.getSupervisionCode()
-          : await storesApi.getSupplierCode();
+      final String? code;
+      switch (widget.shareCodeKind) {
+        case _ShareCodeKind.supervision:
+          code = await storesApi.getSupervisionCode();
+          break;
+        case _ShareCodeKind.supplier:
+          code = await storesApi.getSupplierCode();
+          break;
+        case _ShareCodeKind.transfer:
+          code = await storesApi.getTransferCode();
+          break;
+      }
       if (!mounted) return;
       setState(() {
         _code = code;
@@ -897,17 +912,24 @@ class _ShareCodeCardState extends State<_ShareCodeCard> {
   }
 
   Future<void> _regenerate() async {
-    final isSupervision = widget.shareCodeKind == _ShareCodeKind.supervision;
     final storesApi = context.read<StoresApi>();
+    final String warning;
+    switch (widget.shareCodeKind) {
+      case _ShareCodeKind.supervision:
+        warning = "L'ancien ne pourra plus être utilisé pour ajouter de nouveaux superviseurs (ceux déjà ajoutés gardent leur accès).";
+        break;
+      case _ShareCodeKind.supplier:
+        warning = "L'ancien ne pourra plus être utilisé pour ajouter de nouveaux clients (ceux déjà ajoutés gardent leur accès à votre catalogue).";
+        break;
+      case _ShareCodeKind.transfer:
+        warning = "L'ancien ne pourra plus être utilisé pour recevoir de nouveaux transferts de stock.";
+        break;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Régénérer le code ?'),
-        content: Text(
-          isSupervision
-              ? "L'ancien ne pourra plus être utilisé pour ajouter de nouveaux superviseurs (ceux déjà ajoutés gardent leur accès)."
-              : "L'ancien ne pourra plus être utilisé pour ajouter de nouveaux clients (ceux déjà ajoutés gardent leur accès à votre catalogue).",
-        ),
+        content: Text(warning),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
           FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Régénérer')),
@@ -918,7 +940,18 @@ class _ShareCodeCardState extends State<_ShareCodeCard> {
 
     setState(() => _regenerating = true);
     try {
-      final newCode = isSupervision ? await storesApi.regenerateSupervisionCode() : await storesApi.regenerateSupplierCode();
+      final String newCode;
+      switch (widget.shareCodeKind) {
+        case _ShareCodeKind.supervision:
+          newCode = await storesApi.regenerateSupervisionCode();
+          break;
+        case _ShareCodeKind.supplier:
+          newCode = await storesApi.regenerateSupplierCode();
+          break;
+        case _ShareCodeKind.transfer:
+          newCode = await storesApi.regenerateTransferCode();
+          break;
+      }
       if (!mounted) return;
       setState(() => _code = newCode);
     } on ApiException catch (err) {
@@ -937,8 +970,16 @@ class _ShareCodeCardState extends State<_ShareCodeCard> {
           _CardTitle(
             title: widget.title,
             subtitle: widget.description,
-            icon: widget.shareCodeKind == _ShareCodeKind.supervision ? Icons.visibility_outlined : Icons.local_shipping_outlined,
-            iconColor: widget.shareCodeKind == _ShareCodeKind.supervision ? AppColors.blue : AppColors.teal,
+            icon: switch (widget.shareCodeKind) {
+              _ShareCodeKind.supervision => Icons.visibility_outlined,
+              _ShareCodeKind.supplier => Icons.local_shipping_outlined,
+              _ShareCodeKind.transfer => Icons.swap_horiz_outlined,
+            },
+            iconColor: switch (widget.shareCodeKind) {
+              _ShareCodeKind.supervision => AppColors.blue,
+              _ShareCodeKind.supplier => AppColors.teal,
+              _ShareCodeKind.transfer => AppColors.amber,
+            },
           ),
           if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
           if (_loading)

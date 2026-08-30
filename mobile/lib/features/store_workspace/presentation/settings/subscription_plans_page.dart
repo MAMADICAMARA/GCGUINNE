@@ -195,6 +195,7 @@ class _PlanCard extends StatelessWidget {
       ('Fournisseurs inter-boutiques', plan.allowsSuppliers),
       ("Commandes d'achat", plan.allowsPurchaseOrders),
       ('Visible sur le MARCHÉ', plan.allowsMarketplace),
+      ('Transfert de stock entre boutiques', plan.allowsStockTransfer),
     ];
 
     final bgColor = isHighlighted ? const Color(0xFF0F172A) : Colors.white;

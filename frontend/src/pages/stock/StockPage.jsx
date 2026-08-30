@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Boxes, CheckCircle2, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, ArrowLeftRight, Boxes, CheckCircle2, Search } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore, useIsPlanFrozen } from '@/store/authStore';
 import AdjustStockModal from './AdjustStockModal';
+import StockTransferProductModal from './StockTransferProductModal';
+import StockTransferConfirmModal from './StockTransferConfirmModal';
 
 /**
  * Page Stock (§4.5 du cahier des charges) — vue transversale, distincte du
@@ -14,8 +17,17 @@ import AdjustStockModal from './AdjustStockModal';
  * Produits) ; cette page-ci est orientée surveillance et action rapide.
  */
 export default function StockPage() {
+  const navigate = useNavigate();
   const activeStore = useAuthStore((s) => s.activeStore);
   const isFrozen = useIsPlanFrozen();
+  const isOwner = activeStore?.roleCode === 'OWNER';
+
+  // Transfert de stock réservé aux plans STANDARD et PROFESSIONNEL
+  // (§46_transfert_stock_plan.sql, décidé en conversation) — même logique
+  // que PurchasesPage.jsx pour allowsPurchaseOrders : `null` tant que le
+  // plan n'est pas encore chargé, jamais un `true` optimiste par défaut.
+  const [planStatus, setPlanStatus] = useState(null);
+  const allowsStockTransfer = Boolean(planStatus?.allowsStockTransfer);
 
   const [alerts, setAlerts] = useState([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
@@ -27,6 +39,12 @@ export default function StockPage() {
 
   const [adjustingProduct, setAdjustingProduct] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Transfert de stock (§45_transfert_de_stock.sql) — deux étapes : choix
+  // du produit puis saisie du code + quantité. Réservé à l'Owner (comme
+  // côté backend).
+  const [transferStep, setTransferStep] = useState(null); // null | 'pick' | 'confirm'
+  const [transferProduct, setTransferProduct] = useState(null);
 
   async function loadAlerts() {
     if (!activeStore) return;
@@ -46,6 +64,12 @@ export default function StockPage() {
 
   useEffect(() => {
     loadAlerts();
+    if (isOwner) {
+      apiClient
+        .get('/stores/plan-status')
+        .then(({ data }) => setPlanStatus(data))
+        .catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStore]);
 
@@ -83,17 +107,61 @@ export default function StockPage() {
     setTimeout(() => setSuccessMessage(''), 5000);
   }
 
+  function handleTransferred(result) {
+    setSuccessMessage(
+      `${result.quantity} × "${result.productName}" transféré(s) vers "${result.toStoreName}".`
+    );
+    setTransferStep(null);
+    setTransferProduct(null);
+    loadAlerts();
+    setTimeout(() => setSuccessMessage(''), 5000);
+  }
+
   return (
     <div>
-      <div className="flex items-center gap-2.5 mb-1">
-        <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-          <Boxes size={18} />
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <Boxes size={18} />
+          </div>
+          <h1 className="text-xl font-semibold text-slate-800">Stock</h1>
         </div>
-        <h1 className="text-xl font-semibold text-slate-800">Stock</h1>
+        {isOwner && (
+          <button
+            onClick={() => setTransferStep('pick')}
+            disabled={isFrozen || !allowsStockTransfer}
+            title={
+              isFrozen
+                ? 'Boutique en mode gratuit — action indisponible'
+                : !allowsStockTransfer
+                ? 'Fonctionnalité réservée aux plans STANDARD et PROFESSIONNEL'
+                : undefined
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-900 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            <ArrowLeftRight size={15} />
+            Transférer le stock
+          </button>
+        )}
       </div>
       <p className="text-sm text-slate-500 mb-6">
         Surveillance des ruptures et ajustement après comptage physique.
       </p>
+
+      {isOwner && !isFrozen && planStatus && !allowsStockTransfer && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
+          <span>
+            Le transfert de stock entre boutiques est réservé aux plans STANDARD et PROFESSIONNEL —
+            passez à l'un de ces plans pour en profiter.
+          </span>
+          <button
+            onClick={() => navigate('/settings/plans')}
+            className="shrink-0 rounded-lg bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-amber-600 transition"
+          >
+            Passer au plan supérieur
+          </button>
+        </div>
+      )}
 
       {successMessage && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-md px-3 py-2 mb-4">
@@ -236,6 +304,28 @@ export default function StockPage() {
           product={adjustingProduct}
           onClose={() => setAdjustingProduct(null)}
           onAdjusted={handleAdjusted}
+        />
+      )}
+
+      {transferStep === 'pick' && (
+        <StockTransferProductModal
+          onClose={() => setTransferStep(null)}
+          onSelect={(product) => {
+            setTransferProduct(product);
+            setTransferStep('confirm');
+          }}
+        />
+      )}
+
+      {transferStep === 'confirm' && transferProduct && (
+        <StockTransferConfirmModal
+          product={transferProduct}
+          onClose={() => {
+            setTransferStep(null);
+            setTransferProduct(null);
+          }}
+          onBack={() => setTransferStep('pick')}
+          onTransferred={handleTransferred}
         />
       )}
     </div>

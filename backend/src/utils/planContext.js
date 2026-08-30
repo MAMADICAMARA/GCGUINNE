@@ -26,7 +26,8 @@ async function getEffectivePlan(storeId) {
             sp.max_users_per_store AS "maxUsersPerStore",
             sp.max_products_per_store AS "maxProductsPerStore",
             sp.allows_supervision AS "allowsSupervision", sp.allows_suppliers AS "allowsSuppliers",
-            sp.allows_purchase_orders AS "allowsPurchaseOrders"
+            sp.allows_purchase_orders AS "allowsPurchaseOrders",
+            sp.allows_stock_transfer AS "allowsStockTransfer"
      FROM stores s
      LEFT JOIN subscription_plans sp ON sp.id = s.plan_id
      WHERE s.id = $1`,
@@ -43,7 +44,8 @@ async function getEffectivePlan(storeId) {
       `SELECT name, max_users_per_store AS "maxUsersPerStore", 
       max_products_per_store AS "maxProductsPerStore",
               allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
-              allows_purchase_orders AS "allowsPurchaseOrders"
+              allows_purchase_orders AS "allowsPurchaseOrders",
+              allows_stock_transfer AS "allowsStockTransfer"
        FROM subscription_plans WHERE price = 0 ORDER BY id ASC LIMIT 1`
     );
     if (freeResult.rows.length === 0) {
@@ -57,6 +59,7 @@ async function getEffectivePlan(storeId) {
       allowsSupervision: freePlan.allowsSupervision,
       allowsSuppliers: freePlan.allowsSuppliers,
       allowsPurchaseOrders: freePlan.allowsPurchaseOrders,
+      allowsStockTransfer: freePlan.allowsStockTransfer,
       planExpiresAt: store.planExpiresAt,
       isEffectivelyFreemium: true,
       expired: Boolean(isExpired),
@@ -71,6 +74,7 @@ async function getEffectivePlan(storeId) {
     allowsSupervision: store.allowsSupervision,
     allowsSuppliers: store.allowsSuppliers,
     allowsPurchaseOrders: store.allowsPurchaseOrders,
+    allowsStockTransfer: store.allowsStockTransfer,
     planExpiresAt: store.planExpiresAt,
     isEffectivelyFreemium: Number(store.planPrice) === 0,
     expired: false,

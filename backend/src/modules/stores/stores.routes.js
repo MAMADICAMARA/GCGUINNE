@@ -296,6 +296,37 @@ router.post(
   }
 );
 
+// --- Code de transfert de la boutique ACTIVE (§45_transfert_de_stock.sql) ---
+// Réservé au Owner, même logique que les deux codes ci-dessus : c'est lui
+// qui décide de partager (ou non) la possibilité de lui envoyer du stock.
+router.get(
+  '/transfer-code',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.getTransferCode(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post(
+  '/transfer-code/regenerate',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.regenerateTransferCode(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // --- Bandeau d'alerte "mode gratuit" (§20_plans_abonnement.sql) ---
 // Accessible à TOUTE l'équipe (pas requireRole('OWNER')) : un Vendeur
 // gelé doit lui aussi comprendre pourquoi il ne peut plus agir.

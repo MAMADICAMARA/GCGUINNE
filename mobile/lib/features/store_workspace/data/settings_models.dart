@@ -216,6 +216,7 @@ class SubscriptionPlanOption {
     required this.allowsSuppliers,
     required this.allowsPurchaseOrders,
     required this.allowsMarketplace,
+    required this.allowsStockTransfer,
   });
 
   factory SubscriptionPlanOption.fromJson(Map<String, dynamic> json) => SubscriptionPlanOption(
@@ -228,6 +229,7 @@ class SubscriptionPlanOption {
         allowsSuppliers: json['allowsSuppliers'] as bool? ?? false,
         allowsPurchaseOrders: json['allowsPurchaseOrders'] as bool? ?? false,
         allowsMarketplace: json['allowsMarketplace'] as bool? ?? false,
+        allowsStockTransfer: json['allowsStockTransfer'] as bool? ?? false,
       );
 
   final int id;
@@ -239,6 +241,7 @@ class SubscriptionPlanOption {
   final bool allowsSuppliers;
   final bool allowsPurchaseOrders;
   final bool allowsMarketplace;
+  final bool allowsStockTransfer;
 }
 
 class PaymentSettings {
