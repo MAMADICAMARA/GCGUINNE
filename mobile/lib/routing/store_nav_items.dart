@@ -38,8 +38,13 @@ const List<StoreNavItem> kStoreNavItems = [
   // produit existant (products_page.dart, réservé au Owner).
   StoreNavItem('/workspace/products', Icons.inventory_2_outlined, 'Produits',
       ['OWNER', 'SELLER']),
+  // Visible au Vendeur seulement si le Owner l'a autorisé à ajuster le
+  // stock (§43_autorisation_stock_fournisseurs_achats.sql, décidé en
+  // conversation) — filtre appliqué dans navForRole ci-dessous. La
+  // consultation du stock reste possible pour tout Vendeur ailleurs
+  // (Produits, Caisse), indépendamment de ce réglage.
   StoreNavItem('/workspace/stock', Icons.warehouse_outlined, 'Stock',
-      ['OWNER']),
+      ['OWNER', 'SELLER']),
   // Visible au Vendeur seulement si le Owner l'a autorisé à
   // annuler/retourner — filtre appliqué dans navForRole ci-dessous, cf.
   // frontend/src/routes/navigation.js#getNavForRole.
@@ -54,9 +59,14 @@ const List<StoreNavItem> kStoreNavItems = [
   // des autres écrans (§19_notes_boutique.sql, décidé en conversation).
   StoreNavItem('/workspace/notes', Icons.notes_outlined, 'Notes',
       ['OWNER', 'SELLER']),
+  // Visible au Vendeur seulement si le Owner l'a autorisé
+  // (§43_autorisation_stock_fournisseurs_achats.sql, décidé en
+  // conversation) — jusqu'ici intégralement réservé au Owner, aucun accès
+  // vendeur même en lecture.
   StoreNavItem('/workspace/suppliers', Icons.local_shipping_outlined,
-      'Fournisseurs', ['OWNER']),
-  StoreNavItem('/workspace/purchases', Icons.shopping_bag_outlined, 'Achats', ['OWNER']),
+      'Fournisseurs', ['OWNER', 'SELLER']),
+  // Même logique que Fournisseurs ci-dessus.
+  StoreNavItem('/workspace/purchases', Icons.shopping_bag_outlined, 'Achats', ['OWNER', 'SELLER']),
   StoreNavItem('/workspace/employees', Icons.badge_outlined, 'Équipe', ['OWNER']),
   StoreNavItem('/workspace/settings', Icons.settings_outlined, 'Paramètres', ['OWNER']),
   StoreNavItem('/workspace/contact', Icons.help_outline, 'Contactez-nous',
@@ -68,12 +78,18 @@ List<StoreNavItem> navForRole(
   String? roleCode, {
   bool canVoidReturn = false,
   bool canAddProduct = false,
+  bool canManageStock = false,
+  bool canManageSuppliers = false,
+  bool canManagePurchases = false,
 }) {
   if (roleCode == null) return const [];
   return kStoreNavItems.where((item) {
     if (!item.roles.contains(roleCode)) return false;
     if (item.path == '/workspace/sales' && roleCode == 'SELLER') return canVoidReturn;
     if (item.path == '/workspace/products' && roleCode == 'SELLER') return canAddProduct;
+    if (item.path == '/workspace/stock' && roleCode == 'SELLER') return canManageStock;
+    if (item.path == '/workspace/suppliers' && roleCode == 'SELLER') return canManageSuppliers;
+    if (item.path == '/workspace/purchases' && roleCode == 'SELLER') return canManagePurchases;
     return true;
   }).toList();
 }

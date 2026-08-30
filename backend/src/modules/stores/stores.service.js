@@ -786,6 +786,175 @@ async function canUserAddProduct(storeId, userId, roleCode) {
   return rows[0].allowAllSellers || rows[0].individualPermission;
 }
 
+/**
+ * Réglage global "autoriser TOUS les vendeurs à ajuster le stock"
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation).
+ * Vendeur par vendeur, voir plutôt
+ * employees.service.js#setSellerManageStockPermission. Même principe exact
+ * que getVoidReturnSettings/getEditPriceSettings/getAddProductSettings.
+ */
+async function getStockSettings(storeId) {
+  const { rows } = await pool.query(
+    'SELECT allow_all_sellers_manage_stock AS "allowAllSellers" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updateStockSettings(storeId, allowAllSellers, actingUserId) {
+  const { rows } = await pool.query(
+    'UPDATE stores SET allow_all_sellers_manage_stock = $1 WHERE id = $2 RETURNING id',
+    [Boolean(allowAllSellers), storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'UPDATE_STOCK_SETTINGS', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ allowAllSellers: Boolean(allowAllSellers) })]
+  );
+  return { allowAllSellers: Boolean(allowAllSellers) };
+}
+
+/**
+ * Est-ce que cet utilisateur peut ajuster le stock d'un produit existant
+ * (POST /products/:id/adjust-stock) ? Owner : toujours. Vendeur : soit le
+ * flag global ci-dessus, soit sa permission individuelle
+ * (`user_store.permissions->>'canManageStock'`). La CONSULTATION du stock
+ * (GET /products, /products/:id/stock-history) reste ouverte à tout
+ * vendeur, indépendamment de ce réglage — inchangé.
+ */
+async function canUserManageStock(storeId, userId, roleCode) {
+  if (roleCode === 'OWNER') return true;
+
+  const { rows } = await pool.query(
+    `SELECT s.allow_all_sellers_manage_stock AS "allowAllSellers",
+            COALESCE((us.permissions->>'canManageStock')::boolean, false) AS "individualPermission"
+     FROM stores s
+     JOIN user_store us ON us.store_id = s.id
+     WHERE s.id = $1 AND us.user_id = $2`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) return false;
+  return rows[0].allowAllSellers || rows[0].individualPermission;
+}
+
+/**
+ * Réglage global "autoriser TOUS les vendeurs à utiliser Fournisseurs"
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation).
+ * Vendeur par vendeur, voir plutôt
+ * employees.service.js#setSellerManageSuppliersPermission.
+ */
+async function getSuppliersSettings(storeId) {
+  const { rows } = await pool.query(
+    'SELECT allow_all_sellers_manage_suppliers AS "allowAllSellers" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updateSuppliersSettings(storeId, allowAllSellers, actingUserId) {
+  const { rows } = await pool.query(
+    'UPDATE stores SET allow_all_sellers_manage_suppliers = $1 WHERE id = $2 RETURNING id',
+    [Boolean(allowAllSellers), storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'UPDATE_SUPPLIERS_SETTINGS', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ allowAllSellers: Boolean(allowAllSellers) })]
+  );
+  return { allowAllSellers: Boolean(allowAllSellers) };
+}
+
+/**
+ * Est-ce que cet utilisateur peut utiliser le module Fournisseurs (jusqu'ici
+ * intégralement réservé au Owner, aucun accès vendeur même en lecture) ?
+ * Owner : toujours. Vendeur : soit le flag global ci-dessus, soit sa
+ * permission individuelle (`user_store.permissions->>'canManageSuppliers'`).
+ * Un vendeur autorisé voit le module exactement comme le Owner.
+ */
+async function canUserManageSuppliers(storeId, userId, roleCode) {
+  if (roleCode === 'OWNER') return true;
+
+  const { rows } = await pool.query(
+    `SELECT s.allow_all_sellers_manage_suppliers AS "allowAllSellers",
+            COALESCE((us.permissions->>'canManageSuppliers')::boolean, false) AS "individualPermission"
+     FROM stores s
+     JOIN user_store us ON us.store_id = s.id
+     WHERE s.id = $1 AND us.user_id = $2`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) return false;
+  return rows[0].allowAllSellers || rows[0].individualPermission;
+}
+
+/**
+ * Réglage global "autoriser TOUS les vendeurs à utiliser Achats"
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation).
+ * Vendeur par vendeur, voir plutôt
+ * employees.service.js#setSellerManagePurchasesPermission.
+ */
+async function getPurchasesSettings(storeId) {
+  const { rows } = await pool.query(
+    'SELECT allow_all_sellers_manage_purchases AS "allowAllSellers" FROM stores WHERE id = $1',
+    [storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  return rows[0];
+}
+
+async function updatePurchasesSettings(storeId, allowAllSellers, actingUserId) {
+  const { rows } = await pool.query(
+    'UPDATE stores SET allow_all_sellers_manage_purchases = $1 WHERE id = $2 RETURNING id',
+    [Boolean(allowAllSellers), storeId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'UPDATE_PURCHASES_SETTINGS', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ allowAllSellers: Boolean(allowAllSellers) })]
+  );
+  return { allowAllSellers: Boolean(allowAllSellers) };
+}
+
+/**
+ * Est-ce que cet utilisateur peut utiliser le module Achats (jusqu'ici
+ * intégralement réservé au Owner, aucun accès vendeur même en lecture) ?
+ * Owner : toujours. Vendeur : soit le flag global ci-dessus, soit sa
+ * permission individuelle (`user_store.permissions->>'canManagePurchases'`).
+ * La restriction PREMIUM sur la création (§28_commandes_achat_premium.sql,
+ * requirePlanFeature('allowsPurchaseOrders')) reste entièrement séparée et
+ * s'applique de la même façon à un vendeur autorisé qu'au Owner.
+ */
+async function canUserManagePurchases(storeId, userId, roleCode) {
+  if (roleCode === 'OWNER') return true;
+
+  const { rows } = await pool.query(
+    `SELECT s.allow_all_sellers_manage_purchases AS "allowAllSellers",
+            COALESCE((us.permissions->>'canManagePurchases')::boolean, false) AS "individualPermission"
+     FROM stores s
+     JOIN user_store us ON us.store_id = s.id
+     WHERE s.id = $1 AND us.user_id = $2`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) return false;
+  return rows[0].allowAllSellers || rows[0].individualPermission;
+}
+
 module.exports = {
   listMyStores,
   createStore,
@@ -814,4 +983,13 @@ module.exports = {
   getAddProductSettings,
   updateAddProductSettings,
   canUserAddProduct,
+  getStockSettings,
+  updateStockSettings,
+  canUserManageStock,
+  getSuppliersSettings,
+  updateSuppliersSettings,
+  canUserManageSuppliers,
+  getPurchasesSettings,
+  updatePurchasesSettings,
+  canUserManagePurchases,
 };

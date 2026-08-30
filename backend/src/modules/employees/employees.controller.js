@@ -82,6 +82,33 @@ async function updatePermissions(req, res, next) {
       );
       result.canAddProduct = r.canAddProduct;
     }
+    if (req.body.canManageStock !== undefined) {
+      const r = await employeesService.setSellerManageStockPermission(
+        req.auth.storeId,
+        req.params.userId,
+        req.body.canManageStock,
+        req.auth.userId
+      );
+      result.canManageStock = r.canManageStock;
+    }
+    if (req.body.canManageSuppliers !== undefined) {
+      const r = await employeesService.setSellerManageSuppliersPermission(
+        req.auth.storeId,
+        req.params.userId,
+        req.body.canManageSuppliers,
+        req.auth.userId
+      );
+      result.canManageSuppliers = r.canManageSuppliers;
+    }
+    if (req.body.canManagePurchases !== undefined) {
+      const r = await employeesService.setSellerManagePurchasesPermission(
+        req.auth.storeId,
+        req.params.userId,
+        req.body.canManagePurchases,
+        req.auth.userId
+      );
+      result.canManagePurchases = r.canManagePurchases;
+    }
     res.json(result);
   } catch (err) {
     next(err);

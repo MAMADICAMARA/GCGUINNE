@@ -57,6 +57,14 @@ export const useAuthStore = create(
       // précédent exact que canVoidReturn/canEditPrice ci-dessus.
       canAddProduct: false,
 
+      // booleans — un Vendeur peut-il ajuster le stock / utiliser le module
+      // Fournisseurs / utiliser le module Achats ?
+      // (§43_autorisation_stock_fournisseurs_achats.sql, décidé en
+      // conversation). Même précédent exact que les trois ci-dessus.
+      canManageStock: false,
+      canManageSuppliers: false,
+      canManagePurchases: false,
+
       setSession: ({ token, user, stores }) =>
         set({
           token,
@@ -89,6 +97,12 @@ export const useAuthStore = create(
 
       setCanAddProduct: (canAddProduct) => set({ canAddProduct }),
 
+      setCanManageStock: (canManageStock) => set({ canManageStock }),
+
+      setCanManageSuppliers: (canManageSuppliers) => set({ canManageSuppliers }),
+
+      setCanManagePurchases: (canManagePurchases) => set({ canManagePurchases }),
+
       /**
        * Applique le résultat d'une création de boutique ou d'un changement de
        * boutique active (réponses de POST /stores ou POST /auth/switch-store) :
@@ -104,6 +118,9 @@ export const useAuthStore = create(
           canVoidReturn: false,
           canEditPrice: false,
           canAddProduct: false,
+          canManageStock: false,
+          canManageSuppliers: false,
+          canManagePurchases: false,
         })),
 
       logout: () =>
@@ -116,6 +133,9 @@ export const useAuthStore = create(
           canVoidReturn: false,
           canEditPrice: false,
           canAddProduct: false,
+          canManageStock: false,
+          canManageSuppliers: false,
+          canManagePurchases: false,
         }),
 
       isAuthenticated: () => {

@@ -34,7 +34,10 @@ async function listEmployees(storeId) {
             us.created_at AS "joinedAt",
             COALESCE((us.permissions->>'canVoidReturn')::boolean, false) AS "canVoidReturn",
             COALESCE((us.permissions->>'canEditPrice')::boolean, false) AS "canEditPrice",
-            COALESCE((us.permissions->>'canAddProduct')::boolean, false) AS "canAddProduct"
+            COALESCE((us.permissions->>'canAddProduct')::boolean, false) AS "canAddProduct",
+            COALESCE((us.permissions->>'canManageStock')::boolean, false) AS "canManageStock",
+            COALESCE((us.permissions->>'canManageSuppliers')::boolean, false) AS "canManageSuppliers",
+            COALESCE((us.permissions->>'canManagePurchases')::boolean, false) AS "canManagePurchases"
      FROM user_store us
      JOIN users u ON u.id = us.user_id
      JOIN roles r ON r.id = us.role_id
@@ -402,6 +405,114 @@ async function setSellerAddProductPermission(storeId, targetUserId, canAddProduc
   return { userId: targetUserId, canAddProduct: Boolean(canAddProduct) };
 }
 
+/**
+ * Autorise (ou pas) UN vendeur précis à ajuster le stock
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation)
+ * — même principe exact que les fonctions ci-dessus, indépendant du flag
+ * global "tous les vendeurs" (stores.service.js#updateStockSettings).
+ */
+async function setSellerManageStockPermission(storeId, targetUserId, canManageStock, actingUserId) {
+  const membership = await pool.query(
+    `SELECT r.code AS "roleCode"
+     FROM user_store us JOIN roles r ON r.id = us.role_id
+     WHERE us.user_id = $1 AND us.store_id = $2`,
+    [targetUserId, storeId]
+  );
+  if (membership.rows.length === 0) {
+    throw new AppError('Employé introuvable dans cette boutique.', 404, 'EMPLOYEE_NOT_FOUND');
+  }
+  if (membership.rows[0].roleCode !== 'SELLER') {
+    throw new AppError("Cette autorisation ne s'applique qu'aux vendeurs.", 400, 'NOT_A_SELLER');
+  }
+
+  await pool.query(
+    `UPDATE user_store
+     SET permissions = jsonb_set(permissions, '{canManageStock}', $1::jsonb)
+     WHERE user_id = $2 AND store_id = $3`,
+    [JSON.stringify(Boolean(canManageStock)), targetUserId, storeId]
+  );
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'SET_SELLER_MANAGE_STOCK_PERMISSION', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ targetUserId, canManageStock: Boolean(canManageStock) })]
+  );
+
+  return { userId: targetUserId, canManageStock: Boolean(canManageStock) };
+}
+
+/**
+ * Autorise (ou pas) UN vendeur précis à utiliser le module Fournisseurs
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation)
+ * — même principe exact que les fonctions ci-dessus, indépendant du flag
+ * global "tous les vendeurs" (stores.service.js#updateSuppliersSettings).
+ */
+async function setSellerManageSuppliersPermission(storeId, targetUserId, canManageSuppliers, actingUserId) {
+  const membership = await pool.query(
+    `SELECT r.code AS "roleCode"
+     FROM user_store us JOIN roles r ON r.id = us.role_id
+     WHERE us.user_id = $1 AND us.store_id = $2`,
+    [targetUserId, storeId]
+  );
+  if (membership.rows.length === 0) {
+    throw new AppError('Employé introuvable dans cette boutique.', 404, 'EMPLOYEE_NOT_FOUND');
+  }
+  if (membership.rows[0].roleCode !== 'SELLER') {
+    throw new AppError("Cette autorisation ne s'applique qu'aux vendeurs.", 400, 'NOT_A_SELLER');
+  }
+
+  await pool.query(
+    `UPDATE user_store
+     SET permissions = jsonb_set(permissions, '{canManageSuppliers}', $1::jsonb)
+     WHERE user_id = $2 AND store_id = $3`,
+    [JSON.stringify(Boolean(canManageSuppliers)), targetUserId, storeId]
+  );
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'SET_SELLER_MANAGE_SUPPLIERS_PERMISSION', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ targetUserId, canManageSuppliers: Boolean(canManageSuppliers) })]
+  );
+
+  return { userId: targetUserId, canManageSuppliers: Boolean(canManageSuppliers) };
+}
+
+/**
+ * Autorise (ou pas) UN vendeur précis à utiliser le module Achats
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation)
+ * — même principe exact que les fonctions ci-dessus, indépendant du flag
+ * global "tous les vendeurs" (stores.service.js#updatePurchasesSettings).
+ */
+async function setSellerManagePurchasesPermission(storeId, targetUserId, canManagePurchases, actingUserId) {
+  const membership = await pool.query(
+    `SELECT r.code AS "roleCode"
+     FROM user_store us JOIN roles r ON r.id = us.role_id
+     WHERE us.user_id = $1 AND us.store_id = $2`,
+    [targetUserId, storeId]
+  );
+  if (membership.rows.length === 0) {
+    throw new AppError('Employé introuvable dans cette boutique.', 404, 'EMPLOYEE_NOT_FOUND');
+  }
+  if (membership.rows[0].roleCode !== 'SELLER') {
+    throw new AppError("Cette autorisation ne s'applique qu'aux vendeurs.", 400, 'NOT_A_SELLER');
+  }
+
+  await pool.query(
+    `UPDATE user_store
+     SET permissions = jsonb_set(permissions, '{canManagePurchases}', $1::jsonb)
+     WHERE user_id = $2 AND store_id = $3`,
+    [JSON.stringify(Boolean(canManagePurchases)), targetUserId, storeId]
+  );
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'SET_SELLER_MANAGE_PURCHASES_PERMISSION', $3::jsonb)`,
+    [actingUserId, storeId, JSON.stringify({ targetUserId, canManagePurchases: Boolean(canManagePurchases) })]
+  );
+
+  return { userId: targetUserId, canManagePurchases: Boolean(canManagePurchases) };
+}
+
 module.exports = {
   listEmployees,
   listPendingInvitations,
@@ -411,4 +522,7 @@ module.exports = {
   setSellerVoidReturnPermission,
   setSellerEditPricePermission,
   setSellerAddProductPermission,
+  setSellerManageStockPermission,
+  setSellerManageSuppliersPermission,
+  setSellerManagePurchasesPermission,
 };

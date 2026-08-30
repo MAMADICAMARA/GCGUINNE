@@ -182,6 +182,63 @@ class StoresApi {
     final data = await _client.get('/stores/my-add-product-permission');
     return data['allowed'] as bool? ?? false;
   }
+
+  /// Miroir exact des trois méthodes ci-dessus, pour l'ajustement de stock
+  /// (§43_autorisation_stock_fournisseurs_achats.sql, décidé en
+  /// conversation). La consultation du stock reste ouverte à tout vendeur,
+  /// indépendamment de ce réglage.
+  Future<bool> getStockSettings() async {
+    final data = await _client.get('/stores/stock-settings');
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> updateStockSettings(bool allowAllSellers) async {
+    final data = await _client.put('/stores/stock-settings', data: {'allowAllSellers': allowAllSellers});
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> getMyStockPermission() async {
+    final data = await _client.get('/stores/my-stock-permission');
+    return data['allowed'] as bool? ?? false;
+  }
+
+  /// Miroir exact des trois méthodes ci-dessus, pour l'accès au module
+  /// Fournisseurs (§43_autorisation_stock_fournisseurs_achats.sql, décidé
+  /// en conversation) — jusqu'ici intégralement réservé au Owner, aucun
+  /// accès vendeur même en lecture.
+  Future<bool> getSuppliersSettings() async {
+    final data = await _client.get('/stores/suppliers-settings');
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> updateSuppliersSettings(bool allowAllSellers) async {
+    final data = await _client.put('/stores/suppliers-settings', data: {'allowAllSellers': allowAllSellers});
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> getMySuppliersPermission() async {
+    final data = await _client.get('/stores/my-suppliers-permission');
+    return data['allowed'] as bool? ?? false;
+  }
+
+  /// Miroir exact des trois méthodes ci-dessus, pour l'accès au module
+  /// Achats (§43_autorisation_stock_fournisseurs_achats.sql, décidé en
+  /// conversation) — la restriction PREMIUM sur la création
+  /// (§28_commandes_achat_premium.sql) reste entièrement séparée.
+  Future<bool> getPurchasesSettings() async {
+    final data = await _client.get('/stores/purchases-settings');
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> updatePurchasesSettings(bool allowAllSellers) async {
+    final data = await _client.put('/stores/purchases-settings', data: {'allowAllSellers': allowAllSellers});
+    return data['allowAllSellers'] as bool? ?? false;
+  }
+
+  Future<bool> getMyPurchasesPermission() async {
+    final data = await _client.get('/stores/my-purchases-permission');
+    return data['allowed'] as bool? ?? false;
+  }
 }
 
 class PlanStatus {

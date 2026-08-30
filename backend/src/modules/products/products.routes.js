@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { body, param } = require('express-validator');
 const controller = require('./products.controller');
 const { requireAuth, requireActiveStore, requireRole } = require('../../middlewares/auth');
-const { canUserAddProduct } = require('../stores/stores.service');
+const { canUserAddProduct, canUserManageStock } = require('../stores/stores.service');
 const { AppError } = require('../../middlewares/errorHandler');
 
 const router = Router();
@@ -35,9 +35,28 @@ async function requireAddProductPermission(req, res, next) {
   }
 }
 
-// Modifier/désactiver/réactiver un produit existant, ajuster son stock :
-// toujours réservé au Owner (§4.3 ; pas de rôle Manager — abandonné,
-// contexte guinéen : cf. 21_abandon_role_manager.sql).
+/**
+ * Même principe exact que requireAddProductPermission ci-dessus, pour le
+ * SEUL ajustement de stock (§43_autorisation_stock_fournisseurs_achats.sql,
+ * décidé en conversation) — modifier/désactiver/réactiver un produit
+ * existant reste strictement réservé au Owner, inchangé (cf. plus bas).
+ */
+async function requireManageStockPermission(req, res, next) {
+  try {
+    const allowed = await canUserManageStock(req.auth.storeId, req.auth.userId, req.auth.roleCode);
+    if (!allowed) {
+      return next(new AppError("Vous n'avez pas la permission d'effectuer cette action.", 403, 'FORBIDDEN'));
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Modifier/désactiver/réactiver un produit existant : toujours réservé au
+// Owner (§4.3 ; pas de rôle Manager — abandonné, contexte guinéen : cf.
+// 21_abandon_role_manager.sql). Ajuster le stock : voir
+// requireManageStockPermission ci-dessus.
 router.post(
   '/',
   requireAddProductPermission,
@@ -66,7 +85,7 @@ router.post('/:id/reactivate', requireRole('OWNER'), [param('id').isInt()], cont
 
 router.post(
   '/:id/adjust-stock',
-  requireRole('OWNER'),
+  requireManageStockPermission,
   [
     param('id').isInt(),
     body('delta').isInt().withMessage('La quantité d\'ajustement doit être un entier.'),

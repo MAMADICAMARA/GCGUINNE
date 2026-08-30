@@ -3,9 +3,7 @@ import apiClient from '@/services/apiClient';
 import ReceiptSettingsSection from './ReceiptSettingsSection';
 import BillingSettingsSection from './BillingSettingsSection';
 import OrdersExportSection from './OrdersExportSection';
-import SalesVoidReturnPermissionSection from './SalesVoidReturnPermissionSection';
-import SalesEditPricePermissionSection from './SalesEditPricePermissionSection';
-import AddProductPermissionSection from './AddProductPermissionSection';
+import AuthorizationCard from './AuthorizationCard';
 import SubscriptionSection from './SubscriptionSection';
 import StoreLogoSection from './StoreLogoSection';
 import StoreInfoSection from './StoreInfoSection';
@@ -389,9 +387,7 @@ export default function SettingsPage() {
           accent="emerald"
         />
         <div className="grid gap-6">
-          <SalesVoidReturnPermissionSection />
-          <SalesEditPricePermissionSection />
-          <AddProductPermissionSection />
+          <AuthorizationCard />
           <ReceiptSettingsSection />
         </div>
       </div>

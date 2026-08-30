@@ -43,6 +43,14 @@ class AuthState extends ChangeNotifier {
   /// Même précédent exact que canVoidReturn/canEditPrice ci-dessus.
   bool canAddProduct = false;
 
+  /// Un Vendeur peut-il ajuster le stock / utiliser le module Fournisseurs /
+  /// utiliser le module Achats ?
+  /// (§43_autorisation_stock_fournisseurs_achats.sql). Même précédent exact
+  /// que canVoidReturn/canEditPrice/canAddProduct ci-dessus.
+  bool canManageStock = false;
+  bool canManageSuppliers = false;
+  bool canManagePurchases = false;
+
   /// true tant que la tentative de restauration de session au démarrage
   /// n'est pas terminée (voir main.dart, qui attend [restore] avant
   /// d'appeler runApp).
@@ -74,6 +82,9 @@ class AuthState extends ChangeNotifier {
     canVoidReturn = false;
     canEditPrice = false;
     canAddProduct = false;
+    canManageStock = false;
+    canManageSuppliers = false;
+    canManagePurchases = false;
     _persist();
     notifyListeners();
   }
@@ -123,6 +134,21 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setCanManageStock(bool value) {
+    canManageStock = value;
+    notifyListeners();
+  }
+
+  void setCanManageSuppliers(bool value) {
+    canManageSuppliers = value;
+    notifyListeners();
+  }
+
+  void setCanManagePurchases(bool value) {
+    canManagePurchases = value;
+    notifyListeners();
+  }
+
   /// Rafraîchit simplement la liste des boutiques (GET /stores/mine),
   /// sans toucher au jeton ni à la boutique active.
   void setStores(List<StoreRef> newStores) {
@@ -139,6 +165,9 @@ class AuthState extends ChangeNotifier {
     canVoidReturn = false;
     canEditPrice = false;
     canAddProduct = false;
+    canManageStock = false;
+    canManageSuppliers = false;
+    canManagePurchases = false;
     await _tokenStorage.clear();
     notifyListeners();
   }

@@ -47,11 +47,13 @@ router.delete(
 
 // Autorisations individuelles d'un vendeur — annulation/retour de vente
 // (§25_autorisation_annulation_retour.sql), modification du prix à la
-// Caisse (§39_prix_editable_vente.sql) et ajout de produit
-// (§40_autorisation_ajout_produit.sql), toutes décidées en conversation,
-// indépendantes des flags globaux "tous les vendeurs" (stores.routes.js).
-// Les trois champs sont optionnels mais au moins l'un doit être fourni —
-// sinon cet appel ne changerait rien.
+// Caisse (§39_prix_editable_vente.sql), ajout de produit
+// (§40_autorisation_ajout_produit.sql), ajustement de stock, module
+// Fournisseurs et module Achats (§43_autorisation_stock_fournisseurs_
+// achats.sql), toutes décidées en conversation, indépendantes des flags
+// globaux "tous les vendeurs" (stores.routes.js). Les six champs sont
+// optionnels mais au moins l'un doit être fourni — sinon cet appel ne
+// changerait rien.
 router.patch(
   '/:userId/permissions',
   [
@@ -59,11 +61,17 @@ router.patch(
     body('canVoidReturn').optional().isBoolean().withMessage('Valeur invalide.'),
     body('canEditPrice').optional().isBoolean().withMessage('Valeur invalide.'),
     body('canAddProduct').optional().isBoolean().withMessage('Valeur invalide.'),
+    body('canManageStock').optional().isBoolean().withMessage('Valeur invalide.'),
+    body('canManageSuppliers').optional().isBoolean().withMessage('Valeur invalide.'),
+    body('canManagePurchases').optional().isBoolean().withMessage('Valeur invalide.'),
     body().custom((_, { req }) => {
       if (
         req.body.canVoidReturn === undefined &&
         req.body.canEditPrice === undefined &&
-        req.body.canAddProduct === undefined
+        req.body.canAddProduct === undefined &&
+        req.body.canManageStock === undefined &&
+        req.body.canManageSuppliers === undefined &&
+        req.body.canManagePurchases === undefined
       ) {
         throw new Error('Aucune permission à mettre à jour.');
       }

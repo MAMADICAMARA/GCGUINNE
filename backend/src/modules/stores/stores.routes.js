@@ -491,6 +491,176 @@ router.get('/my-add-product-permission', requireActiveStore, async (req, res, ne
   }
 });
 
+// --- Ajustement de stock par un Vendeur (§43_autorisation_stock_
+// fournisseurs_achats.sql, décidé en conversation) — même schéma exact que
+// les trois autorisations ci-dessus. La consultation du stock (GET
+// /products, /products/:id/stock-history) reste ouverte à tout vendeur,
+// indépendamment de ce réglage.
+router.get(
+  '/stock-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.getStockSettings(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.put(
+  '/stock-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [body('allowAllSellers').isBoolean().withMessage('Valeur invalide.')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updateStockSettings(
+        req.auth.storeId,
+        req.body.allowAllSellers,
+        req.auth.userId
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Accessible à TOUTE l'équipe — c'est ce que le Vendeur interroge lui-même
+// pour savoir s'il voit "Stock" dans son menu et peut ajuster une quantité.
+router.get('/my-stock-permission', requireActiveStore, async (req, res, next) => {
+  try {
+    const allowed = await storesService.canUserManageStock(
+      req.auth.storeId,
+      req.auth.userId,
+      req.auth.roleCode
+    );
+    res.json({ allowed });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Accès au module Fournisseurs par un Vendeur (§43_autorisation_stock_
+// fournisseurs_achats.sql, décidé en conversation) — jusqu'ici
+// intégralement réservé au Owner (aucun accès même en lecture) ; un
+// vendeur autorisé voit le module exactement comme le Owner.
+router.get(
+  '/suppliers-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.getSuppliersSettings(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.put(
+  '/suppliers-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [body('allowAllSellers').isBoolean().withMessage('Valeur invalide.')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updateSuppliersSettings(
+        req.auth.storeId,
+        req.body.allowAllSellers,
+        req.auth.userId
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Accessible à TOUTE l'équipe — c'est ce que le Vendeur interroge lui-même
+// pour savoir s'il voit "Fournisseurs" dans son menu.
+router.get('/my-suppliers-permission', requireActiveStore, async (req, res, next) => {
+  try {
+    const allowed = await storesService.canUserManageSuppliers(
+      req.auth.storeId,
+      req.auth.userId,
+      req.auth.roleCode
+    );
+    res.json({ allowed });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Accès au module Achats par un Vendeur (§43_autorisation_stock_
+// fournisseurs_achats.sql, décidé en conversation) — même schéma exact que
+// Fournisseurs ci-dessus. La restriction PREMIUM sur la création
+// (§28_commandes_achat_premium.sql) reste entièrement séparée et
+// s'applique de la même façon à un vendeur autorisé qu'au Owner.
+router.get(
+  '/purchases-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.getPurchasesSettings(req.auth.storeId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.put(
+  '/purchases-settings',
+  requireActiveStore,
+  requireRole('OWNER'),
+  [body('allowAllSellers').isBoolean().withMessage('Valeur invalide.')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(errors.array()[0].msg, 422, 'VALIDATION_ERROR');
+      }
+      const result = await storesService.updatePurchasesSettings(
+        req.auth.storeId,
+        req.body.allowAllSellers,
+        req.auth.userId
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Accessible à TOUTE l'équipe — c'est ce que le Vendeur interroge lui-même
+// pour savoir s'il voit "Achats" dans son menu.
+router.get('/my-purchases-permission', requireActiveStore, async (req, res, next) => {
+  try {
+    const allowed = await storesService.canUserManagePurchases(
+      req.auth.storeId,
+      req.auth.userId,
+      req.auth.roleCode
+    );
+    res.json({ allowed });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Journal d'activité de la boutique ACTIVE (§ décidé en conversation,
 // en même temps que la supervision enrichie) --- Réservé au Owner : voir
 // ce que font ses employés (ventes, annulations, ajustements de stock...),

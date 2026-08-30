@@ -1,16 +1,35 @@
 const { Router } = require('express');
 const { body, param, validationResult } = require('express-validator');
 const controller = require('./purchases.controller');
-const { requireAuth, requireActiveStore, requireRole } = require('../../middlewares/auth');
+const { requireAuth, requireActiveStore } = require('../../middlewares/auth');
 const { requirePlanFeature } = require('../../middlewares/plan');
+const { canUserManagePurchases } = require('../stores/stores.service');
 const { AppError } = require('../../middlewares/errorHandler');
 
 const router = Router();
 
-// Réservé à l'Owner (§28_commandes_achat_premium.sql, décidé en
-// conversation) — même périmètre que Produits/Stock, déjà Owner uniquement
-// côté navigation (routes/navigation.js).
-router.use(requireAuth, requireActiveStore, requireRole('OWNER'));
+/**
+ * Remplace l'ancien requireRole('OWNER') statique
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation)
+ * — un Vendeur peut désormais utiliser tout le module Achats si le Owner
+ * l'a explicitement autorisé, soit tous les vendeurs d'un coup, soit lui
+ * individuellement. La restriction PREMIUM ci-dessous
+ * (§28_commandes_achat_premium.sql, requirePlanFeature) reste entièrement
+ * séparée et continue de s'appliquer, y compris à un vendeur autorisé.
+ */
+async function requireManagePurchasesPermission(req, res, next) {
+  try {
+    const allowed = await canUserManagePurchases(req.auth.storeId, req.auth.userId, req.auth.roleCode);
+    if (!allowed) {
+      return next(new AppError("Vous n'avez pas la permission d'effectuer cette action.", 403, 'FORBIDDEN'));
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+router.use(requireAuth, requireActiveStore, requireManagePurchasesPermission);
 
 function checkValidation(req, res, next) {
   const errors = validationResult(req);

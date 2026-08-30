@@ -15,6 +15,9 @@ class Employee {
     required this.canVoidReturn,
     required this.canEditPrice,
     required this.canAddProduct,
+    required this.canManageStock,
+    required this.canManageSuppliers,
+    required this.canManagePurchases,
   });
 
   factory Employee.fromJson(Map<String, dynamic> json) => Employee(
@@ -28,6 +31,9 @@ class Employee {
         canVoidReturn: json['canVoidReturn'] as bool? ?? false,
         canEditPrice: json['canEditPrice'] as bool? ?? false,
         canAddProduct: json['canAddProduct'] as bool? ?? false,
+        canManageStock: json['canManageStock'] as bool? ?? false,
+        canManageSuppliers: json['canManageSuppliers'] as bool? ?? false,
+        canManagePurchases: json['canManagePurchases'] as bool? ?? false,
       );
 
   final int userId;
@@ -40,8 +46,19 @@ class Employee {
   final bool canVoidReturn;
   final bool canEditPrice;
   final bool canAddProduct;
+  final bool canManageStock;
+  final bool canManageSuppliers;
+  final bool canManagePurchases;
 
-  Employee copyWith({bool? canVoidReturn, bool? canEditPrice, bool? canAddProduct}) => Employee(
+  Employee copyWith({
+    bool? canVoidReturn,
+    bool? canEditPrice,
+    bool? canAddProduct,
+    bool? canManageStock,
+    bool? canManageSuppliers,
+    bool? canManagePurchases,
+  }) =>
+      Employee(
         userId: userId,
         fullName: fullName,
         email: email,
@@ -52,6 +69,9 @@ class Employee {
         canVoidReturn: canVoidReturn ?? this.canVoidReturn,
         canEditPrice: canEditPrice ?? this.canEditPrice,
         canAddProduct: canAddProduct ?? this.canAddProduct,
+        canManageStock: canManageStock ?? this.canManageStock,
+        canManageSuppliers: canManageSuppliers ?? this.canManageSuppliers,
+        canManagePurchases: canManagePurchases ?? this.canManagePurchases,
       );
 }
 

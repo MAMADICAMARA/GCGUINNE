@@ -7,10 +7,30 @@ import PlanStatusBanner from '@/components/PlanStatusBanner';
 import VoidReturnPermissionSync from '@/components/VoidReturnPermissionSync';
 import EditPricePermissionSync from '@/components/EditPricePermissionSync';
 import AddProductPermissionSync from '@/components/AddProductPermissionSync';
+import ManageStockPermissionSync from '@/components/ManageStockPermissionSync';
+import ManageSuppliersPermissionSync from '@/components/ManageSuppliersPermissionSync';
+import ManagePurchasesPermissionSync from '@/components/ManagePurchasesPermissionSync';
 
 export default function DashboardLayout() {
-  const { user, activeStore, stores, logout, canVoidReturn, canAddProduct } = useAuthStore();
-  const navItems = getNavForRole(activeStore?.roleCode, canVoidReturn, canAddProduct);
+  const {
+    user,
+    activeStore,
+    stores,
+    logout,
+    canVoidReturn,
+    canAddProduct,
+    canManageStock,
+    canManageSuppliers,
+    canManagePurchases,
+  } = useAuthStore();
+  const navItems = getNavForRole(
+    activeStore?.roleCode,
+    canVoidReturn,
+    canAddProduct,
+    canManageStock,
+    canManageSuppliers,
+    canManagePurchases
+  );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -131,6 +151,9 @@ export default function DashboardLayout() {
           <VoidReturnPermissionSync roleCode={activeStore?.roleCode} />
           <EditPricePermissionSync roleCode={activeStore?.roleCode} />
           <AddProductPermissionSync roleCode={activeStore?.roleCode} />
+          <ManageStockPermissionSync roleCode={activeStore?.roleCode} />
+          <ManageSuppliersPermissionSync roleCode={activeStore?.roleCode} />
+          <ManagePurchasesPermissionSync roleCode={activeStore?.roleCode} />
           <PlanStatusBanner roleCode={activeStore?.roleCode} />
           <Outlet />
         </main>

@@ -52,4 +52,22 @@ class EmployeesApi {
   /// (StoresApi.updateAddProductSettings).
   Future<void> updateAddProductPermission(int userId, bool canAddProduct) =>
       _client.patch('/employees/$userId/permissions', data: {'canAddProduct': canAddProduct});
+
+  /// Autorisation individuelle d'ajustement de stock
+  /// (§43_autorisation_stock_fournisseurs_achats.sql) — indépendant du
+  /// réglage global (StoresApi.updateStockSettings).
+  Future<void> updateManageStockPermission(int userId, bool canManageStock) =>
+      _client.patch('/employees/$userId/permissions', data: {'canManageStock': canManageStock});
+
+  /// Autorisation individuelle d'accès au module Fournisseurs
+  /// (§43_autorisation_stock_fournisseurs_achats.sql) — indépendant du
+  /// réglage global (StoresApi.updateSuppliersSettings).
+  Future<void> updateManageSuppliersPermission(int userId, bool canManageSuppliers) =>
+      _client.patch('/employees/$userId/permissions', data: {'canManageSuppliers': canManageSuppliers});
+
+  /// Autorisation individuelle d'accès au module Achats
+  /// (§43_autorisation_stock_fournisseurs_achats.sql) — indépendant du
+  /// réglage global (StoresApi.updatePurchasesSettings).
+  Future<void> updateManagePurchasesPermission(int userId, bool canManagePurchases) =>
+      _client.patch('/employees/$userId/permissions', data: {'canManagePurchases': canManagePurchases});
 }

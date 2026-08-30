@@ -33,6 +33,9 @@ class _StoreShellState extends State<StoreShell> {
       _loadVoidReturnPermission();
       _loadEditPricePermission();
       _loadAddProductPermission();
+      _loadStockPermission();
+      _loadSuppliersPermission();
+      _loadPurchasesPermission();
     }
   }
 
@@ -68,6 +71,42 @@ class _StoreShellState extends State<StoreShell> {
     }
   }
 
+  // Miroir de ManageStockPermissionSync.jsx (§43_autorisation_stock_
+  // fournisseurs_achats.sql).
+  Future<void> _loadStockPermission() async {
+    try {
+      final allowed = await context.read<StoresApi>().getMyStockPermission();
+      if (!mounted) return;
+      context.read<AuthState>().setCanManageStock(allowed);
+    } on ApiException catch (_) {
+      // Silencieux, même logique que côté web.
+    }
+  }
+
+  // Miroir de ManageSuppliersPermissionSync.jsx (§43_autorisation_stock_
+  // fournisseurs_achats.sql).
+  Future<void> _loadSuppliersPermission() async {
+    try {
+      final allowed = await context.read<StoresApi>().getMySuppliersPermission();
+      if (!mounted) return;
+      context.read<AuthState>().setCanManageSuppliers(allowed);
+    } on ApiException catch (_) {
+      // Silencieux, même logique que côté web.
+    }
+  }
+
+  // Miroir de ManagePurchasesPermissionSync.jsx (§43_autorisation_stock_
+  // fournisseurs_achats.sql).
+  Future<void> _loadPurchasesPermission() async {
+    try {
+      final allowed = await context.read<StoresApi>().getMyPurchasesPermission();
+      if (!mounted) return;
+      context.read<AuthState>().setCanManagePurchases(allowed);
+    } on ApiException catch (_) {
+      // Silencieux, même logique que côté web.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthState>();
@@ -76,6 +115,9 @@ class _StoreShellState extends State<StoreShell> {
       activeStore?.roleCode,
       canVoidReturn: authState.canVoidReturn,
       canAddProduct: authState.canAddProduct,
+      canManageStock: authState.canManageStock,
+      canManageSuppliers: authState.canManageSuppliers,
+      canManagePurchases: authState.canManagePurchases,
     );
     final matching = navItems.where((i) => i.path == widget.location);
     final currentItem = matching.isEmpty ? null : matching.first;

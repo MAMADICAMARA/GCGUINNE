@@ -1,16 +1,34 @@
 const { Router } = require('express');
 const { body, param, validationResult } = require('express-validator');
 const controller = require('./suppliers.controller');
-const { requireAuth, requireActiveStore, requireRole } = require('../../middlewares/auth');
+const { requireAuth, requireActiveStore } = require('../../middlewares/auth');
+const { canUserManageSuppliers } = require('../stores/stores.service');
 const { AppError } = require('../../middlewares/errorHandler');
 
 const router = Router();
 
-// Réservé à l'Owner (décidé en conversation, cohérent avec le code de
-// supervision déjà restreint à l'Owner) — nécessite une boutique active,
-// contrairement à la supervision qui porte sur plusieurs boutiques à la
-// fois indépendamment de la boutique active.
-router.use(requireAuth, requireActiveStore, requireRole('OWNER'));
+/**
+ * Remplace l'ancien requireRole('OWNER') statique
+ * (§43_autorisation_stock_fournisseurs_achats.sql, décidé en conversation)
+ * — un Vendeur peut désormais utiliser tout le module Fournisseurs si le
+ * Owner l'a explicitement autorisé, soit tous les vendeurs d'un coup, soit
+ * lui individuellement. Jusqu'ici intégralement réservé au Owner, aucun
+ * accès vendeur même en lecture — un vendeur autorisé voit le module
+ * exactement comme le Owner.
+ */
+async function requireManageSuppliersPermission(req, res, next) {
+  try {
+    const allowed = await canUserManageSuppliers(req.auth.storeId, req.auth.userId, req.auth.roleCode);
+    if (!allowed) {
+      return next(new AppError("Vous n'avez pas la permission d'effectuer cette action.", 403, 'FORBIDDEN'));
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+router.use(requireAuth, requireActiveStore, requireManageSuppliersPermission);
 
 // Centralise la vérification des erreurs de validation express-validator —
 // une règle isInt()/notEmpty() seule ne bloque rien par elle-même, elle ne
