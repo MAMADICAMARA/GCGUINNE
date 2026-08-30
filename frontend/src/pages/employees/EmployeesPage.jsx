@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, UserSquare2 } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatDateTime } from '@/utils/format';
@@ -14,6 +15,7 @@ const ROLE_LABELS = { OWNER: 'Propriétaire', SELLER: 'Vendeur' };
  * — un employé est toujours Vendeur, aucun changement de rôle possible.
  */
 export default function EmployeesPage() {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -119,10 +121,18 @@ export default function EmployeesPage() {
       </div>
 
       {!loading && !canInvite && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
-          Votre plan {planStatus?.planName} ne permet aucun employé — passez à un plan payant pour
-          inviter votre équipe.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
+          <span>
+            Votre plan {planStatus?.planName} ne permet aucun employé — passez à un plan payant pour
+            inviter votre équipe.
+          </span>
+          <button
+            onClick={() => navigate('/settings/plans')}
+            className="shrink-0 rounded-lg bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-amber-600 transition"
+          >
+            Passer au plan supérieur
+          </button>
+        </div>
       )}
 
       {successMessage && (

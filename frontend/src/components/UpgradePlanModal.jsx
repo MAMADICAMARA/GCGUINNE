@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Lock, Sparkles, X } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 
 /**
  * Message d'upgrade affiché quand un marchand touche un produit verrouillé
@@ -8,15 +9,20 @@ import { Lock, Sparkles, X } from 'lucide-react';
  * gelés jusqu'à upgrade). Réutilisé par ProductsPage.jsx et PosPage.jsx —
  * un seul composant, jamais deux messages différents pour la même règle.
  *
- * Le bouton renvoie vers Paramètres (où vit déjà SubscriptionSection /
- * le flux de paiement déclaratif) plutôt que de dupliquer ce flux ici.
+ * Le bouton renvoie vers la page dédiée des plans (§ décidé en
+ * conversation, "partout où le message plan gratuit/limité apparaît, un
+ * bouton vers l'abonnement"). Ce modal peut s'afficher pour un Vendeur
+ * autorisé (POS/Produits) — seul le Owner gère la facturation, donc le
+ * Vendeur voit un message sans lien plutôt qu'un bouton qui échouerait
+ * (page réservée au Owner côté serveur).
  */
 export default function UpgradePlanModal({ planName, maxProductsPerStore, productName, onClose }) {
   const navigate = useNavigate();
+  const isOwner = useAuthStore((s) => s.activeStore?.roleCode) === 'OWNER';
 
   function handleUpgrade() {
     onClose();
-    navigate('/settings');
+    navigate('/settings/plans');
   }
 
   return (
@@ -49,17 +55,20 @@ export default function UpgradePlanModal({ planName, maxProductsPerStore, produc
 
         <div className="px-6 py-6">
           <p className="text-sm text-slate-600 text-center mb-5">
-            Passez à un plan supérieur pour débloquer ce produit — et tous les autres au-delà de votre
-            limite actuelle.
+            {isOwner
+              ? "Passez à un plan supérieur pour débloquer ce produit — et tous les autres au-delà de votre limite actuelle."
+              : "Demandez au propriétaire de la boutique de passer à un plan supérieur pour débloquer ce produit."}
           </p>
 
-          <button
-            onClick={handleUpgrade}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-semibold py-3 shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40 hover:-translate-y-0.5 transition-all"
-          >
-            <Sparkles size={16} />
-            Voir les plans disponibles
-          </button>
+          {isOwner && (
+            <button
+              onClick={handleUpgrade}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-semibold py-3 shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40 hover:-translate-y-0.5 transition-all"
+            >
+              <Sparkles size={16} />
+              Voir les plans disponibles
+            </button>
+          )}
 
           <button
             onClick={onClose}

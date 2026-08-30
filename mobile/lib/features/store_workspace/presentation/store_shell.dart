@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../routing/store_nav_items.dart';
 import '../../../state/auth_state.dart';
 import '../../account/data/stores_api.dart';
+import 'settings/subscription_plans_page.dart';
 
 /// Shell de l'espace BOUTIQUE — utilise un Drawer plutôt qu'une barre de
 /// navigation basse : le nombre d'entrées varie selon le rôle (jusqu'à 6
@@ -36,6 +37,20 @@ class _StoreShellState extends State<StoreShell> {
       _loadStockPermission();
       _loadSuppliersPermission();
       _loadPurchasesPermission();
+    }
+    // Accessible à TOUTE l'équipe, contrairement aux autorisations
+    // ci-dessus — l'Owner en a besoin lui aussi pour voir son propre
+    // bandeau. Miroir de PlanStatusBanner.jsx.
+    _loadPlanBanner();
+  }
+
+  Future<void> _loadPlanBanner() async {
+    try {
+      final banner = await context.read<StoresApi>().getPlanBanner();
+      if (!mounted) return;
+      context.read<AuthState>().setPlanBanner(banner);
+    } on ApiException catch (_) {
+      // Silencieux, même logique que côté web.
     }
   }
 
@@ -193,7 +208,68 @@ class _StoreShellState extends State<StoreShell> {
           ),
         ),
       ),
-      body: widget.child,
+      body: Column(
+        children: [
+          _PlanStatusBanner(roleCode: activeStore?.roleCode, banner: authState.planBanner),
+          Expanded(child: widget.child),
+        ],
+      ),
+    );
+  }
+}
+
+/// Miroir de PlanStatusBanner.jsx — ne s'affiche que si la boutique est
+/// effectivement en FREEMIUM ET qu'elle a au moins un employé (calculé
+/// côté serveur). Message différent selon le rôle courant : l'Owner voit
+/// un bouton pour agir, le reste de l'équipe comprend juste pourquoi elle
+/// ne peut plus écrire (elle ne peut rien faire sur la facturation).
+class _PlanStatusBanner extends StatelessWidget {
+  const _PlanStatusBanner({required this.roleCode, required this.banner});
+
+  final String? roleCode;
+  final PlanBanner? banner;
+
+  @override
+  Widget build(BuildContext context) {
+    if (banner == null || !banner!.show) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: roleCode == 'OWNER'
+          ? Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Votre abonnement est en ${banner!.planName} — votre équipe est actuellement en lecture seule.',
+                    style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 30,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage())),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.amber.shade600,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                    child: const Text('Passer au plan supérieur'),
+                  ),
+                ),
+              ],
+            )
+          : Text(
+              'Cette boutique fonctionne actuellement en mode gratuit — contactez votre responsable.',
+              style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+            ),
     );
   }
 }

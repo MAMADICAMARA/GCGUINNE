@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../state/auth_state.dart';
+import 'settings/subscription_plans_page.dart';
 
 /// Miroir de UpgradePlanModal.jsx (web) — affiché quand un marchand touche
 /// un produit verrouillé par le plafond de son plan (§ décidé en
@@ -7,8 +10,12 @@ import 'package:go_router/go_router.dart';
 /// ProductsPage et PosPage — un seul widget, jamais deux messages
 /// différents pour la même règle.
 ///
-/// Le bouton renvoie vers Paramètres (où vit déjà SubscriptionSection / le
-/// flux de paiement déclaratif) plutôt que de dupliquer ce flux ici.
+/// Le bouton ouvre la page dédiée des plans (§ décidé en conversation,
+/// "partout où le message plan gratuit/limité apparaît, un bouton vers
+/// l'abonnement"). Ce dialogue peut s'afficher pour un Vendeur autorisé
+/// (POS/Produits) — seul le Owner gère la facturation, donc le Vendeur voit
+/// un message sans bouton plutôt qu'un lien qui échouerait (page réservée
+/// au Owner côté serveur).
 Future<void> showUpgradePlanDialog(
   BuildContext context, {
   required String? planName,
@@ -36,6 +43,7 @@ class _UpgradePlanDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final isOwner = context.read<AuthState>().activeStore?.roleCode == 'OWNER';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -96,28 +104,32 @@ class _UpgradePlanDialog extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                 child: Column(
                   children: [
-                    const Text(
-                      'Passez à un plan supérieur pour débloquer ce produit — et tous les autres au-delà de votre limite actuelle.',
+                    Text(
+                      isOwner
+                          ? 'Passez à un plan supérieur pour débloquer ce produit — et tous les autres au-delà de votre limite actuelle.'
+                          : 'Demandez au propriétaire de la boutique de passer à un plan supérieur pour débloquer ce produit.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
                     ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          context.go('/workspace/settings');
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    if (isOwner) ...[
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage()));
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: primary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: const Icon(Icons.auto_awesome, size: 17),
+                          label: const Text('Voir les plans disponibles', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
                         ),
-                        icon: const Icon(Icons.auto_awesome, size: 17),
-                        label: const Text('Voir les plans disponibles', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 10),
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),

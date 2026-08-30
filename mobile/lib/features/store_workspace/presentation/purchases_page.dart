@@ -3,12 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../state/auth_state.dart';
 import '../../account/data/stores_api.dart';
 import '../data/purchase_models.dart';
 import '../data/purchases_api.dart';
 import 'purchases/create_purchase_order_sheet.dart';
 import 'purchases/purchase_order_detail_sheet.dart';
 import 'purchases/supplier_contact_sheet.dart';
+import 'settings/subscription_plans_page.dart';
 
 enum _PurchasesTab { orders, suppliers }
 
@@ -124,6 +126,7 @@ class _PurchasesPageState extends State<PurchasesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isOwner = context.read<AuthState>().activeStore?.roleCode == 'OWNER';
     return Scaffold(
       floatingActionButton: _loading
           ? null
@@ -148,9 +151,29 @@ class _PurchasesPageState extends State<PurchasesPage> {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Text(
-                  'Les commandes d\'achat sont réservées au plan PREMIUM — passez à ce plan pour en créer. La consultation de ce qui existe déjà reste possible.',
-                  style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Les commandes d\'achat sont réservées au plan PREMIUM — passez à ce plan pour en créer. La consultation de ce qui existe déjà reste possible.',
+                      style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                    ),
+                    if (isOwner) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 30,
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage())),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.amber.shade600,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                          child: const Text('Passer au plan supérieur'),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             if (_error != null)

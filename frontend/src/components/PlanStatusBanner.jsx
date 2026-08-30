@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
 import { useAuthStore } from '@/store/authStore';
 
@@ -17,6 +18,7 @@ import { useAuthStore } from '@/store/authStore';
  * côté employé plutôt que chaque page ne refasse cet appel.
  */
 export default function PlanStatusBanner({ roleCode }) {
+  const navigate = useNavigate();
   const banner = useAuthStore((s) => s.planBanner);
   const setPlanBanner = useAuthStore((s) => s.setPlanBanner);
 
@@ -42,10 +44,17 @@ export default function PlanStatusBanner({ roleCode }) {
   return (
     <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
       {roleCode === 'OWNER' ? (
-        <>
-          Votre abonnement est en {banner.planName} — votre équipe est actuellement en lecture seule.
-          Contactez le support pour réactiver votre plan.
-        </>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span>
+            Votre abonnement est en {banner.planName} — votre équipe est actuellement en lecture seule.
+          </span>
+          <button
+            onClick={() => navigate('/settings/plans')}
+            className="shrink-0 rounded-lg bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-amber-600 transition"
+          >
+            Passer au plan supérieur
+          </button>
+        </div>
       ) : (
         <>Cette boutique fonctionne actuellement en mode gratuit — contactez votre responsable.</>
       )}

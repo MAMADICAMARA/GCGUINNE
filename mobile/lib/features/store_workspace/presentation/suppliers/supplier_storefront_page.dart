@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../state/auth_state.dart';
 import '../../../account/data/stores_api.dart';
 import '../../data/purchases_api.dart';
 import '../../data/supplier_models.dart';
 import '../../data/suppliers_api.dart';
+import '../settings/subscription_plans_page.dart';
 
 /// Miroir de SupplierStorefrontPage.jsx (§29_commande_depuis_fournisseur_plateforme.sql)
 /// — vitrine d'un fournisseur de la plateforme : parcourir son catalogue
@@ -143,6 +145,7 @@ class _SupplierStorefrontPageState extends State<SupplierStorefrontPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isOwner = context.read<AuthState>().activeStore?.roleCode == 'OWNER';
     return Scaffold(
       appBar: AppBar(title: Text(_catalog?.supplierName ?? 'Fournisseur')),
       body: _loading
@@ -165,9 +168,29 @@ class _SupplierStorefrontPageState extends State<SupplierStorefrontPage> {
                               margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(10)),
-                              child: Text(
-                                'Passer commande est réservé au plan PREMIUM — vous pouvez toujours parcourir le catalogue.',
-                                style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Passer commande est réservé au plan PREMIUM — vous pouvez toujours parcourir le catalogue.',
+                                    style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                                  ),
+                                  if (isOwner) ...[
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      height: 30,
+                                      child: FilledButton(
+                                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage())),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Colors.amber.shade600,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                        ),
+                                        child: const Text('Passer au plan supérieur'),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           if (_error != null)

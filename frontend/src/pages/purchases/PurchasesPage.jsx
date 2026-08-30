@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Plus, ShoppingBag } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDateTime } from '@/utils/format';
+import { useAuthStore } from '@/store/authStore';
 import SupplierContactModal from './SupplierContactModal';
 import CreatePurchaseOrderModal from './CreatePurchaseOrderModal';
 import PurchaseOrderDetailModal from './PurchaseOrderDetailModal';
@@ -22,6 +24,8 @@ const STATUS_LABELS = {
  * bouton silencieusement absent.
  */
 export default function PurchasesPage() {
+  const navigate = useNavigate();
+  const isOwner = useAuthStore((s) => s.activeStore?.roleCode) === 'OWNER';
   const [tab, setTab] = useState('orders'); // 'orders' | 'suppliers'
   const [planStatus, setPlanStatus] = useState(null);
 
@@ -110,10 +114,20 @@ export default function PurchasesPage() {
       </div>
 
       {!loading && !canCreate && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
-          Les commandes d'achat sont réservées au plan PREMIUM — passez à ce plan pour en créer. La
-          consultation de ce qui existe déjà reste possible.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
+          <span>
+            Les commandes d'achat sont réservées au plan PREMIUM — passez à ce plan pour en créer. La
+            consultation de ce qui existe déjà reste possible.
+          </span>
+          {isOwner && (
+            <button
+              onClick={() => navigate('/settings/plans')}
+              className="shrink-0 rounded-lg bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-amber-600 transition"
+            >
+              Passer au plan supérieur
+            </button>
+          )}
+        </div>
       )}
 
       {error && (

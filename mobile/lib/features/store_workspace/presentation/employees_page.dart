@@ -10,6 +10,7 @@ import '../../account/data/stores_api.dart';
 import '../data/employee_models.dart';
 import '../data/employees_api.dart';
 import 'employees/add_employee_sheet.dart';
+import 'settings/subscription_plans_page.dart';
 
 /// Miroir de EmployeesPage.jsx — réservé au Owner (déjà vérifié côté
 /// serveur par requireRole('OWNER') sur toutes les routes /employees).
@@ -152,9 +153,27 @@ class _EmployeesPageState extends State<EmployeesPage> {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Text(
-                  'Votre plan ${_planStatus!.planName} ne permet aucun employé — passez à un plan payant pour inviter votre équipe.',
-                  style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Votre plan ${_planStatus!.planName} ne permet aucun employé — passez à un plan payant pour inviter votre équipe.',
+                      style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 30,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage())),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.amber.shade600,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        child: const Text('Passer au plan supérieur'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             if (_successMessage != null)

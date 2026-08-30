@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ChevronLeft, ShoppingCart, Trash2, Minus, Plus } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF } from '@/utils/format';
+import { useAuthStore } from '@/store/authStore';
 import SupplierStorefrontProductCard from './SupplierStorefrontProductCard';
 
 const PREVIEW_COUNT = 4; // même convention que la Caisse (PosPage.jsx)
@@ -25,6 +26,7 @@ const PREVIEW_COUNT = 4; // même convention que la Caisse (PosPage.jsx)
 export default function SupplierStorefrontPage() {
   const { storeId } = useParams();
   const navigate = useNavigate();
+  const isOwner = useAuthStore((s) => s.activeStore?.roleCode) === 'OWNER';
 
   const [supplierName, setSupplierName] = useState('');
   const [products, setProducts] = useState([]);
@@ -188,9 +190,17 @@ export default function SupplierStorefrontPage() {
         </p>
 
         {!allowsPurchaseOrders && (
-          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
-            Passer commande est réservé au plan PREMIUM — vous pouvez toujours parcourir le catalogue.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-4">
+            <span>Passer commande est réservé au plan PREMIUM — vous pouvez toujours parcourir le catalogue.</span>
+            {isOwner && (
+              <button
+                onClick={() => navigate('/settings/plans')}
+                className="shrink-0 rounded-lg bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-amber-600 transition"
+              >
+                Passer au plan supérieur
+              </button>
+            )}
+          </div>
         )}
 
         {error && (

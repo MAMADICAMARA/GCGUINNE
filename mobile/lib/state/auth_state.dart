@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/storage/token_storage.dart';
+import '../features/account/data/stores_api.dart' show PlanBanner;
 import 'models/store.dart';
 import 'models/user.dart';
 
@@ -51,6 +52,12 @@ class AuthState extends ChangeNotifier {
   bool canManageSuppliers = false;
   bool canManagePurchases = false;
 
+  /// Bandeau "boutique en mode gratuit" (§20_plans_abonnement.sql, décidé
+  /// en conversation) — peuplé une fois par StoreShell à l'entrée dans
+  /// l'espace boutique (GET /stores/plan-banner, accessible à toute
+  /// l'équipe), jamais persisté. Miroir de authStore.js#planBanner.
+  PlanBanner? planBanner;
+
   /// true tant que la tentative de restauration de session au démarrage
   /// n'est pas terminée (voir main.dart, qui attend [restore] avant
   /// d'appeler runApp).
@@ -85,6 +92,7 @@ class AuthState extends ChangeNotifier {
     canManageStock = false;
     canManageSuppliers = false;
     canManagePurchases = false;
+    planBanner = null;
     _persist();
     notifyListeners();
   }
@@ -149,6 +157,11 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setPlanBanner(PlanBanner value) {
+    planBanner = value;
+    notifyListeners();
+  }
+
   /// Rafraîchit simplement la liste des boutiques (GET /stores/mine),
   /// sans toucher au jeton ni à la boutique active.
   void setStores(List<StoreRef> newStores) {
@@ -168,6 +181,7 @@ class AuthState extends ChangeNotifier {
     canManageStock = false;
     canManageSuppliers = false;
     canManagePurchases = false;
+    planBanner = null;
     await _tokenStorage.clear();
     notifyListeners();
   }
