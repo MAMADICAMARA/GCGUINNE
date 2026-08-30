@@ -19,27 +19,35 @@ const _kPaymentMethods = [
 /// de paiement, formulaire de déclaration) + un écran "Contacter l'admin"
 /// qui n'est qu'un affichage de coordonnées, jamais une déclaration.
 /// Retourne `true` si une demande a été soumise avec succès.
-Future<bool?> showSubscriptionPaymentSheet(BuildContext context) {
+///
+/// `initialPlan` (§ décidé en conversation, "page dédiée pour choisir un
+/// plan") : ouverte depuis SubscriptionPlansPage, le plan est déjà choisi
+/// — la feuille saute directement à l'étape du moyen de paiement plutôt
+/// que de refaire choisir un plan déjà sélectionné. Ouverte sans plan
+/// fourni, le flux reste inchangé (démarre à l'étape "plan").
+Future<bool?> showSubscriptionPaymentSheet(BuildContext context, {SubscriptionPlanOption? initialPlan}) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => const _SubscriptionPaymentSheet(),
+    builder: (context) => _SubscriptionPaymentSheet(initialPlan: initialPlan),
   );
 }
 
 class _SubscriptionPaymentSheet extends StatefulWidget {
-  const _SubscriptionPaymentSheet();
+  const _SubscriptionPaymentSheet({this.initialPlan});
+
+  final SubscriptionPlanOption? initialPlan;
 
   @override
   State<_SubscriptionPaymentSheet> createState() => _SubscriptionPaymentSheetState();
 }
 
 class _SubscriptionPaymentSheetState extends State<_SubscriptionPaymentSheet> {
-  _Step _step = _Step.plan;
+  late _Step _step = widget.initialPlan != null ? _Step.method : _Step.plan;
   SubscriptionOptions? _options;
   String? _loadError;
 
-  SubscriptionPlanOption? _selectedPlan;
+  late SubscriptionPlanOption? _selectedPlan = widget.initialPlan;
   String? _selectedMethod;
   final _referenceController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -130,10 +138,20 @@ class _SubscriptionPaymentSheetState extends State<_SubscriptionPaymentSheet> {
               children: [
                 if (_step != _Step.plan)
                   IconButton(
-                    onPressed: () => setState(() {
-                      _step = _step == _Step.form ? _Step.method : (_step == _Step.contact ? _Step.method : _Step.plan);
-                      _submitError = null;
-                    }),
+                    onPressed: () {
+                      // Plan déjà imposé par l'appelant (page dédiée) : pas
+                      // d'étape "plan" à laquelle revenir, on ferme plutôt
+                      // la feuille — même comportement que le "Changer de
+                      // plan" côté web quand initialPlan est fourni.
+                      if (widget.initialPlan != null && _step == _Step.method) {
+                        Navigator.of(context).pop();
+                        return;
+                      }
+                      setState(() {
+                        _step = _step == _Step.form ? _Step.method : (_step == _Step.contact ? _Step.method : _Step.plan);
+                        _submitError = null;
+                      });
+                    },
                     icon: const Icon(Icons.arrow_back, size: 20),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),

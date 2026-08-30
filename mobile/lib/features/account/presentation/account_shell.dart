@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../state/auth_state.dart';
 
 class _TabItem {
   const _TabItem(this.path, this.icon, this.label);
@@ -8,38 +11,120 @@ class _TabItem {
   final String label;
 }
 
-/// Shell de l'espace COMPTE — 4 entrées toujours visibles, qu'une boutique
-/// soit active ou non (§4.1 vs §4.2 du cahier des charges). Miroir de
-/// frontend/src/layouts/AccountLayout.jsx.
+/// Shell de l'espace COMPTE — jusqu'à 6 entrées (§ décidé en conversation :
+/// "Superviser" et "Contactez-nous" promus depuis la carte de liens en bas
+/// de l'Accueil vers la barre elle-même, juste après "Paramètres"). Miroir
+/// de frontend/src/layouts/AccountLayout.jsx.
+///
+/// Au-delà de 5 items, le widget Material `NavigationBar` standard devient
+/// illisible (il répartit toujours ses items également, sans défilement) —
+/// remplacé ici par une barre scrollable horizontalement construite à la
+/// main. Compromis assumé : moins "découvrable" qu'une barre classique,
+/// mais c'est le choix explicitement demandé plutôt qu'un onglet "Plus".
 class AccountShell extends StatelessWidget {
   const AccountShell({super.key, required this.child, required this.location});
 
   final Widget child;
   final String location;
 
-  static const List<_TabItem> _tabs = [
-    _TabItem('/account', Icons.home_outlined, 'Accueil'),
-    _TabItem('/account/store', Icons.storefront_outlined, 'Ma Boutique'),
-    _TabItem('/account/profile', Icons.person_outline, 'Profil'),
-    _TabItem('/account/settings', Icons.settings_outlined, 'Paramètres'),
-  ];
+  List<_TabItem> _tabsFor(AuthState authState) {
+    // Même critère que côté serveur (supervision.service.js#isEmployeeOnly)
+    // et que l'ancien emplacement de ce lien dans account_home_page.dart :
+    // un compte purement employé (jamais OWNER nulle part) n'a rien à
+    // superviser.
+    final isEmployeeOnly =
+        authState.stores.isNotEmpty && !authState.stores.any((s) => s.roleCode == 'OWNER');
 
-  int get _currentIndex {
-    final index = _tabs.indexWhere((t) => t.path == location);
-    return index == -1 ? 0 : index;
+    return [
+      const _TabItem('/account', Icons.home_outlined, 'Accueil'),
+      const _TabItem('/account/store', Icons.storefront_outlined, 'Ma Boutique'),
+      const _TabItem('/account/profile', Icons.person_outline, 'Profil'),
+      const _TabItem('/account/settings', Icons.settings_outlined, 'Paramètres'),
+      if (!isEmployeeOnly)
+        const _TabItem('/account/supervise', Icons.visibility_outlined, 'Superviser'),
+      const _TabItem('/account/contact', Icons.help_outline, 'Contact'),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthState>();
+    final tabs = _tabsFor(authState);
+    final currentIndex = tabs.indexWhere((t) => t.path == location);
+
     return Scaffold(
       body: SafeArea(child: child),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => context.go(_tabs[i].path),
-        destinations: [
-          for (final tab in _tabs)
-            NavigationDestination(icon: Icon(tab.icon), label: tab.label),
-        ],
+      bottomNavigationBar: _ScrollableBottomNav(
+        tabs: tabs,
+        currentIndex: currentIndex == -1 ? 0 : currentIndex,
+        onSelect: (i) => context.go(tabs[i].path),
+      ),
+    );
+  }
+}
+
+class _ScrollableBottomNav extends StatelessWidget {
+  const _ScrollableBottomNav({required this.tabs, required this.currentIndex, required this.onSelect});
+
+  final List<_TabItem> tabs;
+  final int currentIndex;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      elevation: 3,
+      color: colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 72,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            itemCount: tabs.length,
+            itemBuilder: (context, i) {
+              final tab = tabs[i];
+              final selected = i == currentIndex;
+              final color = selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
+
+              return InkWell(
+                onTap: () => onSelect(i),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 76,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: selected ? colorScheme.secondaryContainer : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(tab.icon, color: color, size: 22),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        tab.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: color,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

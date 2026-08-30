@@ -12,7 +12,7 @@ import '../data/employees_api.dart';
 import '../data/settings_models.dart';
 import '../data/subscription_payments_api.dart';
 import 'products/image_picker_field.dart';
-import 'settings/subscription_payment_sheet.dart';
+import 'settings/subscription_plans_page.dart';
 
 /// Miroir de SettingsPage.jsx — réservé au Owner (déjà vérifié côté
 /// serveur par requireRole('OWNER') sur toutes les routes /stores/* ici
@@ -192,8 +192,14 @@ class _SubscriptionSectionState extends State<_SubscriptionSection> {
         plan: _plan,
         error: _error,
         onOpenPayment: () async {
-          final saved = await showSubscriptionPaymentSheet(context);
-          if (saved == true) _load();
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SubscriptionPlansPage()),
+          );
+          // Le plan a pu changer pendant la visite de la page dédiée
+          // (déclaration de paiement soumise) — toujours rafraîchir au
+          // retour plutôt que de propager un résultat booléen à travers
+          // une navigation complète.
+          _load();
         },
       ),
     );

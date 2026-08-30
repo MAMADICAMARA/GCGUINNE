@@ -136,9 +136,11 @@ class SubscriptionPlanOption {
     required this.name,
     required this.price,
     required this.maxUsersPerStore,
+    required this.maxProductsPerStore,
     required this.allowsSupervision,
     required this.allowsSuppliers,
     required this.allowsPurchaseOrders,
+    required this.allowsMarketplace,
   });
 
   factory SubscriptionPlanOption.fromJson(Map<String, dynamic> json) => SubscriptionPlanOption(
@@ -146,18 +148,22 @@ class SubscriptionPlanOption {
         name: json['name'] as String,
         price: (json['price'] as num?) ?? 0,
         maxUsersPerStore: json['maxUsersPerStore'] as int? ?? 1,
+        maxProductsPerStore: json['maxProductsPerStore'] as int? ?? 1,
         allowsSupervision: json['allowsSupervision'] as bool? ?? false,
         allowsSuppliers: json['allowsSuppliers'] as bool? ?? false,
         allowsPurchaseOrders: json['allowsPurchaseOrders'] as bool? ?? false,
+        allowsMarketplace: json['allowsMarketplace'] as bool? ?? false,
       );
 
   final int id;
   final String name;
   final num price;
   final int maxUsersPerStore;
+  final int maxProductsPerStore;
   final bool allowsSupervision;
   final bool allowsSuppliers;
   final bool allowsPurchaseOrders;
+  final bool allowsMarketplace;
 }
 
 class PaymentSettings {

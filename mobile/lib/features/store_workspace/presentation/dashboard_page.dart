@@ -183,13 +183,13 @@ class _DashboardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
+        // Une carte par ligne, pleine largeur (§ décidé en conversation,
+        // "même affichage horizontal que l'interface mobile côté web") —
+        // miroir exact de DashboardPage.jsx sous son point de rupture `sm`
+        // (flex flex-col), où chaque StatCard range son contenu à
+        // l'horizontale (texte à gauche, badge d'icône à droite) plutôt
+        // que la grille 2 colonnes avec icône au-dessus qu'on avait ici.
+        Column(
           children: [
             _StatCard(
               label: isOwner ? 'Ventes $dayLabel' : 'Mes ventes du jour',
@@ -197,7 +197,8 @@ class _DashboardContent extends StatelessWidget {
               icon: Icons.payments_outlined,
               iconColor: Colors.blue,
             ),
-            if (stats.todayProfit != null)
+            if (stats.todayProfit != null) ...[
+              const SizedBox(height: 12),
               _StatCard(
                 label: 'Bénéfice $dayLabel',
                 value: formatGNF(stats.todayProfit),
@@ -205,18 +206,22 @@ class _DashboardContent extends StatelessWidget {
                 iconColor: Colors.green,
                 valueColor: Colors.green.shade800,
               ),
+            ],
+            const SizedBox(height: 12),
             _StatCard(
               label: isOwner ? 'Commandes' : 'Mes commandes',
               value: '${stats.todayOrdersCount}',
               icon: Icons.shopping_bag_outlined,
               iconColor: Colors.deepPurple,
             ),
+            const SizedBox(height: 12),
             _StatCard(
               label: isOwner ? 'Articles vendus' : 'Mes articles vendus',
               value: '${stats.todayItemsSold}',
               icon: Icons.inventory_2_outlined,
               iconColor: Colors.amber.shade800,
             ),
+            const SizedBox(height: 12),
             _StatCard(
               label: 'Produits en rupture',
               value: '${stats.lowStockCount}',
@@ -288,35 +293,43 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+        padding: const EdgeInsets.all(16),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, letterSpacing: 0.3),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: valueColor ?? Colors.grey.shade900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, size: 18, color: iconColor),
-            ),
-            const Spacer(),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: valueColor ?? Colors.grey.shade900,
-              ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              child: Icon(icon, size: 20, color: iconColor),
             ),
           ],
         ),

@@ -35,6 +35,7 @@ import NotesPage from '@/pages/notes/NotesPage';
 import EmployeesPage from '@/pages/employees/EmployeesPage';
 import AuditLogPage from '@/pages/audit-log/AuditLogPage';
 import SettingsPage from '@/pages/settings/SettingsPage';
+import SubscriptionPlansPage from '@/pages/settings/SubscriptionPlansPage';
 import ContactPage from '@/pages/contact/ContactPage';
 
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage';
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/plans" element={<SubscriptionPlansPage />} />
             <Route path="/contact" element={<ContactPage />} />
           </Route>
         </Route>

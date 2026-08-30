@@ -6,9 +6,9 @@ plugins {
 }
 
 android {
-    namespace = "com.gestioncommerciale.gestion_commerciale_mobile"
+    namespace = "com.gcguinee224.cama"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -20,8 +20,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.gestioncommerciale.gestion_commerciale_mobile"
+        applicationId = "com.gcguinee224.cama"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

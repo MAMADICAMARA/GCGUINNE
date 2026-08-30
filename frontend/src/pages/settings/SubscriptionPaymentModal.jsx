@@ -17,13 +17,18 @@ const PAYMENT_METHODS = [
  * transaction. Le montant n'est jamais saisi ici — toujours celui du plan,
  * calculé côté serveur à la soumission.
  */
-export default function SubscriptionPaymentModal({ onClose, onSuccess }) {
-  const [step, setStep] = useState('PLAN'); // PLAN | METHOD | FORM | CONTACT
+export default function SubscriptionPaymentModal({ onClose, onSuccess, initialPlan = null }) {
+  // Ouvert depuis la nouvelle page dédiée (SubscriptionPlansPage), le plan
+  // est déjà choisi — on saute directement à l'étape du moyen de paiement
+  // plutôt que de faire rechoisir un plan déjà sélectionné (§ décidé en
+  // conversation). Ouvert depuis ailleurs (aucun plan fourni), le flux
+  // reste inchangé : on démarre à l'étape PLAN.
+  const [step, setStep] = useState(initialPlan ? 'METHOD' : 'PLAN'); // PLAN | METHOD | FORM | CONTACT
   const [options, setOptions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(initialPlan);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [transactionReference, setTransactionReference] = useState('');
   const [payerPhone, setPayerPhone] = useState('');
@@ -155,7 +160,7 @@ export default function SubscriptionPaymentModal({ onClose, onSuccess }) {
                     </button>
                   </div>
                   <button
-                    onClick={() => setStep('PLAN')}
+                    onClick={() => (initialPlan ? onClose() : setStep('PLAN'))}
                     className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
                   >
                     <ChevronLeft size={14} /> Changer de plan

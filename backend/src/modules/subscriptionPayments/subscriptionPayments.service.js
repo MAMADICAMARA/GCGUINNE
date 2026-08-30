@@ -15,8 +15,9 @@ async function getSubscriptionOptions() {
   const [plansResult, settingsResult] = await Promise.all([
     pool.query(
       `SELECT id, name, price, max_users_per_store AS "maxUsersPerStore",
+              max_products_per_store AS "maxProductsPerStore",
               allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
-              allows_purchase_orders AS "allowsPurchaseOrders"
+              allows_purchase_orders AS "allowsPurchaseOrders", allows_marketplace AS "allowsMarketplace"
        FROM subscription_plans
        WHERE price > 0
        ORDER BY price ASC`

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
 import { formatDateTime, formatGNF } from '@/utils/format';
-import SubscriptionPaymentModal from './SubscriptionPaymentModal';
 
 const PAYMENT_METHOD_LABELS = {
   ORANGE_MONEY: 'Orange Money',
@@ -17,14 +17,13 @@ const PAYMENT_METHOD_LABELS = {
  * lui-même plutôt que d'attendre une action manuelle du Super Admin.
  */
 export default function SubscriptionSection() {
+  const navigate = useNavigate();
   const [plan, setPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState('');
 
   const [latestRequest, setLatestRequest] = useState(null);
   const [requestLoading, setRequestLoading] = useState(true);
-
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   async function loadPlan() {
     setPlanLoading(true);
@@ -56,12 +55,6 @@ export default function SubscriptionSection() {
     loadPlan();
     loadLatestRequest();
   }, []);
-
-  function handlePaymentSuccess() {
-    setShowPaymentModal(false);
-    loadPlan();
-    loadLatestRequest();
-  }
 
   const hasPendingRequest = latestRequest?.status === 'PENDING';
 
@@ -136,7 +129,7 @@ export default function SubscriptionSection() {
                   </p>
                 )}
                 <button
-                  onClick={() => setShowPaymentModal(true)}
+                  onClick={() => navigate('/settings/plans')}
                   className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition"
                 >
                   {plan.isEffectivelyFreemium ? "S'abonner" : 'Renouveler / changer de plan'}
@@ -146,10 +139,6 @@ export default function SubscriptionSection() {
           </div>
         </div>
       ) : null}
-
-      {showPaymentModal && (
-        <SubscriptionPaymentModal onClose={() => setShowPaymentModal(false)} onSuccess={handlePaymentSuccess} />
-      )}
     </section>
   );
 }

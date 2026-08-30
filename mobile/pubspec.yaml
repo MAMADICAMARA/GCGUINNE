@@ -60,5 +60,27 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^4.0.0
 
+  # Génère les icônes Android/iOS à partir d'une seule image source (§
+  # déploiement Play Store, décidé en conversation) — jamais utilisé à
+  # l'exécution, uniquement en ligne de commande pendant le développement.
+  flutter_launcher_icons: ^0.14.3
+
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/icon.png
+
+# Configuration de flutter_launcher_icons (§ déploiement Play Store) — une
+# seule image source (le logo GCG déjà recadré en cercle sur fond carré).
+# Volontairement PAS de couche adaptative séparée (adaptive_icon_foreground/
+# background) : notre image est déjà "à plat" (fond inclus dedans, pas de
+# calque transparent), donc la fournir telle quelle comme premier plan
+# adaptatif risquerait un zoom/recadrage imprévisible par Android (le
+# système agrandit et recentre le premier plan pour respecter sa zone de
+# sécurité). Android traite déjà correctement une icône "legacy" comme
+# celle-ci sur tous les lanceurs modernes — pas besoin de plus pour une
+# première publication.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/icon.png"
