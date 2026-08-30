@@ -48,6 +48,7 @@ import AdminStoreTypesPage from '@/pages/admin/AdminStoreTypesPage';
 import AdminContactMessagesPage from '@/pages/admin/AdminContactMessagesPage';
 import AdminMarketplacePage from '@/pages/admin/AdminMarketplacePage';
 
+import MarketplaceLayout from '@/pages/marketplace/MarketplaceLayout';
 import MarketplacePage from '@/pages/marketplace/MarketplacePage';
 import MarketplaceProductPage from '@/pages/marketplace/MarketplaceProductPage';
 import RootRedirect from '@/routes/RootRedirect';
@@ -66,9 +67,14 @@ export default function App() {
 
         {/* MARCHÉ public — atteignable sans connexion, uniquement quand
             l'interrupteur plateforme est activé (§5/§9). Route publique,
-            volontairement hors de ProtectedRoute. */}
-        <Route path="/marche" element={<MarketplacePage />} />
-        <Route path="/marche/produits/:id" element={<MarketplaceProductPage />} />
+            volontairement hors de ProtectedRoute (un visiteur anonyme ne
+            doit jamais être redirigé vers /login pour la voir). Mais un
+            utilisateur déjà connecté qui y navigue garde son volet latéral
+            (MarketplaceLayout bascule sur AccountLayout dans ce cas). */}
+        <Route element={<MarketplaceLayout />}>
+          <Route path="/marche" element={<MarketplacePage />} />
+          <Route path="/marche/produits/:id" element={<MarketplaceProductPage />} />
+        </Route>
 
         {/* Espace COMPTE — nécessite une session, PAS de boutique active.
             C'est ici que l'utilisateur atterrit après connexion/inscription. */}

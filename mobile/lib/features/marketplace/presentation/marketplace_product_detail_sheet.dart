@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/share_url.dart';
+import '../../../routing/login_route_extra.dart';
+import '../../../state/auth_state.dart';
 import '../data/marketplace_api.dart';
 import '../data/marketplace_models.dart';
 
@@ -55,6 +58,7 @@ class _MarketplaceProductDetailSheetState extends State<MarketplaceProductDetail
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     final whatsappNumber = _normalizeGuineaPhone(_product?.store.phone);
+    final isAuthenticated = context.watch<AuthState>().isAuthenticated;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -217,40 +221,59 @@ class _MarketplaceProductDetailSheetState extends State<MarketplaceProductDetail
                                     ),
                                   ],
                                 ),
-                                if (_product!.store.address != null) ...[
-                                  const SizedBox(height: 12),
-                                  _InfoRow(icon: Icons.location_on_outlined, text: _product!.store.address!),
-                                ],
-                                if (_product!.store.phone != null) ...[
-                                  const SizedBox(height: 8),
-                                  _InfoRow(icon: Icons.phone_outlined, text: _product!.store.phone!),
-                                ],
-                                if (whatsappNumber != null) ...[
-                                  const SizedBox(height: 14),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed: () => launchUrl(Uri.parse('tel:+$whatsappNumber')),
-                                          icon: const Icon(Icons.call_outlined, size: 16),
-                                          label: const Text('Appeler'),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: FilledButton.icon(
-                                          onPressed: () => launchUrl(
-                                            Uri.parse(
-                                              'https://wa.me/$whatsappNumber?text=${Uri.encodeComponent('Bonjour, je suis intéressé(e) par "${_product!.name}" vu sur le Marché.')}',
-                                            ),
-                                            mode: LaunchMode.externalApplication,
+                                if (isAuthenticated) ...[
+                                  if (_product!.store.address != null) ...[
+                                    const SizedBox(height: 12),
+                                    _InfoRow(icon: Icons.location_on_outlined, text: _product!.store.address!),
+                                  ],
+                                  if (_product!.store.phone != null) ...[
+                                    const SizedBox(height: 8),
+                                    _InfoRow(icon: Icons.phone_outlined, text: _product!.store.phone!),
+                                  ],
+                                  if (whatsappNumber != null) ...[
+                                    const SizedBox(height: 14),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: () => launchUrl(Uri.parse('tel:+$whatsappNumber')),
+                                            icon: const Icon(Icons.call_outlined, size: 16),
+                                            label: const Text('Appeler'),
                                           ),
-                                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
-                                          icon: const Icon(Icons.chat_bubble_outline, size: 16),
-                                          label: const Text('WhatsApp'),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: FilledButton.icon(
+                                            onPressed: () => launchUrl(
+                                              Uri.parse(
+                                                'https://wa.me/$whatsappNumber?text=${Uri.encodeComponent('Bonjour, je suis intéressé(e) par "${_product!.name}" vu sur le Marché.')}',
+                                              ),
+                                              mode: LaunchMode.externalApplication,
+                                            ),
+                                            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+                                            icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                                            label: const Text('WhatsApp'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ] else ...[
+                                  const SizedBox(height: 14),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        context.push(
+                                          '/login',
+                                          extra: LoginRouteExtra(redirectProductId: widget.productId),
+                                        );
+                                      },
+                                      style: FilledButton.styleFrom(backgroundColor: Colors.grey.shade900),
+                                      icon: const Icon(Icons.lock_outline, size: 16),
+                                      label: const Text('Contacter le propriétaire'),
+                                    ),
                                   ),
                                 ],
                               ],

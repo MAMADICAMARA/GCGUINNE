@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/password_form_field.dart';
+import '../../../routing/login_route_extra.dart';
 import '../../../state/auth_state.dart';
 import '../../auth/data/auth_api.dart';
 
@@ -401,7 +402,7 @@ class _ChangePasswordCardState extends State<_ChangePasswordCard> {
       Future.delayed(const Duration(milliseconds: 1800), () async {
         if (!mounted) return;
         await context.read<AuthState>().logout();
-        if (mounted) context.go('/login', extra: email);
+        if (mounted) context.go('/login', extra: LoginRouteExtra(prefillEmail: email));
       });
     } on ApiException catch (err) {
       setState(() => _resetError = err.message);

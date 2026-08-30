@@ -55,6 +55,37 @@ async function requireAuth(req, res, next) {
 }
 
 /**
+ * Variante non bloquante de requireAuth (§ MARCHÉ — masquer les
+ * coordonnées de la boutique tant que le visiteur n'est pas connecté,
+ * décidé en conversation) : peuple req.auth si un jeton VALIDE est
+ * présent, sans jamais rejeter la requête si le jeton est absent ou
+ * invalide — utile pour une route publique dont la PROJECTION de données
+ * varie selon la présence d'une session, contrairement à requireAuth qui
+ * bloque tout accès sans jeton.
+ */
+async function optionalAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return next();
+
+  try {
+    const payload = jwt.verify(token, env.jwt.secret);
+    const { rows } = await pool.query(
+      'SELECT token_version AS "tokenVersion" FROM users WHERE id = $1',
+      [payload.userId]
+    );
+    if (rows.length > 0 && rows[0].tokenVersion === payload.tokenVersion) {
+      req.auth = payload;
+    }
+    next();
+  } catch (err) {
+    // Jeton présent mais invalide/expiré — un visiteur public reste un
+    // visiteur public, jamais une erreur bloquante ici.
+    next();
+  }
+}
+
+/**
  * Vérifie que le rôle porté par le jeton fait partie des rôles autorisés
  * pour la route. Ceci est un premier filtre grossier ; les permissions
  * fines (JSON dans user_store) devront être vérifiées au cas par cas dans
@@ -134,7 +165,7 @@ function requireSuperAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireRole, requireActiveStore, requireSuperAdmin };
+module.exports = { requireAuth, optionalAuth, requireRole, requireActiveStore, requireSuperAdmin };
 
 
 // const jwt = require('jsonwebtoken');

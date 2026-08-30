@@ -8,9 +8,14 @@ import '../../../state/auth_state.dart';
 import '../data/auth_api.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.prefillEmail});
+  const LoginPage({super.key, this.prefillEmail, this.redirectProductId});
 
   final String? prefillEmail;
+
+  /// Produit MARCHÉ à réafficher juste après connexion (§ bouton
+  /// "Contacter le propriétaire", décidé en conversation) — voir
+  /// app_router.dart et marketplace_page.dart.
+  final int? redirectProductId;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -55,7 +60,11 @@ class _LoginPageState extends State<LoginPage> {
       );
       if (!mounted) return;
       context.read<AuthState>().setSession(result);
-      context.go('/account');
+      if (widget.redirectProductId != null) {
+        context.go('/marche', extra: widget.redirectProductId);
+      } else {
+        context.go('/account');
+      }
     } on ApiException catch (err) {
       // Compte existant mais pas encore vérifié (§6.1 du cahier des
       // charges) — même logique que LoginPage.jsx : proposer directement

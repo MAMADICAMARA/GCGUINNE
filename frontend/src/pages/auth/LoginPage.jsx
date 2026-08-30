@@ -26,8 +26,17 @@ export default function LoginPage() {
     try {
       const { data } = await apiClient.post('/auth/login', { email, password });
       setSession(data);
-      // On atterrit toujours dans l'espace "compte" ; c'est depuis "Ma
-      // Boutique" que l'utilisateur choisit/crée une boutique et entre
+      // Un visiteur envoyé ici depuis un produit MARCHÉ (bouton "Contacter
+      // le propriétaire", § décidé en conversation) doit retomber sur CE
+      // MÊME produit après connexion, jamais sur /account par défaut —
+      // c'est justement pour le voir avec les coordonnées de la boutique
+      // désormais visibles qu'il s'est connecté.
+      if (location.state?.redirectTo) {
+        navigate(location.state.redirectTo);
+        return;
+      }
+      // Sinon, on atterrit toujours dans l'espace "compte" ; c'est depuis
+      // "Ma Boutique" que l'utilisateur choisit/crée une boutique et entre
       // ensuite dans l'espace opérationnel (§4.1 vs §4.2 du cahier des
       // charges — les deux espaces sont volontairement découplés).
       // `tutorialTrigger: 'login'` (§36_tutoriel.sql, décidé en

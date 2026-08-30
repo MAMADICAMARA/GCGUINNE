@@ -31,6 +31,7 @@ import '../features/store_workspace/presentation/store_shell.dart';
 import '../features/store_workspace/presentation/suppliers/supplier_storefront_page.dart';
 import '../features/store_workspace/presentation/suppliers_page.dart';
 import '../state/auth_state.dart';
+import 'login_route_extra.dart';
 
 /// Construit le routeur applicatif.
 ///
@@ -87,8 +88,17 @@ GoRouter buildAppRouter(AuthState authState, MarketplaceApi marketplaceApi) {
     },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SizedBox.shrink()),
-      GoRoute(path: '/marche', builder: (context, state) => const MarketplacePage()),
-      GoRoute(path: '/login', builder: (context, state) => LoginPage(prefillEmail: state.extra as String?)),
+      GoRoute(
+        path: '/marche',
+        builder: (context, state) => MarketplacePage(initialProductId: state.extra as int?),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) {
+          final extra = state.extra as LoginRouteExtra?;
+          return LoginPage(prefillEmail: extra?.prefillEmail, redirectProductId: extra?.redirectProductId);
+        },
+      ),
       GoRoute(path: '/register', builder: (context, state) => const RegisterPage()),
       GoRoute(
         path: '/verify-email',

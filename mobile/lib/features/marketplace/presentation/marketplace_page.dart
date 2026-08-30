@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'marketplace_grid.dart';
+import 'marketplace_product_detail_sheet.dart';
 
 /// Miroir de MarketplacePage.jsx — page publique MARCHÉ, atteignable sans
 /// connexion (routing : voir app_router.dart, exempt du garde
@@ -9,8 +10,36 @@ import 'marketplace_grid.dart';
 /// volontairement autonome : un visiteur qui découvre l'appli pour la
 /// première fois doit comprendre en un coup d'œil où il est et quoi faire
 /// ensuite.
-class MarketplacePage extends StatelessWidget {
-  const MarketplacePage({super.key});
+///
+/// `initialProductId` (§ bouton "Contacter le propriétaire", décidé en
+/// conversation) : un visiteur envoyé se connecter depuis un produit
+/// retombe ICI avec cet identifiant (voir login_page.dart), et cette page
+/// rouvre alors directement la fiche produit — jamais juste la grille nue.
+class MarketplacePage extends StatefulWidget {
+  const MarketplacePage({super.key, this.initialProductId});
+
+  final int? initialProductId;
+
+  @override
+  State<MarketplacePage> createState() => _MarketplacePageState();
+}
+
+class _MarketplacePageState extends State<MarketplacePage> {
+  @override
+  void initState() {
+    super.initState();
+    final productId = widget.initialProductId;
+    if (productId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => MarketplaceProductDetailSheet(productId: productId),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
