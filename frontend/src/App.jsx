@@ -49,6 +49,7 @@ import AdminContactMessagesPage from '@/pages/admin/AdminContactMessagesPage';
 import AdminMarketplacePage from '@/pages/admin/AdminMarketplacePage';
 
 import MarketplacePage from '@/pages/marketplace/MarketplacePage';
+import MarketplaceProductPage from '@/pages/marketplace/MarketplaceProductPage';
 import RootRedirect from '@/routes/RootRedirect';
 
 export default function App() {
@@ -67,6 +68,7 @@ export default function App() {
             l'interrupteur plateforme est activé (§5/§9). Route publique,
             volontairement hors de ProtectedRoute. */}
         <Route path="/marche" element={<MarketplacePage />} />
+        <Route path="/marche/produits/:id" element={<MarketplaceProductPage />} />
 
         {/* Espace COMPTE — nécessite une session, PAS de boutique active.
             C'est ici que l'utilisateur atterrit après connexion/inscription. */}

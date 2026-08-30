@@ -66,6 +66,13 @@ app.use(
 );
 
 // --- Routes applicatives ---
+// Aperçu de partage MARCHÉ (§ partage sur les réseaux sociaux, décidé en
+// conversation) — HORS du préfixe /api/v1, volontairement : c'est le lien
+// qu'on copie/partage directement, pas un appel d'API JSON classique. Voir
+// marketplaceShare.routes.js pour le détail (balises Open Graph pour les
+// robots, redirection vers la SPA pour un visiteur humain).
+app.use('/marche', require('./modules/marketplace/marketplaceShare.routes'));
+
 app.use(env.apiPrefix, routes);
 
 // --- Gestion des erreurs (toujours en dernier) ---

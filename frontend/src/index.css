@@ -15,3 +15,16 @@ html, body, #root {
 body {
   @apply bg-slate-50 text-slate-800 antialiased;
 }
+
+/* Entrée des feuilles/modales de type "bottom sheet" (ex: ShareMenu.jsx) —
+   globale ici plutôt que scopée à une page, contrairement à PosPage.css. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

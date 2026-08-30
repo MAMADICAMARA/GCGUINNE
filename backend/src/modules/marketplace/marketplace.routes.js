@@ -1,7 +1,6 @@
 const { Router } = require('express');
 const { param, validationResult } = require('express-validator');
 const marketplaceService = require('./marketplace.service');
-const { requireAuth } = require('../../middlewares/auth');
 const { AppError } = require('../../middlewares/errorHandler');
 
 const router = Router();
@@ -38,11 +37,11 @@ router.get('/products', async (req, res, next) => {
   }
 });
 
-// Authentification requise — n'importe quel rôle, n'importe quelle
-// boutique (§6) : requireAuth seul, jamais requireActiveStore.
+// Public — page produit (§7, niveau page). Volontairement sans requireAuth
+// (§ partage MARCHÉ sur les réseaux sociaux, décidé en conversation) : un
+// lien de produit partagé doit s'ouvrir pour n'importe quel visiteur.
 router.get(
   '/products/:id',
-  requireAuth,
   [param('id').isInt().withMessage('Identifiant de produit invalide.')],
   checkValidation,
   async (req, res, next) => {

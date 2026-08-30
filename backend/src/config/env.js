@@ -29,16 +29,28 @@ if (!process.env.NODE_ENV) {
   );
 }
 
+// Liste d'origines autorisées, séparées par des virgules dans le .env.
+// Ex: CORS_ORIGIN=http://localhost:5173,http://192.168.1.10:5173
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 4000,
   apiPrefix: process.env.API_PREFIX || '/api/v1',
-  // Liste d'origines autorisées, séparées par des virgules dans le .env.
-  // Ex: CORS_ORIGIN=http://localhost:5173,http://192.168.1.10:5173
-  corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:5173')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean),
+  corsOrigins,
+
+  // Origine du frontend (§ partage MARCHÉ sur les réseaux sociaux, décidé
+  // en conversation) — sert à construire le lien vers lequel un visiteur
+  // humain est redirigé depuis la page d'aperçu Open Graph
+  // (marketplaceShare.routes.js). Repli sur la première origine CORS
+  // connue : dans l'immense majorité des déploiements c'est déjà la bonne
+  // valeur, `FRONTEND_URL` ne sert qu'à la surcharger explicitement (ex:
+  // plusieurs origines CORS autorisées mais une seule doit servir de cible
+  // de redirection publique).
+  frontendUrl: (process.env.FRONTEND_URL || corsOrigins[0] || 'http://localhost:5173').replace(/\/$/, ''),
 
   databaseUrl: process.env.DATABASE_URL,
   // Explicite plutôt que de compter sur le défaut de la librairie "pg" (10,

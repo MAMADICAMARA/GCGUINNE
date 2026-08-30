@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../state/auth_state.dart';
 import '../data/marketplace_api.dart';
 import '../data/marketplace_models.dart';
 import 'marketplace_product_detail_sheet.dart';
 
 /// Miroir de MarketplaceGrid.jsx — grille de produits MARCHÉ, PARTAGÉE
 /// entre la page publique (visiteur non connecté) et AccountHomePage
-/// (utilisateur connecté). Un visiteur non connecté qui tape un produit est
-/// renvoyé vers /login plutôt que d'ouvrir le détail (le backend l'exige
-/// de toute façon).
+/// (utilisateur connecté). Détail toujours ouvrable, connecté ou non (§
+/// partage sur les réseaux sociaux, décidé en conversation) — MARCHÉ est
+/// une vitrine publique, le backend ne l'exige plus non plus.
 class MarketplaceGrid extends StatefulWidget {
   const MarketplaceGrid({super.key});
 
@@ -41,11 +39,6 @@ class _MarketplaceGridState extends State<MarketplaceGrid> {
   }
 
   void _handleTap(MarketplaceProduct product) {
-    final authenticated = context.read<AuthState>().isAuthenticated;
-    if (!authenticated) {
-      context.push('/login');
-      return;
-    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -92,8 +85,6 @@ class _MarketplaceGridState extends State<MarketplaceGrid> {
       );
     }
 
-    final authenticated = context.watch<AuthState>().isAuthenticated;
-
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -106,17 +97,16 @@ class _MarketplaceGridState extends State<MarketplaceGrid> {
       ),
       itemBuilder: (context, index) {
         final product = products[index];
-        return _ProductCard(product: product, authenticated: authenticated, onTap: () => _handleTap(product));
+        return _ProductCard(product: product, onTap: () => _handleTap(product));
       },
     );
   }
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product, required this.authenticated, required this.onTap});
+  const _ProductCard({required this.product, required this.onTap});
 
   final MarketplaceProduct product;
-  final bool authenticated;
   final VoidCallback onTap;
 
   @override
@@ -135,36 +125,11 @@ class _ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    color: Colors.grey.shade100,
-                    child: product.imageUrl != null
-                        ? Image.network(product.imageUrl!, fit: BoxFit.cover)
-                        : Icon(Icons.inventory_2_outlined, size: 36, color: Colors.grey.shade300),
-                  ),
-                  if (!authenticated)
-                    Positioned(
-                      left: 8,
-                      bottom: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.lock_outline, size: 11, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text('Connexion pour voir plus', style: TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+              child: Container(
+                color: Colors.grey.shade100,
+                child: product.imageUrl != null
+                    ? Image.network(product.imageUrl!, fit: BoxFit.cover)
+                    : Icon(Icons.inventory_2_outlined, size: 36, color: Colors.grey.shade300),
               ),
             ),
             Padding(
