@@ -4,6 +4,7 @@ import { ChevronLeft, Menu, Store, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { getNavForRole } from '@/routes/navigation';
 import PlanStatusBanner from '@/components/PlanStatusBanner';
+import DownloadAppBanner from '@/components/DownloadAppBanner';
 import VoidReturnPermissionSync from '@/components/VoidReturnPermissionSync';
 import EditPricePermissionSync from '@/components/EditPricePermissionSync';
 import AddProductPermissionSync from '@/components/AddProductPermissionSync';
@@ -155,6 +156,7 @@ export default function DashboardLayout() {
           <ManageSuppliersPermissionSync roleCode={activeStore?.roleCode} />
           <ManagePurchasesPermissionSync roleCode={activeStore?.roleCode} />
           <PlanStatusBanner roleCode={activeStore?.roleCode} />
+          <DownloadAppBanner />
           <Outlet />
         </main>
       </div>

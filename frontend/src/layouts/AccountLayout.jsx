@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { getAccountNavItems } from '@/routes/accountNavigation';
+import DownloadAppBanner from '@/components/DownloadAppBanner';
 
 export default function AccountLayout() {
   const { user, stores, logout } = useAuthStore();
@@ -84,6 +85,7 @@ export default function AccountLayout() {
         </header>
 
         <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+          <DownloadAppBanner />
           <Outlet />
         </main>
       </div>
