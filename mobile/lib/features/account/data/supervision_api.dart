@@ -3,6 +3,7 @@ import '../../store_workspace/data/dashboard_models.dart';
 import '../../store_workspace/data/order_models.dart';
 import '../../store_workspace/data/pos_models.dart';
 import '../../store_workspace/data/product_detail_models.dart';
+import '../../store_workspace/data/sales_report_models.dart';
 import 'supervision_models.dart';
 
 /// Miroir complet de supervision.routes.js — lecture stricte, aucune route
@@ -28,12 +29,32 @@ class SupervisionApi {
 
   Future<void> removeStore(int storeId) => _client.delete('/supervision/stores/$storeId');
 
-  Future<({String storeName, DashboardStats stats})> getStats(int storeId) async {
-    final data = await _client.get('/supervision/stores/$storeId/stats');
+  /// [date] au format AAAA-MM-JJ (optionnel — défaut serveur : aujourd'hui,
+  /// § décidé en conversation, onglet Aperçu paramétrable par date).
+  Future<({String storeName, DashboardStats stats})> getStats(int storeId, {String? date}) async {
+    final data = await _client.get(
+      '/supervision/stores/$storeId/stats',
+      query: date == null ? null : {'date': date},
+    );
     return (
       storeName: (data['store'] as Map<String, dynamic>)['name'] as String,
       stats: DashboardStats.fromJson(data['stats'] as Map<String, dynamic>),
     );
+  }
+
+  /// Rapport de recette (§ décidé en conversation, onglet RECETTE) — miroir
+  /// de DashboardApi.getSalesReport, mais pour une boutique supervisée.
+  /// [startDate]/[endDate] au format AAAA-MM-JJ, tous deux optionnels et
+  /// inclusifs (défaut serveur : aujourd'hui).
+  Future<SalesReport> getSalesReport(int storeId, {String? startDate, String? endDate}) async {
+    final data = await _client.get(
+      '/supervision/stores/$storeId/sales-report',
+      query: {
+        if (startDate != null) 'startDate': startDate,
+        if (endDate != null) 'endDate': endDate,
+      },
+    );
+    return SalesReport.fromJson(data);
   }
 
   Future<List<dynamic>> _rawProducts(int storeId, {int limit = 100}) async {

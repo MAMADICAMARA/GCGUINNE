@@ -7,6 +7,7 @@ import '../../store_workspace/data/dashboard_models.dart';
 import '../../store_workspace/data/order_models.dart';
 import '../../store_workspace/data/pos_models.dart';
 import '../../store_workspace/data/product_detail_models.dart';
+import '../../store_workspace/data/sales_report_models.dart';
 import '../data/supervision_api.dart';
 import 'audit_log_panel.dart';
 
@@ -31,7 +32,7 @@ class _SupervisedStoreDetailPageState extends State<SupervisedStoreDetailPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadStoreName();
   }
 
@@ -61,8 +62,9 @@ class _SupervisedStoreDetailPageState extends State<SupervisedStoreDetailPage>
           isScrollable: true,
           tabs: const [
             Tab(text: 'Aperçu'),
+            Tab(text: 'Recette'),
             Tab(text: 'Produits & Stock'),
-            Tab(text: 'Ventes'),
+            Tab(text: 'Historique des ventes'),
             Tab(text: 'Journal'),
           ],
         ),
@@ -83,6 +85,7 @@ class _SupervisedStoreDetailPageState extends State<SupervisedStoreDetailPage>
               controller: _tabController,
               children: [
                 _OverviewTab(storeId: widget.storeId),
+                _RecetteTab(storeId: widget.storeId),
                 _ProductsStockTab(storeId: widget.storeId),
                 _SalesTab(storeId: widget.storeId),
                 AuditLogPanel(
@@ -112,6 +115,7 @@ class _OverviewTab extends StatefulWidget {
 }
 
 class _OverviewTabState extends State<_OverviewTab> {
+  DateTime _date = DateTime.now();
   DashboardStats? _stats;
   String? _error;
 
@@ -121,27 +125,67 @@ class _OverviewTabState extends State<_OverviewTab> {
     _load();
   }
 
+  String get _isoDate =>
+      '${_date.year.toString().padLeft(4, '0')}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}';
+
   Future<void> _load() async {
+    setState(() {
+      _stats = null;
+      _error = null;
+    });
     try {
-      final result = await context.read<SupervisionApi>().getStats(widget.storeId);
+      final result = await context.read<SupervisionApi>().getStats(widget.storeId, date: _isoDate);
       if (mounted) setState(() => _stats = result.stats);
     } on ApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
     }
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null) return;
+    setState(() => _date = picked);
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return Padding(padding: const EdgeInsets.all(16), child: Text(_error!, style: const TextStyle(color: Colors.red)));
-    }
     final stats = _stats;
-    if (stats == null) return const Center(child: CircularProgressIndicator());
-
-    final maxTrend = stats.revenueTrend.fold<num>(1, (max, p) => p.revenue > max ? p.revenue : max);
 
     return ListView(
       padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            const Text('Date : ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            OutlinedButton.icon(
+              onPressed: _pickDate,
+              icon: const Icon(Icons.calendar_today_outlined, size: 15),
+              label: Text(formatDate(_date), style: const TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (_error != null)
+          Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: const TextStyle(color: Colors.red)))
+        else if (stats == null)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator()))
+        else
+          _buildOverviewContent(context, stats),
+      ],
+    );
+  }
+
+  Widget _buildOverviewContent(BuildContext context, DashboardStats stats) {
+    final maxTrend = stats.revenueTrend.fold<num>(1, (max, p) => p.revenue > max ? p.revenue : max);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GridView.count(
           crossAxisCount: 2,
@@ -225,6 +269,237 @@ class _OverviewTabState extends State<_OverviewTab> {
               ),
             ),
       ],
+    );
+  }
+}
+
+/// Onglet RECETTE (§ décidé en conversation, ajouté en plus de l'historique
+/// des ventes, jamais à sa place) — miroir de SalesReportPage.jsx /
+/// sales_report_page.dart : recette totale + détail par produit sur une
+/// période choisie (plage de dates, pas un jour unique comme l'onglet
+/// Historique des ventes juste à côté).
+class _RecetteTab extends StatefulWidget {
+  const _RecetteTab({required this.storeId});
+  final int storeId;
+
+  @override
+  State<_RecetteTab> createState() => _RecetteTabState();
+}
+
+class _RecetteTabState extends State<_RecetteTab> {
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now();
+  SalesReport? _report;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final report = await context.read<SupervisionApi>().getSalesReport(
+            widget.storeId,
+            startDate: _isoDate(_startDate),
+            endDate: _isoDate(_endDate),
+          );
+      if (!mounted) return;
+      setState(() {
+        _report = report;
+        _loading = false;
+      });
+    } on ApiException catch (err) {
+      if (!mounted) return;
+      setState(() {
+        _error = err.message;
+        _loading = false;
+      });
+    }
+  }
+
+  void _setQuickRange(int days) {
+    final end = DateTime.now();
+    final start = end.subtract(Duration(days: days - 1));
+    setState(() {
+      _startDate = start;
+      _endDate = end;
+    });
+    _load();
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime(2020),
+      lastDate: _endDate,
+    );
+    if (picked == null) return;
+    setState(() => _startDate = picked);
+    _load();
+  }
+
+  Future<void> _pickEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate,
+      firstDate: _startDate,
+      lastDate: DateTime.now(),
+    );
+    if (picked == null) return;
+    setState(() => _endDate = picked);
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          "Chiffre d'affaires total de la boutique, produit par produit, sur la période choisie.",
+          style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pickStartDate,
+                icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                label: Text(formatDate(_startDate), style: const TextStyle(fontSize: 12)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pickEndDate,
+                icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                label: Text(formatDate(_endDate), style: const TextStyle(fontSize: 12)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _QuickRangeChip(label: "Aujourd'hui", onTap: () => _setQuickRange(1)),
+            const SizedBox(width: 6),
+            _QuickRangeChip(label: '7 jours', onTap: () => _setQuickRange(7)),
+            const SizedBox(width: 6),
+            _QuickRangeChip(label: '30 jours', onTap: () => _setQuickRange(30)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (_error != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
+            child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+          ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            color: primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: primary.withValues(alpha: 0.15)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.trending_up, color: primary, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('RECETTE TOTALE', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: primary)),
+                  const SizedBox(height: 2),
+                  Text(
+                    _loading ? '...' : formatGNF(_report?.totalRevenue ?? 0),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Text('Détail par produit', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+        const SizedBox(height: 10),
+        if (_loading)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator()))
+        else if (_report == null || _report!.products.isEmpty)
+          const _EmptyBox(text: 'Aucune vente sur cette période.')
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < _report!.products.length; i++) ...[
+                  if (i > 0) const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_report!.products[i].productName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${_report!.products[i].quantitySold} vendu${_report!.products[i].quantitySold > 1 ? 's' : ''}',
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(formatGNF(_report!.products[i].revenue), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _QuickRangeChip extends StatelessWidget {
+  const _QuickRangeChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+      child: Text(label, style: const TextStyle(fontSize: 11.5)),
     );
   }
 }

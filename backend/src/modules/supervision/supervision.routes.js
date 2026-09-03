@@ -100,17 +100,59 @@ router.delete(
   }
 );
 
+// ?date=AAAA-MM-JJ (optionnel — § décidé en conversation, onglet Aperçu
+// paramétrable) : même contrôle de format/futur que /dashboard/stats.
+function validateReportDate(value, label) {
+  if (value === undefined) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new AppError(`${label} invalide (format attendu : AAAA-MM-JJ).`, 400, 'VALIDATION_ERROR');
+  }
+  if (value > new Date().toISOString().slice(0, 10)) {
+    throw new AppError(`${label} ne peut pas être dans le futur.`, 400, 'VALIDATION_ERROR');
+  }
+}
+
 router.get(
   '/stores/:storeId/stats',
   [param('storeId').isInt().withMessage('Identifiant de boutique invalide.')],
   checkValidation,
   async (req, res, next) => {
     try {
+      const { date } = req.query;
+      validateReportDate(date, 'Date');
       const result = await supervisionService.getSupervisedStoreStats(
         req.auth.userId,
-        req.params.storeId
+        req.params.storeId,
+        date
       );
       res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Rapport de recette (§ décidé en conversation, onglet RECETTE distinct de
+// l'historique des ventes) — même contrat que /dashboard/sales-report :
+// startDate/endDate optionnels, AAAA-MM-JJ, tous deux inclusifs.
+router.get(
+  '/stores/:storeId/sales-report',
+  [param('storeId').isInt().withMessage('Identifiant de boutique invalide.')],
+  checkValidation,
+  async (req, res, next) => {
+    try {
+      const { startDate, endDate } = req.query;
+      validateReportDate(startDate, 'Date de début');
+      validateReportDate(endDate, 'Date de fin');
+      if (startDate && endDate && startDate > endDate) {
+        throw new AppError('La date de début doit précéder la date de fin.', 400, 'VALIDATION_ERROR');
+      }
+      const report = await supervisionService.getSupervisedStoreSalesReport(
+        req.auth.userId,
+        req.params.storeId,
+        { startDate, endDate }
+      );
+      res.json(report);
     } catch (err) {
       next(err);
     }

@@ -228,8 +228,14 @@ async function removeSupervisedStore(userId, storeId) {
  * (propriétaire OU superviseur) — n'a rien à voir avec le mécanisme de
  * "boutique active" du token JWT, puisque la supervision porte justement
  * sur des boutiques qui ne sont PAS la boutique active de l'utilisateur.
+ *
+ * `date` (AAAA-MM-JJ, optionnel — décidé en conversation, onglet Aperçu
+ * paramétrable) : transmis tel quel à getDashboardStats, qui sait déjà
+ * gérer une date optionnelle (cf. dashboard.routes.js#/stats) — même
+ * mécanisme exact que le tableau de bord de la propre boutique de
+ * l'Owner, aucune nouvelle logique de date inventée ici.
  */
-async function getSupervisedStoreStats(userId, storeId) {
+async function getSupervisedStoreStats(userId, storeId, date) {
   await verifyAccess(userId, storeId);
 
   const storeResult = await pool.query('SELECT id, name FROM stores WHERE id = $1', [storeId]);
@@ -237,9 +243,22 @@ async function getSupervisedStoreStats(userId, storeId) {
   // roleCode forcé à 'OWNER' : quiconque a accès ici (propriétaire ou
   // superviseur muni du code) est, par construction, habilité à voir le
   // détail complet — y compris le bénéfice.
-  const stats = await dashboardService.getDashboardStats(storeId, 'OWNER');
+  const stats = await dashboardService.getDashboardStats(storeId, 'OWNER', undefined, date);
 
   return { store: storeResult.rows[0], stats };
+}
+
+/**
+ * Rapport de recette d'une boutique supervisée (§ décidé en conversation,
+ * onglet RECETTE distinct de l'historique des ventes) — réutilise
+ * directement dashboardService.getSalesReport, déjà paramétré par
+ * storeId/startDate/endDate, exactement comme /dashboard/sales-report
+ * pour la propre boutique de l'Owner. roleCode forcé à 'OWNER' pour la
+ * même raison que getSupervisedStoreStats ci-dessus.
+ */
+async function getSupervisedStoreSalesReport(userId, storeId, options = {}) {
+  await verifyAccess(userId, storeId);
+  return dashboardService.getSalesReport(storeId, 'OWNER', undefined, options);
 }
 
 /**
@@ -305,6 +324,7 @@ module.exports = {
   addSupervisedStore,
   removeSupervisedStore,
   getSupervisedStoreStats,
+  getSupervisedStoreSalesReport,
   getSupervisedStoreProducts,
   getSupervisedStoreOrders,
   getSupervisedStoreOrder,
