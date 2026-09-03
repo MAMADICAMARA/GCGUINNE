@@ -188,8 +188,24 @@ class AuthState extends ChangeNotifier {
 
   /// Restaure la session depuis le stockage sécurisé au démarrage de
   /// l'application. À appeler une seule fois, avant runApp.
+  ///
+  /// `.timeout(...)` (§ décidé en conversation — ANR au lancement) : sur
+  /// certains appareils/émulateurs, une lecture flutter_secure_storage
+  /// (Keystore Android) peut rester bloquée indéfiniment (état de Keystore
+  /// corrompu, incohérence de signature après un changement de
+  /// configuration de release...). Comme main.dart attend [restore] avant
+  /// le tout premier runApp, un tel blocage empêchait l'app d'afficher la
+  /// moindre image — exactement le symptôme d'un ANR "au lancement,
+  /// systématique". Ce délai ne change rien au cas normal (une lecture
+  /// locale met quelques millisecondes) ; au pire, un utilisateur
+  /// légitimement connecté retombe une seule fois sur l'écran de
+  /// connexion plutôt que de bloquer l'application indéfiniment — jamais
+  /// une perte de données, la session réelle reste intacte en stockage.
   Future<void> restore() async {
-    final saved = await _tokenStorage.readSession();
+    final saved = await _tokenStorage.readSession().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => null,
+        );
     if (saved != null) {
       token = saved['token'] as String?;
       final userJson = saved['user'];

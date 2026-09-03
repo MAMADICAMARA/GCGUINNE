@@ -1,10 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../state/auth_state.dart';
+import '../../../state/update_state.dart';
+import '../../app_update/data/app_update_api.dart';
 
-class AccountSettingsPage extends StatelessWidget {
+class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
+
+  @override
+  State<AccountSettingsPage> createState() => _AccountSettingsPageState();
+}
+
+class _AccountSettingsPageState extends State<AccountSettingsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // §8 du cahier des charges "Système de notification de mise à jour" :
+    // vérifier aussi à chaque ouverture des Paramètres, pas seulement au
+    // lancement de l'app (main.dart) — échec silencieux, jamais bloquant.
+    unawaited(context.read<UpdateState>().check(context.read<AppUpdateApi>()));
+  }
 
   @override
   Widget build(BuildContext context) {

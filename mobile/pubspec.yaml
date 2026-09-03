@@ -60,6 +60,13 @@ dependencies:
   # donner un nom correct dans la feuille de partage — cf. orders_api.dart).
   path_provider: ^2.1.4
 
+  # Numéro de version installée (§ cahier des charges "Système de
+  # notification de mise à jour", décidé en conversation) — comparé au
+  # version_code publié côté serveur pour détecter une mise à jour
+  # disponible. L'app étant distribuée en APK direct (hors Play Store), ce
+  # mécanisme remplace celui qu'un store fournirait normalement.
+  package_info_plus: ^8.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

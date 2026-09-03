@@ -8,6 +8,7 @@ import '../features/account/presentation/my_store_page.dart';
 import '../features/account/presentation/profile_page.dart';
 import '../features/account/presentation/supervise_page.dart';
 import '../features/account/presentation/supervised_store_detail_page.dart';
+import '../features/app_update/presentation/update_required_page.dart';
 import '../features/auth/presentation/forgot_password_page.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
@@ -31,6 +32,7 @@ import '../features/store_workspace/presentation/store_shell.dart';
 import '../features/store_workspace/presentation/suppliers/supplier_storefront_page.dart';
 import '../features/store_workspace/presentation/suppliers_page.dart';
 import '../state/auth_state.dart';
+import '../state/update_state.dart';
 import 'login_route_extra.dart';
 
 /// Construit le routeur applicatif.
@@ -45,12 +47,26 @@ import 'login_route_extra.dart';
 /// [refreshListenable] fait réévaluer cette logique à chaque changement de
 /// AuthState (connexion, déconnexion, changement de boutique...), sans quoi
 /// go_router ne recalculerait la redirection qu'au changement d'URL.
-GoRouter buildAppRouter(AuthState authState, MarketplaceApi marketplaceApi) {
+GoRouter buildAppRouter(
+  AuthState authState,
+  MarketplaceApi marketplaceApi,
+  UpdateState updateState,
+) {
   return GoRouter(
     initialLocation: '/',
-    refreshListenable: authState,
+    refreshListenable: Listenable.merge([authState, updateState]),
     redirect: (context, state) async {
       final location = state.matchedLocation;
+
+      // Mise à jour MANDATORY (§5, décidé en conversation) : passe AVANT
+      // toute autre logique, y compris l'état de connexion — un blocage
+      // obligatoire s'applique qu'on soit authentifié ou non. Seule une
+      // réponse serveur reçue avec succès peut déclencher ce blocage
+      // (échec réseau = échec silencieux, voir UpdateState).
+      if (updateState.isMandatory) {
+        return location == '/update-required' ? null : '/update-required';
+      }
+      if (location == '/update-required') return '/';
 
       // MARCHÉ (§5/§9) : route publique, jamais soumise au garde de
       // session ci-dessous — atteignable qu'on soit connecté ou non,
@@ -105,6 +121,7 @@ GoRouter buildAppRouter(AuthState authState, MarketplaceApi marketplaceApi) {
         builder: (context, state) => VerifyEmailPage(initialEmail: state.extra as String?),
       ),
       GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordPage()),
+      GoRoute(path: '/update-required', builder: (context, state) => const UpdateRequiredPage()),
 
       ShellRoute(
         builder: (context, state, child) =>

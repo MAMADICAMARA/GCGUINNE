@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../routing/store_nav_items.dart';
 import '../../../state/auth_state.dart';
 import '../../account/data/stores_api.dart';
+import '../../app_update/presentation/update_banner.dart';
 import 'settings/subscription_plans_page.dart';
 
 /// Shell de l'espace BOUTIQUE — utilise un Drawer plutôt qu'une barre de
@@ -211,6 +212,7 @@ class _StoreShellState extends State<StoreShell> {
       body: Column(
         children: [
           _PlanStatusBanner(roleCode: activeStore?.roleCode, banner: authState.planBanner),
+          const UpdateBanner(),
           Expanded(child: widget.child),
         ],
       ),

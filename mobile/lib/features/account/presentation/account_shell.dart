@@ -3,12 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../state/auth_state.dart';
+import '../../../state/update_state.dart';
+import '../../app_update/presentation/update_banner.dart';
 
 class _TabItem {
-  const _TabItem(this.path, this.icon, this.label);
+  const _TabItem(this.path, this.icon, this.label, {this.showBadge = false});
   final String path;
   final IconData icon;
   final String label;
+  final bool showBadge;
 }
 
 /// Shell de l'espace COMPTE — jusqu'à 6 entrées (§ décidé en conversation :
@@ -27,7 +30,7 @@ class AccountShell extends StatelessWidget {
   final Widget child;
   final String location;
 
-  List<_TabItem> _tabsFor(AuthState authState) {
+  List<_TabItem> _tabsFor(AuthState authState, UpdateState updateState) {
     // Même critère que côté serveur (supervision.service.js#isEmployeeOnly)
     // et que l'ancien emplacement de ce lien dans account_home_page.dart :
     // un compte purement employé (jamais OWNER nulle part) n'a rien à
@@ -39,7 +42,15 @@ class AccountShell extends StatelessWidget {
       const _TabItem('/account', Icons.home_outlined, 'Accueil'),
       const _TabItem('/account/store', Icons.storefront_outlined, 'Ma Boutique'),
       const _TabItem('/account/profile', Icons.person_outline, 'Profil'),
-      const _TabItem('/account/settings', Icons.settings_outlined, 'Paramètres'),
+      // Badge discret niveau OPTIONAL (§5, décidé en conversation) — les
+      // niveaux RECOMMENDED/MANDATORY ont déjà leurs propres UI (bandeau,
+      // écran bloquant), inutile de dupliquer le signal ici pour eux.
+      _TabItem(
+        '/account/settings',
+        Icons.settings_outlined,
+        'Paramètres',
+        showBadge: updateState.isOptional,
+      ),
       if (!isEmployeeOnly)
         const _TabItem('/account/supervise', Icons.visibility_outlined, 'Superviser'),
       const _TabItem('/account/contact', Icons.help_outline, 'Contact'),
@@ -49,11 +60,19 @@ class AccountShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthState>();
-    final tabs = _tabsFor(authState);
+    final updateState = context.watch<UpdateState>();
+    final tabs = _tabsFor(authState, updateState);
     final currentIndex = tabs.indexWhere((t) => t.path == location);
 
     return Scaffold(
-      body: SafeArea(child: child),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const UpdateBanner(),
+            Expanded(child: child),
+          ],
+        ),
+      ),
       bottomNavigationBar: _ScrollableBottomNav(
         tabs: tabs,
         currentIndex: currentIndex == -1 ? 0 : currentIndex,
@@ -99,13 +118,32 @@ class _ScrollableBottomNav extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: selected ? colorScheme.secondaryContainer : Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(tab.icon, color: color, size: 22),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: selected ? colorScheme.secondaryContainer : Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(tab.icon, color: color, size: 22),
+                          ),
+                          if (tab.showBadge)
+                            Positioned(
+                              top: 2,
+                              right: 10,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade600,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: colorScheme.surface, width: 1.5),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(

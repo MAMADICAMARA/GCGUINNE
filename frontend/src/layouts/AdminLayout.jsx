@@ -7,6 +7,7 @@ import {
   MessageCircleQuestion,
   ScrollText,
   ShoppingBag,
+  Smartphone,
   Store,
   Tags,
   Users,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { path: '/admin/payment-requests', label: 'Demandes de paiement', icon: Wallet },
   { path: '/admin/store-types', label: 'Types de boutique', icon: Tags },
   { path: '/admin/contact-messages', label: 'Messages', icon: MessageCircleQuestion },
+  { path: '/admin/app-versions', label: "Versions de l'app", icon: Smartphone },
 ];
 
 export default function AdminLayout() {

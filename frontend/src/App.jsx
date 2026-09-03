@@ -47,10 +47,12 @@ import AdminPaymentRequestsPage from '@/pages/admin/AdminPaymentRequestsPage';
 import AdminStoreTypesPage from '@/pages/admin/AdminStoreTypesPage';
 import AdminContactMessagesPage from '@/pages/admin/AdminContactMessagesPage';
 import AdminMarketplacePage from '@/pages/admin/AdminMarketplacePage';
+import AdminAppVersionsPage from '@/pages/admin/AdminAppVersionsPage';
 
 import MarketplaceLayout from '@/pages/marketplace/MarketplaceLayout';
 import MarketplacePage from '@/pages/marketplace/MarketplacePage';
 import MarketplaceProductPage from '@/pages/marketplace/MarketplaceProductPage';
+import DownloadPage from '@/pages/download/DownloadPage';
 import RootRedirect from '@/routes/RootRedirect';
 
 export default function App() {
@@ -75,6 +77,13 @@ export default function App() {
           <Route path="/marche" element={<MarketplacePage />} />
           <Route path="/marche/produits/:id" element={<MarketplaceProductPage />} />
         </Route>
+
+        {/* Page publique de téléchargement de l'app mobile (§9 du cahier des
+            charges "Système de notification de mise à jour", décidé en
+            conversation) — jamais derrière ProtectedRoute : le navigateur
+            externe ouvert depuis l'app n'a aucune session, et ce lien doit
+            rester partageable (WhatsApp) sans compte. */}
+        <Route path="/telecharger" element={<DownloadPage />} />
 
         {/* Espace COMPTE — nécessite une session, PAS de boutique active.
             C'est ici que l'utilisateur atterrit après connexion/inscription. */}
@@ -127,6 +136,7 @@ export default function App() {
             <Route path="/admin/store-types" element={<AdminStoreTypesPage />} />
             <Route path="/admin/contact-messages" element={<AdminContactMessagesPage />} />
             <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
+            <Route path="/admin/app-versions" element={<AdminAppVersionsPage />} />
           </Route>
         </Route>
 

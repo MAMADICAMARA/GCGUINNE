@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +10,9 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/utils/share_file.dart';
 import '../../../core/widgets/icon_badge.dart';
 import '../../../state/auth_state.dart';
+import '../../../state/update_state.dart';
 import '../../account/data/stores_api.dart';
+import '../../app_update/data/app_update_api.dart';
 import '../data/orders_api.dart';
 import '../data/settings_models.dart';
 import '../data/subscription_payments_api.dart';
@@ -21,8 +25,22 @@ import 'settings/subscription_plans_page.dart';
 /// utilisées). Regroupée en sections thématiques, chaque section gérant
 /// son propre chargement/enregistrement — exactement comme les composants
 /// React importés séparément côté web.
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // §8 du cahier des charges "Système de notification de mise à jour" :
+    // vérifier aussi à chaque ouverture des Paramètres, pas seulement au
+    // lancement de l'app (main.dart) — échec silencieux, jamais bloquant.
+    unawaited(context.read<UpdateState>().check(context.read<AppUpdateApi>()));
+  }
 
   @override
   Widget build(BuildContext context) {

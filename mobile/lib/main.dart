@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import 'core/network/api_client.dart';
 import 'core/storage/token_storage.dart';
 import 'features/account/data/stores_api.dart';
 import 'features/account/data/supervision_api.dart';
+import 'features/app_update/data/app_update_api.dart';
 import 'features/auth/data/auth_api.dart';
 import 'features/store_workspace/data/cash_drawers_api.dart';
 import 'features/store_workspace/data/catalog_api.dart';
@@ -24,6 +27,7 @@ import 'features/store_workspace/data/subscription_payments_api.dart';
 import 'features/store_workspace/data/suppliers_api.dart';
 import 'features/store_workspace/data/uploads_api.dart';
 import 'state/auth_state.dart';
+import 'state/update_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,11 +47,21 @@ Future<void> main() async {
     onUnauthorized: () => authState.logout(),
   );
 
+  final appUpdateApi = AppUpdateApi(apiClient);
+  final updateState = UpdateState();
+  // JAMAIS attendu avant runApp (contrairement à authState.restore ci-
+  // dessus) — un appel réseau lent ne doit jamais retarder l'affichage de
+  // l'app ; le routeur/les bandeaux réagissent dès que le résultat arrive
+  // (§ décidé en conversation, échec silencieux si hors-ligne).
+  unawaited(updateState.check(appUpdateApi));
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthState>.value(value: authState),
+        ChangeNotifierProvider<UpdateState>.value(value: updateState),
         Provider<ApiClient>.value(value: apiClient),
+        Provider<AppUpdateApi>.value(value: appUpdateApi),
         Provider<AuthApi>(create: (_) => AuthApi(apiClient)),
         Provider<StoresApi>(create: (_) => StoresApi(apiClient)),
         Provider<SupervisionApi>(create: (_) => SupervisionApi(apiClient)),

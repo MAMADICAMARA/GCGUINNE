@@ -31,4 +31,18 @@ class AppConfig {
     if (_override.isNotEmpty) return _override;
     return _productionApiBaseUrl;
   }
+
+  // URL publique du frontend web de production (§ cahier des charges
+  // "Système de notification de mise à jour", décidé en conversation) —
+  // sert uniquement à construire le lien vers /telecharger ouvert dans le
+  // navigateur externe du téléphone (jamais un appel API, juste une page à
+  // afficher). Même mécanisme de surcharge que API_BASE_URL ci-dessus :
+  //   flutter run --dart-define=FRONTEND_URL=http://192.168.1.10:5173
+  static const String _frontendUrlOverride = String.fromEnvironment('FRONTEND_URL');
+  static const String _productionFrontendUrl = 'https://gcguinee224.com';
+
+  static String get frontendUrl {
+    if (_frontendUrlOverride.isNotEmpty) return _frontendUrlOverride;
+    return _productionFrontendUrl;
+  }
 }

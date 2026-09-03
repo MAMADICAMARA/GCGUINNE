@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'features/marketplace/data/marketplace_api.dart';
 import 'routing/app_router.dart';
 import 'state/auth_state.dart';
+import 'state/update_state.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -25,7 +26,11 @@ class _AppState extends State<App> {
   void initState() {
     super.initState();
     final authState = context.read<AuthState>();
-    _router = buildAppRouter(authState, context.read<MarketplaceApi>());
+    _router = buildAppRouter(
+      authState,
+      context.read<MarketplaceApi>(),
+      context.read<UpdateState>(),
+    );
   }
 
   @override
