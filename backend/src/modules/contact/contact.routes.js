@@ -77,4 +77,16 @@ router.get('/tutorial', async (req, res, next) => {
   }
 });
 
+// Bandeau "Téléchargez l'application Android" (§48_bandeau_app_mobile.sql,
+// décidé en conversation) — lecture par DownloadAppBanner.jsx (web),
+// réglage réservé au Super Admin sous /admin.
+router.get('/download-banner-settings', async (req, res, next) => {
+  try {
+    const settings = await contactService.getDownloadBannerSettings();
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

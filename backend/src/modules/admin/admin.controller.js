@@ -402,6 +402,24 @@ async function updateTutorialSettings(req, res, next) {
   }
 }
 
+async function getDownloadBannerSettings(req, res, next) {
+  try {
+    const settings = await contactService.getDownloadBannerSettings();
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateDownloadBannerSettings(req, res, next) {
+  try {
+    const settings = await contactService.updateDownloadBannerSettings(req.body);
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getPlatformSettings(req, res, next) {
   try {
     const settings = await adminService.getPlatformSettings();
@@ -495,4 +513,6 @@ module.exports = {
   deleteTutorialVideo,
   getTutorialSettings,
   updateTutorialSettings,
+  getDownloadBannerSettings,
+  updateDownloadBannerSettings,
 };

@@ -241,6 +241,29 @@ async function updateTutorialSettings({ showAfterSignup, showOnLogin }) {
   return rows[0];
 }
 
+/**
+ * Réglage du bandeau web "Téléchargez l'application Android"
+ * (§48_bandeau_app_mobile.sql, décidé en conversation) — ligne singleton,
+ * même principe que platform_tutorial_settings juste au-dessus.
+ */
+async function getDownloadBannerSettings() {
+  const { rows } = await pool.query(
+    `SELECT is_enabled AS "isEnabled" FROM platform_download_banner_settings WHERE id = 1`
+  );
+  return rows[0];
+}
+
+async function updateDownloadBannerSettings({ isEnabled }) {
+  const { rows } = await pool.query(
+    `UPDATE platform_download_banner_settings
+     SET is_enabled = $1
+     WHERE id = 1
+     RETURNING is_enabled AS "isEnabled"`,
+    [!!isEnabled]
+  );
+  return rows[0];
+}
+
 module.exports = {
   SUBJECT_CATEGORIES,
   createMessage,
@@ -256,4 +279,6 @@ module.exports = {
   deleteTutorialVideo,
   getTutorialSettings,
   updateTutorialSettings,
+  getDownloadBannerSettings,
+  updateDownloadBannerSettings,
 };

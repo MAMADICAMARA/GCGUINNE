@@ -101,6 +101,7 @@ export default function AdminContactMessagesPage() {
       <div className="space-y-4">
         <SocialLinksSection />
         <TutorialSection />
+        <DownloadBannerSection />
       </div>
 
       {selectedMessage && (
@@ -577,6 +578,90 @@ function TutorialSection() {
               )}
             </div>
           </form>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Réglage du bandeau web "Téléchargez l'application Android"
+ * (§48_bandeau_app_mobile.sql, décidé en conversation) — sur la même page
+ * que le tutoriel, à la demande explicite : un seul endroit où le Super
+ * Admin gère ce qui s'affiche automatiquement pour inviter/guider les
+ * utilisateurs du site web.
+ */
+function DownloadBannerSection() {
+  const [enabled, setEnabled] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const { data } = await apiClient.get('/admin/download-banner-settings');
+      setEnabled(data.isEnabled);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Impossible de charger ce réglage.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (expanded) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded]);
+
+  async function handleToggle(checked) {
+    setEnabled(checked);
+    setSaving(true);
+    setError('');
+    try {
+      const { data } = await apiClient.put('/admin/download-banner-settings', { isEnabled: checked });
+      setEnabled(data.isEnabled);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Enregistrement impossible.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center justify-between w-full text-left"
+      >
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700">Bandeau "Télécharger l'application"</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Invite à installer l'app Android, affiché dans l'espace Compte/Boutique du site web.
+          </p>
+        </div>
+        <span className="text-slate-400 text-sm">{expanded ? '▲' : '▼'}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+
+          {loading ? (
+            <p className="text-sm text-slate-400">Chargement...</p>
+          ) : (
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={!!enabled}
+                disabled={saving}
+                onChange={(e) => handleToggle(e.target.checked)}
+              />
+              Afficher le bandeau sur le site web
+            </label>
+          )}
         </div>
       )}
     </section>

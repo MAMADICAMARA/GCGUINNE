@@ -1,18 +1,44 @@
+import { useEffect, useState } from 'react';
 import { Smartphone } from 'lucide-react';
+import apiClient from '@/services/apiClient';
 
 /**
  * Bandeau promotionnel "Téléchargez l'application Android" (§ décidé en
  * conversation) — différent du système de notification de mise à jour
  * (UpdateBanner côté mobile) : celui-ci s'adresse aux utilisateurs du SITE
  * WEB qui n'ont peut-être jamais installé l'app, pas aux utilisateurs déjà
- * équipés qu'il faudrait prévenir d'une nouvelle version. Toujours visible
- * dans l'espace connecté (DashboardLayout et AccountLayout), jamais dans
+ * équipés qu'il faudrait prévenir d'une nouvelle version. Visible dans
+ * l'espace connecté (DashboardLayout et AccountLayout), jamais dans
  * l'espace Super Admin (fonctions admin non disponibles sur mobile).
+ *
+ * Désactivable par le Super Admin (§48_bandeau_app_mobile.sql, décidé en
+ * conversation, même page que le tutoriel) — même principe que
+ * PlanStatusBanner : chargé au montage, silencieux en cas d'échec (le
+ * bandeau reste alors simplement invisible plutôt que de bloquer la page).
  *
  * Ouvre /telecharger dans un nouvel onglet plutôt qu'une navigation SPA —
  * l'utilisateur ne doit pas perdre l'écran sur lequel il travaillait.
  */
 export default function DownloadAppBanner() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/contact/download-banner-settings');
+        if (!cancelled) setEnabled(!!data.isEnabled);
+      } catch {
+        // Silencieux : voir le commentaire de classe ci-dessus.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!enabled) return null;
+
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
       <span className="flex items-center gap-2">

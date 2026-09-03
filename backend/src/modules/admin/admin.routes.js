@@ -261,6 +261,9 @@ router.delete(
 router.get('/tutorial-settings', controller.getTutorialSettings);
 router.put('/tutorial-settings', controller.updateTutorialSettings);
 
+router.get('/download-banner-settings', controller.getDownloadBannerSettings);
+router.put('/download-banner-settings', controller.updateDownloadBannerSettings);
+
 router.get('/payment-settings', controller.getPaymentSettings);
 router.put(
   '/payment-settings',
