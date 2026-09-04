@@ -10,9 +10,19 @@ const { AppError } = require('../../middlewares/errorHandler');
  * `allows_marketplace`), sans réévaluer plan par plan en boucle : une
  * boutique Premium expirée disparaît donc automatiquement de MARCHÉ, sans
  * action du Super Admin.
+ *
+ * `s.status = 'ACTIVE'` (faille signalée, décidé en conversation) : une
+ * boutique SUSPENDUE par le Super Admin restait visible sur la vitrine
+ * publique jusqu'ici, aucune requête MARCHÉ ne vérifiait ce statut —
+ * corrigé ici une seule fois puisque toutes les requêtes MARCHÉ réutilisent
+ * cette même condition. `TRIAL` n'est en pratique jamais attribué nulle
+ * part dans le code (valeur historique de la contrainte, jamais utilisée) —
+ * volontairement exclu par une liste blanche (`= 'ACTIVE'`) plutôt qu'un
+ * `!= 'SUSPENDED'`, pour ne jamais exposer un futur statut par défaut.
  */
 const ELIGIBLE_STORE_CONDITION = `
   sp.allows_marketplace = TRUE
+  AND s.status = 'ACTIVE'
   AND (s.plan_expires_at IS NULL OR s.plan_expires_at > NOW())
 `;
 

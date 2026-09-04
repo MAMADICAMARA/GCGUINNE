@@ -623,30 +623,37 @@ class _CartSummaryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       elevation: 8,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          color: Theme.of(context).colorScheme.surface,
-          child: Row(
-            children: [
-              Icon(Icons.shopping_cart_outlined,
-                  color: onTap == null
-                      ? Colors.grey
-                      : Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  itemCount == 0
-                      ? 'Panier vide'
-                      : '$itemCount article${itemCount > 1 ? 's' : ''} — ${formatGNF(total)}',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: onTap == null ? Colors.grey : null),
+      // SafeArea(top: false) — § décidé en conversation, même correctif que
+      // pos_page.dart#_CartSummaryBar : sans elle, cette barre se retrouve
+      // sous la barre de navigation système sur un téléphone à boutons
+      // classiques (ex: Samsung), inaccessible au toucher.
+      child: SafeArea(
+        top: false,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            color: Theme.of(context).colorScheme.surface,
+            child: Row(
+              children: [
+                Icon(Icons.shopping_cart_outlined,
+                    color: onTap == null
+                        ? Colors.grey
+                        : Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    itemCount == 0
+                        ? 'Panier vide'
+                        : '$itemCount article${itemCount > 1 ? 's' : ''} — ${formatGNF(total)}',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: onTap == null ? Colors.grey : null),
+                  ),
                 ),
-              ),
-              if (onTap != null) const Icon(Icons.chevron_right),
-            ],
+                if (onTap != null) const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
       ),

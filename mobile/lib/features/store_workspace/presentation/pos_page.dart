@@ -100,7 +100,9 @@ class _PosPageState extends State<PosPage> {
     if (raw == null || raw.isEmpty) return;
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
-      final restored = decoded.map((e) => CartItem.fromJson(e as Map<String, dynamic>)).toList();
+      final restored = decoded
+          .map((e) => CartItem.fromJson(e as Map<String, dynamic>))
+          .toList();
       if (!mounted) return;
       setState(() {
         _cart.clear();
@@ -118,7 +120,8 @@ class _PosPageState extends State<PosPage> {
     if (activeStoreId == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kPosCartStoreIdPrefKey, activeStoreId);
-    await prefs.setString(_kPosCartItemsPrefKey, jsonEncode(_cart.map((i) => i.toJson()).toList()));
+    await prefs.setString(_kPosCartItemsPrefKey,
+        jsonEncode(_cart.map((i) => i.toJson()).toList()));
   }
 
   Future<void> _clearPersistedCart() async {
@@ -134,8 +137,12 @@ class _PosPageState extends State<PosPage> {
         title: const Text('Vider le panier ?'),
         content: const Text('Tous les articles ajoutés seront retirés.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Vider')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Vider')),
         ],
       ),
     );
@@ -188,8 +195,10 @@ class _PosPageState extends State<PosPage> {
   List<Product> get _filteredProducts {
     final term = _searchTerm.toLowerCase();
     final matched = _products.where((p) {
-      final matchesSearch = p.name.toLowerCase().contains(term) || (p.reference ?? '').toLowerCase().contains(term);
-      final matchesCategory = _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
+      final matchesSearch = p.name.toLowerCase().contains(term) ||
+          (p.reference ?? '').toLowerCase().contains(term);
+      final matchesCategory =
+          _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
       return matchesSearch && matchesCategory;
     });
     // Les produits verrouillés (plafond du plan, § décidé en conversation)
@@ -225,7 +234,8 @@ class _PosPageState extends State<PosPage> {
 
     if (newQuantity > product.quantity) {
       setState(() {
-        _error = 'Stock insuffisant pour "${product.name}" : ${product.quantity} disponible'
+        _error =
+            'Stock insuffisant pour "${product.name}" : ${product.quantity} disponible'
             '${currentQty > 0 ? ', $currentQty déjà dans le panier.' : '.'}';
       });
       return;
@@ -240,8 +250,9 @@ class _PosPageState extends State<PosPage> {
         // Si un prix négocié a déjà été saisi, on le garde — sauf s'il
         // retombe sous le nouveau plancher (le palier de quantité a pu
         // changer), auquel cas on le relève juste ce qu'il faut.
-        existing.unitPrice =
-            existing.priceEdited ? math.max(existing.unitPrice, normalUnitPrice) : normalUnitPrice;
+        existing.unitPrice = existing.priceEdited
+            ? math.max(existing.unitPrice, normalUnitPrice)
+            : normalUnitPrice;
       } else {
         _cart.add(CartItem(
           productId: product.id,
@@ -277,8 +288,8 @@ class _PosPageState extends State<PosPage> {
     }
     final selectedProduct = product;
     if (selectedProduct != null && newQty > selectedProduct.quantity) {
-      setState(() =>
-          _error = 'Stock insuffisant pour "${selectedProduct.name}" (disponible : ${selectedProduct.quantity}).');
+      setState(() => _error =
+          'Stock insuffisant pour "${selectedProduct.name}" (disponible : ${selectedProduct.quantity}).');
       return;
     }
     setState(() {
@@ -289,7 +300,9 @@ class _PosPageState extends State<PosPage> {
         item.quantity = newQty;
         if (selectedProduct != null) {
           final normalUnitPrice = selectedProduct.effectiveUnitPriceFor(newQty);
-          item.unitPrice = item.priceEdited ? math.max(item.unitPrice, normalUnitPrice) : normalUnitPrice;
+          item.unitPrice = item.priceEdited
+              ? math.max(item.unitPrice, normalUnitPrice)
+              : normalUnitPrice;
         }
       }
     });
@@ -325,7 +338,8 @@ class _PosPageState extends State<PosPage> {
   bool get _cartHasPriceBelowFloor {
     final roleCode = context.read<AuthState>().activeStore?.roleCode;
     if (roleCode == 'OWNER') return false;
-    return _cart.any((item) => item.priceEdited && item.unitPrice < _normalUnitPriceFor(item));
+    return _cart.any((item) =>
+        item.priceEdited && item.unitPrice < _normalUnitPriceFor(item));
   }
 
   num get _subtotal => _cart.fold(0, (sum, item) => sum + item.lineTotal);
@@ -340,7 +354,8 @@ class _PosPageState extends State<PosPage> {
       return;
     }
     if (_cartHasPriceBelowFloor) {
-      setState(() => _error = 'Un prix saisi est inférieur au prix minimum autorisé — corrigez-le avant de continuer.');
+      setState(() => _error =
+          'Un prix saisi est inférieur au prix minimum autorisé — corrigez-le avant de continuer.');
       return;
     }
     setState(() => _error = null);
@@ -381,7 +396,8 @@ class _PosPageState extends State<PosPage> {
       setState(() {
         _cart.clear();
         _discountPercent = 0;
-        _taxPercent = context.read<AuthState>().activeStore?.defaultTaxPercent ?? 0;
+        _taxPercent =
+            context.read<AuthState>().activeStore?.defaultTaxPercent ?? 0;
         _paymentMethod = 'CASH';
         _drawerRefreshSignal++;
       });
@@ -402,7 +418,8 @@ class _PosPageState extends State<PosPage> {
     // Owner : toujours. Vendeur : seulement si autorisé
     // (§39_prix_editable_vente.sql) — revérifié de toute façon côté
     // serveur à la création de la vente.
-    final canEditPrice = authState.activeStore?.roleCode == 'OWNER' || authState.canEditPrice;
+    final canEditPrice =
+        authState.activeStore?.roleCode == 'OWNER' || authState.canEditPrice;
 
     return Column(
       children: [
@@ -416,12 +433,21 @@ class _PosPageState extends State<PosPage> {
                 if (_error != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8)),
                     child: Row(
                       children: [
-                        Expanded(child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5))),
-                        InkWell(onTap: () => setState(() => _error = null), child: const Icon(Icons.close, size: 16, color: Colors.red)),
+                        Expanded(
+                            child: Text(_error!,
+                                style: const TextStyle(
+                                    color: Colors.red, fontSize: 12.5))),
+                        InkWell(
+                            onTap: () => setState(() => _error = null),
+                            child: const Icon(Icons.close,
+                                size: 16, color: Colors.red)),
                       ],
                     ),
                   ),
@@ -429,29 +455,40 @@ class _PosPageState extends State<PosPage> {
                   children: [
                     Expanded(
                       child: TextField(
-                        onChanged: (value) => setState(() => _searchTerm = value),
+                        onChanged: (value) =>
+                            setState(() => _searchTerm = value),
                         decoration: const InputDecoration(
                           hintText: 'Rechercher un produit...',
                           prefixIcon: Icon(Icons.search, size: 20),
                           border: OutlineInputBorder(),
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Semantics(
-                      label: _listView ? 'Passer en affichage grille' : 'Passer en affichage liste',
+                      label: _listView
+                          ? 'Passer en affichage grille'
+                          : 'Passer en affichage liste',
                       button: true,
                       child: Material(
                         color: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.grey.shade300)),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(8),
                           onTap: _toggleViewMode,
                           child: Padding(
                             padding: const EdgeInsets.all(11),
-                            child: Icon(_listView ? Icons.grid_view_rounded : Icons.view_list_rounded, size: 20, color: Colors.grey.shade700),
+                            child: Icon(
+                                _listView
+                                    ? Icons.grid_view_rounded
+                                    : Icons.view_list_rounded,
+                                size: 20,
+                                color: Colors.grey.shade700),
                           ),
                         ),
                       ),
@@ -468,7 +505,8 @@ class _PosPageState extends State<PosPage> {
                         _CategoryChip(
                           label: 'Toutes catégories',
                           selected: _selectedCategoryId == null,
-                          onTap: () => setState(() => _selectedCategoryId = null),
+                          onTap: () =>
+                              setState(() => _selectedCategoryId = null),
                         ),
                         for (final category in _categories)
                           Padding(
@@ -476,7 +514,8 @@ class _PosPageState extends State<PosPage> {
                             child: _CategoryChip(
                               label: category.name,
                               selected: _selectedCategoryId == category.id,
-                              onTap: () => setState(() => _selectedCategoryId = category.id),
+                              onTap: () => setState(
+                                  () => _selectedCategoryId = category.id),
                             ),
                           ),
                       ],
@@ -492,7 +531,9 @@ class _PosPageState extends State<PosPage> {
                 else if (_filteredProducts.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: 40),
-                    child: Center(child: Text('Aucun produit trouvé.', style: TextStyle(color: Colors.grey))),
+                    child: Center(
+                        child: Text('Aucun produit trouvé.',
+                            style: TextStyle(color: Colors.grey))),
                   )
                 else if (_listView)
                   Column(
@@ -522,7 +563,8 @@ class _PosPageState extends State<PosPage> {
                     // hauteur disponible à partir de la largeur et peut la
                     // rendre trop juste sur un petit téléphone (c'est ce
                     // qui causait les débordements constatés).
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
@@ -578,18 +620,27 @@ class _PosPageState extends State<PosPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Panier', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                    const Text('Panier',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 16)),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
-                      child: Text('$_itemCount article${_itemCount > 1 ? 's' : ''}', style: const TextStyle(fontSize: 11)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Text(
+                          '$_itemCount article${_itemCount > 1 ? 's' : ''}',
+                          style: const TextStyle(fontSize: 11)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Expanded(
                   child: _cart.isEmpty
-                      ? const Center(child: Text('Le panier est vide.', style: TextStyle(color: Colors.grey)))
+                      ? const Center(
+                          child: Text('Le panier est vide.',
+                              style: TextStyle(color: Colors.grey)))
                       : ListView(
                           controller: scrollController,
                           children: [
@@ -597,39 +648,53 @@ class _PosPageState extends State<PosPage> {
                               Container(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10)),
+                                decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(10)),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
-                                        Expanded(child: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
+                                        Expanded(
+                                            child: Text(item.productName,
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 13))),
                                         InkWell(
                                           onTap: () {
                                             _removeFromCart(item.productId);
                                             setSheetState(() {});
                                           },
-                                          child: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                                          child: const Icon(
+                                              Icons.delete_outline,
+                                              size: 18,
+                                              color: Colors.redAccent),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 6),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Row(
                                           children: [
                                             _qtyButton(Icons.remove, () {
-                                              _updateQuantity(item.productId, item.quantity - 1);
+                                              _updateQuantity(item.productId,
+                                                  item.quantity - 1);
                                               setSheetState(() {});
                                             }),
                                             Container(
                                               width: 36,
                                               alignment: Alignment.center,
-                                              child: Text('${item.quantity}', style: const TextStyle(fontSize: 13)),
+                                              child: Text('${item.quantity}',
+                                                  style: const TextStyle(
+                                                      fontSize: 13)),
                                             ),
                                             _qtyButton(Icons.add, () {
-                                              _updateQuantity(item.productId, item.quantity + 1);
+                                              _updateQuantity(item.productId,
+                                                  item.quantity + 1);
                                               setSheetState(() {});
                                             }),
                                           ],
@@ -640,7 +705,9 @@ class _PosPageState extends State<PosPage> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             textAlign: TextAlign.right,
-                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13),
                                           ),
                                         ),
                                       ],
@@ -648,48 +715,75 @@ class _PosPageState extends State<PosPage> {
                                     if (canEditPrice) ...[
                                       const SizedBox(height: 6),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Text('Prix unitaire négocié', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                          const Text('Prix unitaire négocié',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey)),
                                           SizedBox(
                                             width: 90,
                                             child: TextField(
-                                              key: ValueKey('price-${item.productId}'),
-                                              keyboardType: TextInputType.number,
+                                              key: ValueKey(
+                                                  'price-${item.productId}'),
+                                              keyboardType:
+                                                  TextInputType.number,
                                               textAlign: TextAlign.right,
-                                              controller: TextEditingController(text: '${item.unitPrice}'),
+                                              controller: TextEditingController(
+                                                  text: '${item.unitPrice}'),
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: !isOwner && item.priceEdited && item.unitPrice < _normalUnitPriceFor(item)
+                                                color: !isOwner &&
+                                                        item.priceEdited &&
+                                                        item.unitPrice <
+                                                            _normalUnitPriceFor(
+                                                                item)
                                                     ? Colors.red
                                                     : null,
                                               ),
                                               decoration: InputDecoration(
                                                 isDense: true,
-                                                contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                                                border: const OutlineInputBorder(),
-                                                enabledBorder: OutlineInputBorder(
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 6,
+                                                        horizontal: 8),
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                enabledBorder:
+                                                    OutlineInputBorder(
                                                   borderSide: BorderSide(
-                                                    color: !isOwner && item.priceEdited && item.unitPrice < _normalUnitPriceFor(item)
+                                                    color: !isOwner &&
+                                                            item.priceEdited &&
+                                                            item.unitPrice <
+                                                                _normalUnitPriceFor(
+                                                                    item)
                                                         ? Colors.red.shade300
                                                         : Colors.grey.shade300,
                                                   ),
                                                 ),
                                               ),
                                               onChanged: (value) {
-                                                _updateUnitPrice(item.productId, value);
+                                                _updateUnitPrice(
+                                                    item.productId, value);
                                                 setSheetState(() {});
                                               },
                                             ),
                                           ),
                                         ],
                                       ),
-                                      if (!isOwner && item.priceEdited && item.unitPrice < _normalUnitPriceFor(item))
+                                      if (!isOwner &&
+                                          item.priceEdited &&
+                                          item.unitPrice <
+                                              _normalUnitPriceFor(item))
                                         Padding(
-                                          padding: const EdgeInsets.only(top: 2),
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
                                           child: Text(
                                             'Minimum : ${formatGNF(_normalUnitPriceFor(item))}',
-                                            style: const TextStyle(fontSize: 10.5, color: Colors.red),
+                                            style: const TextStyle(
+                                                fontSize: 10.5,
+                                                color: Colors.red),
                                           ),
                                         ),
                                     ],
@@ -704,16 +798,24 @@ class _PosPageState extends State<PosPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Réduction (%)', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                    const Text('Réduction (%)',
+                        style: TextStyle(fontSize: 12.5, color: Colors.grey)),
                     SizedBox(
                       width: 70,
                       child: TextField(
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
-                        controller: TextEditingController(text: _discountPercent == 0 ? '' : '$_discountPercent'),
-                        decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 6), border: OutlineInputBorder()),
+                        controller: TextEditingController(
+                            text: _discountPercent == 0
+                                ? ''
+                                : '$_discountPercent'),
+                        decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 6),
+                            border: OutlineInputBorder()),
                         onChanged: (value) {
-                          final parsed = (num.tryParse(value) ?? 0).clamp(0, 100);
+                          final parsed =
+                              (num.tryParse(value) ?? 0).clamp(0, 100);
                           setState(() => _discountPercent = parsed);
                           setSheetState(() {});
                         },
@@ -724,16 +826,22 @@ class _PosPageState extends State<PosPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Taxe (%)', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                    const Text('Taxe (%)',
+                        style: TextStyle(fontSize: 12.5, color: Colors.grey)),
                     SizedBox(
                       width: 70,
                       child: TextField(
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
-                        controller: TextEditingController(text: _taxPercent == 0 ? '' : '$_taxPercent'),
-                        decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 6), border: OutlineInputBorder()),
+                        controller: TextEditingController(
+                            text: _taxPercent == 0 ? '' : '$_taxPercent'),
+                        decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 6),
+                            border: OutlineInputBorder()),
                         onChanged: (value) {
-                          final parsed = (num.tryParse(value) ?? 0).clamp(0, 100);
+                          final parsed =
+                              (num.tryParse(value) ?? 0).clamp(0, 100);
                           setState(() => _taxPercent = parsed);
                           setSheetState(() {});
                         },
@@ -746,10 +854,14 @@ class _PosPageState extends State<PosPage> {
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   initialValue: _paymentMethod,
-                  decoration: const InputDecoration(labelText: 'Méthode de paiement', border: OutlineInputBorder(), isDense: true),
+                  decoration: const InputDecoration(
+                      labelText: 'Méthode de paiement',
+                      border: OutlineInputBorder(),
+                      isDense: true),
                   items: const [
                     DropdownMenuItem(value: 'CASH', child: Text('Espèces')),
-                    DropdownMenuItem(value: 'MOBILE_MONEY', child: Text('Mobile Money')),
+                    DropdownMenuItem(
+                        value: 'MOBILE_MONEY', child: Text('Mobile Money')),
                     DropdownMenuItem(value: 'CARD', child: Text('Carte')),
                     DropdownMenuItem(value: 'OTHER', child: Text('Autre')),
                   ],
@@ -760,14 +872,18 @@ class _PosPageState extends State<PosPage> {
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
-                  onPressed: _cart.isEmpty || _submitting || _cartHasPriceBelowFloor
-                      ? null
-                      : () {
-                          Navigator.of(sheetContext).pop();
-                          _startCheckout();
-                        },
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                  child: Text(_submitting ? 'Validation en cours...' : 'Valider la vente'),
+                  onPressed:
+                      _cart.isEmpty || _submitting || _cartHasPriceBelowFloor
+                          ? null
+                          : () {
+                              Navigator.of(sheetContext).pop();
+                              _startCheckout();
+                            },
+                  style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48)),
+                  child: Text(_submitting
+                      ? 'Validation en cours...'
+                      : 'Valider la vente'),
                 ),
               ],
             ),
@@ -783,7 +899,9 @@ class _PosPageState extends State<PosPage> {
       child: Container(
         width: 26,
         height: 26,
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(6)),
+        decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(6)),
         child: Icon(icon, size: 14),
       ),
     );
@@ -794,9 +912,19 @@ class _PosPageState extends State<PosPage> {
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: bold ? 14 : 12.5, fontWeight: bold ? FontWeight.w700 : FontWeight.normal)),
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: bold ? 14 : 12.5,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.normal)),
           const Spacer(),
-          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: bold ? 14 : 12.5, fontWeight: bold ? FontWeight.w700 : FontWeight.normal)),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: bold ? 14 : 12.5,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.normal)),
         ],
       ),
     );
@@ -804,7 +932,8 @@ class _PosPageState extends State<PosPage> {
 }
 
 class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({required this.label, required this.selected, required this.onTap});
+  const _CategoryChip(
+      {required this.label, required this.selected, required this.onTap});
 
   final String label;
   final bool selected;
@@ -812,12 +941,20 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(label: Text(label, style: const TextStyle(fontSize: 12)), selected: selected, onSelected: (_) => onTap());
+    return ChoiceChip(
+        label: Text(label, style: const TextStyle(fontSize: 12)),
+        selected: selected,
+        onSelected: (_) => onTap());
   }
 }
 
 class _CartSummaryBar extends StatelessWidget {
-  const _CartSummaryBar({required this.itemCount, required this.total, required this.submitting, required this.onTap, this.onClear});
+  const _CartSummaryBar(
+      {required this.itemCount,
+      required this.total,
+      required this.submitting,
+      required this.onTap,
+      this.onClear});
 
   final int itemCount;
   final num total;
@@ -833,49 +970,70 @@ class _CartSummaryBar extends StatelessWidget {
     return Material(
       elevation: 8,
       color: Theme.of(context).colorScheme.surface,
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Icon(Icons.shopping_cart_outlined, color: onTap == null ? Colors.grey : Theme.of(context).colorScheme.primary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        itemCount == 0 ? 'Panier vide' : '$itemCount article${itemCount > 1 ? 's' : ''} — ${formatGNF(total)}',
-                        style: TextStyle(fontWeight: FontWeight.w600, color: onTap == null ? Colors.grey : null),
-                      ),
-                    ),
-                    if (onTap != null) const Icon(Icons.chevron_right),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (onClear != null)
-            Semantics(
-              label: 'Vider le panier',
-              button: true,
+      // SafeArea(top: false) — même principe que _ScrollableBottomNav
+      // (account_shell.dart) — § décidé en conversation : sans elle, cette
+      // barre se retrouve sous la barre de navigation système sur un
+      // téléphone à boutons classiques (ex: Samsung), inaccessible au
+      // toucher. Invisible sur un téléphone en navigation gestuelle (zone
+      // système quasi nulle), d'où le bug non détecté avant un signalement
+      // utilisateur.
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
               child: InkWell(
-                onTap: onClear,
+                onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Icon(Icons.delete_outline, size: 20, color: Colors.grey.shade500),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Icon(Icons.shopping_cart_outlined,
+                          color: onTap == null
+                              ? Colors.grey
+                              : Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          itemCount == 0
+                              ? 'Panier vide'
+                              : '$itemCount article${itemCount > 1 ? 's' : ''} — ${formatGNF(total)}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: onTap == null ? Colors.grey : null),
+                        ),
+                      ),
+                      if (onTap != null) const Icon(Icons.chevron_right),
+                    ],
+                  ),
                 ),
               ),
             ),
-        ],
+            if (onClear != null)
+              Semantics(
+                label: 'Vider le panier',
+                button: true,
+                child: InkWell(
+                  onTap: onClear,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    child: Icon(Icons.delete_outline,
+                        size: 20, color: Colors.grey.shade500),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _PosProductCard extends StatefulWidget {
-  const _PosProductCard({required this.product, required this.cartQuantity, required this.onAdd});
+  const _PosProductCard(
+      {required this.product, required this.cartQuantity, required this.onAdd});
 
   final Product product;
   final int cartQuantity;
@@ -898,14 +1056,21 @@ class _PosProductCardState extends State<_PosProductCard> {
   Widget build(BuildContext context) {
     final product = widget.product;
     final isOutOfStock = product.quantity == 0;
-    final isLow = !isOutOfStock && product.quantity <= product.lowStockThreshold;
+    final isLow =
+        !isOutOfStock && product.quantity <= product.lowStockThreshold;
     final hasTiers = product.priceTiers.isNotEmpty;
     final primary = Theme.of(context).colorScheme.primary;
     final inCart = widget.cartQuantity > 0;
     final locked = product.locked;
 
-    final Color stockColor = isOutOfStock ? Colors.red.shade600 : (isLow ? Colors.amber.shade800 : Colors.green.shade700);
-    final String stockLabel = isOutOfStock ? 'Rupture de stock' : (isLow ? 'Stock faible : ${product.quantity}' : 'En stock : ${product.quantity}');
+    final Color stockColor = isOutOfStock
+        ? Colors.red.shade600
+        : (isLow ? Colors.amber.shade800 : Colors.green.shade700);
+    final String stockLabel = isOutOfStock
+        ? 'Rupture de stock'
+        : (isLow
+            ? 'Stock faible : ${product.quantity}'
+            : 'En stock : ${product.quantity}');
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -913,10 +1078,17 @@ class _PosProductCardState extends State<_PosProductCard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: locked ? Colors.amber.shade200 : (inCart ? primary : Colors.grey.shade200),
+          color: locked
+              ? Colors.amber.shade200
+              : (inCart ? primary : Colors.grey.shade200),
           width: inCart ? 1.5 : 1,
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -933,7 +1105,8 @@ class _PosProductCardState extends State<_PosProductCard> {
                   color: Colors.grey.shade50,
                   child: product.imageUrl != null
                       ? Image.network(product.imageUrl!, fit: BoxFit.cover)
-                      : Icon(Icons.inventory_2_outlined, color: Colors.grey.shade300, size: 30),
+                      : Icon(Icons.inventory_2_outlined,
+                          color: Colors.grey.shade300, size: 30),
                 ),
               ),
               if (hasTiers)
@@ -951,17 +1124,26 @@ class _PosProductCardState extends State<_PosProductCard> {
                   top: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: primary, borderRadius: BorderRadius.circular(20)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: primary,
+                        borderRadius: BorderRadius.circular(20)),
                     child: Text('${widget.cartQuantity} au panier',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700)),
                   ),
                 ),
               if (locked)
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: _Badge(color: Colors.amber.shade600, icon: Icons.lock, tooltip: 'Verrouillé par votre plan'),
+                  child: _Badge(
+                      color: Colors.amber.shade600,
+                      icon: Icons.lock,
+                      tooltip: 'Verrouillé par votre plan'),
                 ),
             ],
           ),
@@ -976,26 +1158,36 @@ class _PosProductCardState extends State<_PosProductCard> {
                     product.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, height: 1.15),
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.15),
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(formatGNF(product.sellingPrice),
-                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: primary)),
+                    style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: primary)),
                 const SizedBox(height: 2),
                 Row(
                   children: [
                     Container(
                       width: 6,
                       height: 6,
-                      decoration: BoxDecoration(color: stockColor, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                          color: stockColor, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(stockLabel,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: stockColor)),
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: stockColor)),
                     ),
                   ],
                 ),
@@ -1004,8 +1196,14 @@ class _PosProductCardState extends State<_PosProductCard> {
                   Container(
                     height: 34,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
-                    child: Text('Indisponible', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text('Indisponible',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w600)),
                   )
                 else if (locked)
                   SizedBox(
@@ -1017,11 +1215,14 @@ class _PosProductCardState extends State<_PosProductCard> {
                         style: FilledButton.styleFrom(
                           padding: EdgeInsets.zero,
                           backgroundColor: Colors.amber.shade500,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: () => widget.onAdd(1),
                         icon: const Icon(Icons.lock_outline, size: 14),
-                        label: const Text('Verrouillé', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        label: const Text('Verrouillé',
+                            style: TextStyle(
+                                fontSize: 12.5, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   )
@@ -1034,12 +1235,17 @@ class _PosProductCardState extends State<_PosProductCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _StepperButton(icon: Icons.remove, onTap: () => _changeQuantity(-1)),
+                      _StepperButton(
+                          icon: Icons.remove, onTap: () => _changeQuantity(-1)),
                       SizedBox(
                         width: 32,
-                        child: Text('$_quantity', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                        child: Text('$_quantity',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700)),
                       ),
-                      _StepperButton(icon: Icons.add, onTap: () => _changeQuantity(1)),
+                      _StepperButton(
+                          icon: Icons.add, onTap: () => _changeQuantity(1)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -1051,13 +1257,16 @@ class _PosProductCardState extends State<_PosProductCard> {
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: () {
                           widget.onAdd(_quantity);
                           setState(() => _quantity = 1);
                         },
-                        child: const Text('Ajouter', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        child: const Text('Ajouter',
+                            style: TextStyle(
+                                fontSize: 12.5, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ),
@@ -1086,7 +1295,9 @@ class _StepperButton extends StatelessWidget {
         width: 30,
         height: 30,
         alignment: Alignment.center,
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8)),
         child: Icon(icon, size: 16, color: Colors.grey.shade700),
       ),
     );
@@ -1094,7 +1305,8 @@ class _StepperButton extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({required this.color, required this.icon, required this.tooltip});
+  const _Badge(
+      {required this.color, required this.icon, required this.tooltip});
 
   final Color color;
   final IconData icon;

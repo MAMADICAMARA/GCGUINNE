@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Coins, Wallet, ShoppingBag, AlertCircle, TrendingUp } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDate, formatDateTime } from '@/utils/format';
 import AuditLogPanel from '@/components/AuditLogPanel';
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Ordre identique à supervised_store_detail_page.dart (Flutter) — les deux
+// doivent rester en parité stricte (§ décidé en conversation).
 const TABS = [
   { key: 'apercu', label: 'Aperçu' },
+  { key: 'recette', label: 'Recette' },
   { key: 'produits', label: 'Produits & Stock' },
-  { key: 'ventes', label: 'Ventes' },
+  { key: 'ventes', label: 'Historique des ventes' },
   { key: 'journal', label: 'Journal' },
 ];
 
@@ -74,6 +81,7 @@ export default function SupervisedStoreDetailPage() {
       </div>
 
       {tab === 'apercu' && <OverviewTab storeId={storeId} />}
+      {tab === 'recette' && <RecetteTab storeId={storeId} />}
       {tab === 'produits' && <ProductsStockTab storeId={storeId} />}
       {tab === 'ventes' && <SalesTab storeId={storeId} />}
       {tab === 'journal' && <JournalTab storeId={storeId} />}
@@ -82,14 +90,16 @@ export default function SupervisedStoreDetailPage() {
 }
 
 function OverviewTab({ storeId }) {
+  const [date, setDate] = useState(todayIso());
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
+    setStats(null);
     (async () => {
       try {
-        const { data } = await apiClient.get(`/supervision/stores/${storeId}/stats`);
+        const { data } = await apiClient.get(`/supervision/stores/${storeId}/stats`, { params: { date } });
         if (!cancelled) setStats(data.stats);
       } catch (err) {
         if (!cancelled) setError(err.response?.data?.error?.message || 'Impossible de charger les statistiques.');
@@ -98,22 +108,69 @@ function OverviewTab({ storeId }) {
     return () => {
       cancelled = true;
     };
-  }, [storeId]);
-
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
-  if (!stats) return <p className="text-sm text-slate-400">Chargement...</p>;
-
-  const maxTrend = Math.max(1, ...stats.revenueTrend.map((d) => Number(d.revenue)));
+  }, [storeId, date]);
 
   return (
     <div className="max-w-2xl">
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <MiniStat label="Ventes du jour" value={formatGNF(stats.today.revenue)} />
-        <MiniStat label="Bénéfice du jour" value={formatGNF(stats.today.profit)} accent="green" />
-        <MiniStat label="Commandes" value={stats.today.ordersCount} />
-        <MiniStat
+      {/* Date consultée (§ décidé en conversation, miroir du Tableau de
+          bord et de l'Aperçu paramétrable côté mobile) — jour par défaut :
+          aujourd'hui. */}
+      <div className="flex items-center gap-3 mb-6">
+        <label className="text-sm font-medium text-slate-600">Date :</label>
+        <input
+          type="date"
+          value={date}
+          max={todayIso()}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+      </div>
+
+      {error ? (
+        <p className="text-sm text-red-600">{error}</p>
+      ) : !stats ? (
+        <p className="text-sm text-slate-400">Chargement...</p>
+      ) : (
+        <OverviewStats stats={stats} />
+      )}
+    </div>
+  );
+}
+
+function OverviewStats({ stats }) {
+  const maxTrend = Math.max(1, ...stats.revenueTrend.map((d) => Number(d.revenue)));
+
+  return (
+    <div>
+      <div className="flex flex-col gap-4 sm:grid sm:grid-cols-4 mb-6">
+        <StatCard
+          label="Ventes du jour"
+          value={formatGNF(stats.today.revenue)}
+          icon={Coins}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+        />
+        <StatCard
+          label="Bénéfice du jour"
+          value={formatGNF(stats.today.profit)}
+          icon={Wallet}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+          accent="green"
+        />
+        <StatCard
+          label="Commandes"
+          value={stats.today.ordersCount}
+          icon={ShoppingBag}
+          iconBg="bg-violet-50"
+          iconColor="text-violet-600"
+        />
+        <StatCard
           label="Produits en rupture"
           value={stats.lowStockCount}
+          icon={AlertCircle}
+          iconBg="bg-rose-50"
+          iconColor="text-rose-600"
           accent={stats.lowStockCount > 0 ? 'red' : undefined}
         />
       </div>
@@ -156,12 +213,173 @@ function OverviewTab({ storeId }) {
   );
 }
 
-function MiniStat({ label, value, accent }) {
-  const accentClass = accent === 'green' ? 'text-green-700' : accent === 'red' ? 'text-red-600' : 'text-slate-800';
+// Même composant que DashboardPage.jsx#StatCard (§ décidé en conversation —
+// cartes empilées en colonne sur mobile-web, grille dès sm:, comme le
+// Tableau de bord et son miroir dashboard_page.dart côté Flutter).
+function StatCard({ label, value, icon: Icon, iconBg, iconColor, accent }) {
+  const accentClass = accent === 'green' ? 'text-emerald-700' : accent === 'red' ? 'text-rose-600' : 'text-slate-800';
+
   return (
-    <div className="rounded-lg border border-slate-200 px-3 py-2">
-      <p className="text-xs text-slate-400 uppercase tracking-wide">{label}</p>
-      <p className={`text-lg font-semibold ${accentClass}`}>{value}</p>
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200 flex items-start justify-between">
+      <div>
+        <p className="text-xs text-slate-400 uppercase tracking-wider">{label}</p>
+        <p className={`text-2xl font-bold mt-1 ${accentClass}`}>{value}</p>
+      </div>
+      <div className={`${iconBg} rounded-xl p-2.5`}>
+        <Icon className={`h-5 w-5 ${iconColor}`} strokeWidth={1.75} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Rapport de recette de la boutique supervisée (§ décidé en conversation) —
+ * miroir de SalesReportPage.jsx et de _RecetteTab (supervised_store_detail_page.dart
+ * côté mobile), mais via /supervision/stores/:storeId/sales-report (lecture
+ * seule, aucune écriture).
+ */
+function RecetteTab({ storeId }) {
+  const [startDate, setStartDate] = useState(todayIso());
+  const [endDate, setEndDate] = useState(todayIso());
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    (async () => {
+      try {
+        const { data } = await apiClient.get(`/supervision/stores/${storeId}/sales-report`, {
+          params: { startDate, endDate },
+        });
+        if (!cancelled) setReport(data);
+      } catch (err) {
+        if (!cancelled) setError(err.response?.data?.error?.message || 'Impossible de charger le rapport.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, startDate, endDate]);
+
+  function setQuickRange(days) {
+    const end = todayIso();
+    const start = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    setStartDate(start);
+    setEndDate(end);
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-slate-500 mb-6">
+        Chiffre d'affaires total de la boutique, produit par produit, sur la période choisie.
+      </p>
+
+      <div className="flex flex-wrap items-end gap-3 mb-6">
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Du</label>
+          <input
+            type="date"
+            value={startDate}
+            max={endDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Au</label>
+          <input
+            type="date"
+            value={endDate}
+            min={startDate}
+            max={todayIso()}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setQuickRange(1)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+          >
+            Aujourd'hui
+          </button>
+          <button
+            onClick={() => setQuickRange(7)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+          >
+            7 jours
+          </button>
+          <button
+            onClick={() => setQuickRange(30)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+          >
+            30 jours
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-4">{error}</p>
+      )}
+
+      <div className="rounded-2xl border border-brand-100 bg-brand-50 px-6 py-5 mb-6 flex items-center gap-4">
+        <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shrink-0">
+          <TrendingUp size={22} className="text-brand-600" />
+        </div>
+        <div>
+          <p className="text-xs font-medium text-brand-700 uppercase tracking-wide">Recette totale</p>
+          <p className="text-2xl font-bold text-slate-800">{loading ? '...' : formatGNF(report?.totalRevenue || 0)}</p>
+        </div>
+      </div>
+
+      <h2 className="text-sm font-semibold text-slate-700 mb-3">Détail par produit</h2>
+      {loading ? (
+        <p className="text-sm text-slate-400">Chargement...</p>
+      ) : !report || report.products.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
+          Aucune vente sur cette période.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          {/* Vue mobile : cartes empilées (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {report.products.map((p) => (
+              <div key={p.productId} className="p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-800 truncate">{p.productName}</p>
+                  <p className="text-xs text-slate-400">{p.quantitySold} vendu{p.quantitySold > 1 ? 's' : ''}</p>
+                </div>
+                <span className="shrink-0 font-semibold text-slate-800">{formatGNF(p.revenue)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Vue desktop : tableau complet (dès md) */}
+          <table className="hidden md:table w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+              <tr>
+                <th className="text-left px-4 py-3">Produit</th>
+                <th className="text-right px-4 py-3">Quantité vendue</th>
+                <th className="text-right px-4 py-3">Recette générée</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.products.map((p) => (
+                <tr key={p.productId} className="border-t border-slate-100">
+                  <td className="px-4 py-3 font-medium text-slate-800">{p.productName}</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{p.quantitySold}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-slate-800">{formatGNF(p.revenue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

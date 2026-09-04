@@ -214,53 +214,38 @@ class _OverviewTabState extends State<_OverviewTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Cartes alignées horizontalement sur une seule ligne (§ décidé en
-        // conversation) — remplace l'ancienne grille 2x2. Scrollable pour
-        // rester lisible sur les écrans étroits plutôt que de compresser
-        // les 4 cartes jusqu'à tronquer leurs libellés.
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 150,
-                child: _StatCard(
-                  label: 'Ventes du jour',
-                  value: formatGNF(stats.todayRevenue),
-                  icon: Icons.payments_outlined,
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 150,
-                child: _StatCard(
-                  label: 'Bénéfice du jour',
-                  value: formatGNF(stats.todayProfit),
-                  icon: Icons.trending_up,
-                  color: Colors.green.shade700,
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 150,
-                child: _StatCard(
-                  label: 'Commandes',
-                  value: '${stats.todayOrdersCount}',
-                  icon: Icons.receipt_long_outlined,
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 150,
-                child: _StatCard(
-                  label: 'Produits en rupture',
-                  value: '${stats.lowStockCount}',
-                  icon: Icons.warning_amber_rounded,
-                  color: stats.lowStockCount > 0 ? Colors.red.shade600 : null,
-                ),
-              ),
-            ],
-          ),
+        // Cartes empilées, une par ligne en pleine largeur (§ décidé en
+        // conversation) — même affichage que le tableau de bord principal
+        // (dashboard_page.dart), plutôt que la ligne horizontale
+        // défilable qu'on avait mise avant.
+        Column(
+          children: [
+            _StatCard(
+              label: 'Ventes du jour',
+              value: formatGNF(stats.todayRevenue),
+              icon: Icons.payments_outlined,
+            ),
+            const SizedBox(height: 10),
+            _StatCard(
+              label: 'Bénéfice du jour',
+              value: formatGNF(stats.todayProfit),
+              icon: Icons.trending_up,
+              color: Colors.green.shade700,
+            ),
+            const SizedBox(height: 10),
+            _StatCard(
+              label: 'Commandes',
+              value: '${stats.todayOrdersCount}',
+              icon: Icons.receipt_long_outlined,
+            ),
+            const SizedBox(height: 10),
+            _StatCard(
+              label: 'Produits en rupture',
+              value: '${stats.lowStockCount}',
+              icon: Icons.warning_amber_rounded,
+              color: stats.lowStockCount > 0 ? Colors.red.shade600 : null,
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         Text('ÉVOLUTION DES VENTES (7 DERNIERS JOURS)',

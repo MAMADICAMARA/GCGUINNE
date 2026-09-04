@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../state/auth_state.dart';
 import '../../../state/update_state.dart';
 import '../../app_update/data/app_update_api.dart';
@@ -26,6 +28,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final updateState = context.watch<UpdateState>();
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -33,18 +37,85 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         children: [
           Text('Paramètres', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 4),
-          Text('Réglages du compte.', style: TextStyle(color: Colors.grey.shade600)),
+          Text('Réglages du compte.',
+              style: TextStyle(color: Colors.grey.shade600)),
           const SizedBox(height: 20),
+          // §5/§8 du cahier des charges "Système de notification de mise à
+          // jour" (décidé en conversation) — le niveau OPTIONAL n'affiche
+          // qu'un badge discret sur l'icône Paramètres (voir
+          // account_shell.dart), jamais de bandeau intrusif. Il fallait
+          // donc UN endroit où agir une fois arrivé ici, sinon le badge ne
+          // menait nulle part — c'est ce bloc-ci. RECOMMENDED/MANDATORY ont
+          // déjà leur propre affichage bien plus visible ailleurs, mais ce
+          // bloc reste inoffensif à afficher aussi dans ce cas (même
+          // action, juste redondante).
+          if (updateState.hasUpdate) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.system_update_alt,
+                          size: 18, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Une nouvelle version (${updateState.latestVersion?.versionName ?? ''}) est disponible.',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue.shade900),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (updateState.latestVersion?.releaseNotes != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      updateState.latestVersion!.releaseNotes!,
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.blue.shade800),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => launchUrl(
+                        Uri.parse('${AppConfig.frontendUrl}/telecharger'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600),
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                      label: const Text('Télécharger la mise à jour'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+              border: Border.all(
+                  color: Colors.grey.shade300, style: BorderStyle.solid),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
                 "Contenu à définir — mis de côté pour l'instant, on y reviendra.",
-                style: TextStyle(color: Colors.blue.withAlpha(150), fontSize: 13),
+                style:
+                    TextStyle(color: Colors.blue.withAlpha(150), fontSize: 13),
               ),
             ),
           ),
