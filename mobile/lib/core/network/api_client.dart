@@ -21,8 +21,14 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
+        // § décidé en conversation, suite à un cas réel signalé — le
+        // réseau mobile (loin des serveurs, connexions instables) tolère
+        // mal un délai aussi court que les 10s/15s d'origine : une
+        // poignée de main TLS un peu lente suffisait à déclencher l'erreur
+        // réseau alors que le serveur répondait normalement. Reste borné
+        // (jamais un blocage infini) mais plus tolérant.
+        connectTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 20),
         contentType: 'application/json',
       ),
     );
@@ -36,10 +42,36 @@ class ApiClient {
           }
           handler.next(options);
         },
-        onError: (error, handler) {
+        onError: (error, handler) async {
           if (error.response?.statusCode == 401) {
             onUnauthorized();
           }
+
+          // Une seule tentative de ré-essai automatique, uniquement pour
+          // les erreurs réseau transitoires (jamais pour une vraie erreur
+          // serveur/4xx/5xx) — § décidé en conversation : un utilisateur
+          // peu à l'aise avec la technologie ne doit pas voir une erreur
+          // effrayante pour un simple aléa de connexion mobile qui se
+          // serait résolu de lui-même une seconde plus tard. Le drapeau
+          // `retried` évite toute boucle infinie.
+          final isTransient = error.type == DioExceptionType.connectionTimeout ||
+              error.type == DioExceptionType.connectionError ||
+              error.type == DioExceptionType.receiveTimeout;
+          final alreadyRetried = error.requestOptions.extra['retried'] == true;
+
+          if (isTransient && !alreadyRetried) {
+            try {
+              await Future<void>.delayed(const Duration(seconds: 2));
+              final retryOptions = error.requestOptions
+                ..extra['retried'] = true;
+              final response = await _dio.fetch<dynamic>(retryOptions);
+              return handler.resolve(response);
+            } catch (_) {
+              // La seconde tentative a échoué aussi — on laisse tomber et
+              // remonte l'erreur d'origine normalement, ci-dessous.
+            }
+          }
+
           handler.next(error);
         },
       ),
@@ -133,10 +165,10 @@ class ApiClient {
     }
 
     if (err.type == DioExceptionType.connectionTimeout ||
-        err.type == DioExceptionType.connectionError) {
+        err.type == DioExceptionType.connectionError ||
+        err.type == DioExceptionType.receiveTimeout) {
       return const ApiException(
-        message:
-            "Impossible de joindre le serveur. Vérifiez votre connexion et l'adresse de l'API (AppConfig.apiBaseUrl).",
+        message: 'Connexion au serveur impossible. Vérifiez votre connexion internet et réessayez.',
         code: 'NETWORK_ERROR',
       );
     }

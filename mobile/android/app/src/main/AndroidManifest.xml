@@ -2,6 +2,11 @@
     <!-- Photo d'un produit depuis l'appareil photo (image_picker) — la
          galerie, elle, passe par le sélecteur système et n'a besoin
          d'aucune permission déclarée ici sur Android récent. -->
+    <!-- Sans elle, Android bloque tout accès réseau en build RELEASE —
+         Flutter l'ajoute automatiquement en debug/profile, jamais en
+         release (§ décidé en conversation, cause réelle d'un "impossible
+         de joindre le serveur" systématique dans le premier APK réel). -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
