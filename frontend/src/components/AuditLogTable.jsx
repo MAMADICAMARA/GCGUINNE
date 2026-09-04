@@ -5,15 +5,20 @@ import { actionLabel, formatLogDetails } from '@/utils/auditLogLabels';
 
 /**
  * Tableau du journal d'activité — partagé entre la boutique propre de
- * l'Owner et une boutique supervisée, tous deux via AuditLogPanel qui
- * appelle le même utilitaire backend (backend/src/utils/auditLog.js) et
- * affiche le même format de résultat. Lecture seule stricte (system_logs
- * est immuable).
+ * l'Owner, une boutique supervisée (tous deux via AuditLogPanel, qui
+ * appelle le même utilitaire backend backend/src/utils/auditLog.js), ET
+ * AdminAuditLogPage (Super Admin, plateforme entière — § décidé en
+ * conversation). Lecture seule stricte (system_logs est immuable).
+ *
+ * `showStore` (Super Admin uniquement, jamais dans le journal d'une
+ * boutique précise où c'est implicite) : ajoute une colonne "Boutique"
+ * pour distinguer les actions globales (store_id NULL — s'affiche "—")
+ * des actions propres à une boutique.
  *
  * Responsive : tableau complet dès md:, accordéon sur mobile
  * (Utilisateur + Action visibles, Date + Détails révélés au clic).
  */
-export default function AuditLogTable({ logs, loading }) {
+export default function AuditLogTable({ logs, loading, showStore = false }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
 
   const toggleExpanded = (id) => {
@@ -75,6 +80,12 @@ export default function AuditLogTable({ logs, loading }) {
                     <span className="text-slate-400">Date : </span>
                     {formatDateTime(log.createdAt)}
                   </p>
+                  {showStore && (
+                    <p className="text-slate-500">
+                      <span className="text-slate-400">Boutique : </span>
+                      {log.storeName || '—'}
+                    </p>
+                  )}
                   <p className="text-slate-500">
                     <span className="text-slate-400">Détails : </span>
                     {details || '—'}
@@ -93,6 +104,7 @@ export default function AuditLogTable({ logs, loading }) {
             <th className="text-left px-4 py-3">Date</th>
             <th className="text-left px-4 py-3">Action</th>
             <th className="text-left px-4 py-3">Détails</th>
+            {showStore && <th className="text-left px-4 py-3">Boutique</th>}
             <th className="text-left px-4 py-3">Utilisateur</th>
           </tr>
         </thead>
@@ -110,6 +122,7 @@ export default function AuditLogTable({ logs, loading }) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500">{details || '—'}</td>
+                {showStore && <td className="px-4 py-3 text-slate-600">{log.storeName || '—'}</td>}
                 <td className="px-4 py-3 text-slate-600">
                   {log.userFullName || log.userEmail || '—'}
                 </td>
@@ -121,66 +134,3 @@ export default function AuditLogTable({ logs, loading }) {
     </div>
   );
 }
-
-
-// import { formatDateTime } from '@/utils/format';
-// import { actionLabel, formatLogDetails } from '@/utils/auditLogLabels';
-
-// /**
-//  * Tableau du journal d'activité — partagé entre la boutique propre de
-//  * l'Owner et une boutique supervisée, tous deux via AuditLogPanel qui
-//  * appelle le même utilitaire backend (backend/src/utils/auditLog.js) et
-//  * affiche le même format de résultat. Lecture seule stricte (system_logs
-//  * est immuable).
-//  */
-// export default function AuditLogTable({ logs, loading }) {
-//   return (
-//     <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-//       <table className="w-full text-sm">
-//         <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-//           <tr>
-//             <th className="text-left px-4 py-3">Date</th>
-//             <th className="text-left px-4 py-3">Action</th>
-//             <th className="text-left px-4 py-3">Détails</th>
-//             <th className="text-left px-4 py-3">Utilisateur</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           {loading ? (
-//             <tr>
-//               <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
-//                 Chargement...
-//               </td>
-//             </tr>
-//           ) : logs.length === 0 ? (
-//             <tr>
-//               <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
-//                 Aucune activité pour l'instant.
-//               </td>
-//             </tr>
-//           ) : (
-//             logs.map((log) => {
-//               const details = formatLogDetails(log.action, log.details);
-//               return (
-//                 <tr key={log.id} className="border-t border-slate-100">
-//                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-//                     {formatDateTime(log.createdAt)}
-//                   </td>
-//                   <td className="px-4 py-3">
-//                     <span className="inline-block rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-medium">
-//                       {actionLabel(log.action)}
-//                     </span>
-//                   </td>
-//                   <td className="px-4 py-3 text-slate-500">{details || '—'}</td>
-//                   <td className="px-4 py-3 text-slate-600">
-//                     {log.userFullName || log.userEmail || '—'}
-//                   </td>
-//                 </tr>
-//               );
-//             })
-//           )}
-//         </tbody>
-//       </table>
-//     </div>
-//   );
-// }

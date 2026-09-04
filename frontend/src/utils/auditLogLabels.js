@@ -3,11 +3,16 @@ import { formatDate } from '@/utils/format';
 /**
  * Libellés français + regroupement des actions du journal d'activité
  * (system_logs), et mise en forme lisible de leur `details` JSONB — partagé
- * entre AuditLogPanel (boutique propre) et le Journal de supervision, qui
- * consomment tous les deux backend/src/utils/auditLog.js. Seules les
- * actions pouvant apparaître dans le journal D'UNE boutique précise sont
- * listées (ADMIN_UPDATE_PLAN / ADMIN_REVOKE_SUPER_ADMIN ont store_id NULL,
- * donc n'y figurent jamais).
+ * entre AuditLogPanel (boutique propre), le Journal de supervision, ET
+ * AdminAuditLogPage (Super Admin, plateforme entière) — § décidé en
+ * conversation : la page Super Admin affichait jusqu'ici le code brut
+ * (`ADMIN_PUBLISH_APP_VERSION`...) sans jamais réutiliser ce mécanisme,
+ * illisible pour un utilisateur non technique. `ACTION_GROUPS` reste
+ * volontairement limité aux actions D'UNE boutique précise (sert de filtre
+ * pour le journal boutique/supervision) — les actions globales
+ * (store_id NULL, ex: ADMIN_UPDATE_PLAN) n'y figurent jamais puisqu'elles
+ * ne peuvent pas apparaître dans CE journal-là, mais restent bien dans
+ * ACTION_LABELS/formatLogDetails ci-dessous pour la page Super Admin.
  */
 const ROLE_LABELS = { SELLER: 'Vendeur', OWNER: 'Propriétaire' };
 
@@ -90,6 +95,28 @@ export const ACTION_LABELS = {
   RECEIVE_PURCHASE_ORDER: "Commande d'achat reçue",
   CANCEL_PURCHASE_ORDER: "Commande d'achat annulée",
   SUPPLIER_STOCK_DECREASED: 'Stock diminué (commande client)',
+  DECLARE_ORDER_DELIVERED: 'Livraison confirmée (fournisseur)',
+  MERGE_DUPLICATE_PRODUCTS: 'Produits fusionnés',
+  STOCK_TRANSFER_SENT: 'Transfert de stock envoyé',
+  STOCK_TRANSFER_RECEIVED: 'Transfert de stock reçu',
+  OPEN_CASH_DRAWER: 'Caisse ouverte',
+  CLOSE_CASH_DRAWER: 'Caisse fermée',
+  SET_SELLER_MANAGE_STOCK_PERMISSION: 'Autorisation stock vendeur modifiée',
+  SET_SELLER_MANAGE_SUPPLIERS_PERMISSION: 'Autorisation fournisseurs vendeur modifiée',
+  SET_SELLER_MANAGE_PURCHASES_PERMISSION: 'Autorisation achats vendeur modifiée',
+  UPDATE_STOCK_SETTINGS: 'Réglage autorisation stock mis à jour',
+  UPDATE_SUPPLIERS_SETTINGS: 'Réglage autorisation fournisseurs mis à jour',
+  UPDATE_PURCHASES_SETTINGS: 'Réglage autorisation achats mis à jour',
+  CHANGE_PASSWORD: 'Mot de passe changé',
+  PASSWORD_RESET: 'Mot de passe réinitialisé',
+  UPDATE_PROFILE: 'Profil mis à jour',
+  VERIFY_EMAIL: 'E-mail vérifié',
+  // Actions globales (store_id NULL, Super Admin uniquement).
+  ADMIN_PUBLISH_APP_VERSION: "Version de l'app publiée",
+  ADMIN_UPDATE_PLAN: "Plan d'abonnement modifié",
+  ADMIN_UPDATE_USER_EMAIL: 'E-mail utilisateur modifié',
+  ADMIN_RELAUNCH_VERIFICATION: 'Vérification relancée',
+  ADMIN_REVOKE_SUPER_ADMIN: 'Droits Super Admin retirés',
 };
 
 export function actionLabel(action) {
@@ -146,6 +173,58 @@ export function formatLogDetails(action, details) {
       return details.itemCount ? `${details.itemCount} article(s)` : null;
     case 'SUPPLIER_STOCK_DECREASED':
       return details.itemCount ? `${details.itemCount} article(s)` : null;
+    case 'DECLARE_ORDER_DELIVERED':
+      return details.orderId ? `Commande #${details.orderId}` : null;
+    case 'MERGE_DUPLICATE_PRODUCTS':
+      return details.transferredQuantity ? `${details.transferredQuantity} en stock transféré` : null;
+    case 'STOCK_TRANSFER_SENT':
+      return [
+        details.productName,
+        details.quantity ? `${details.quantity} unité(s)` : null,
+        details.toStoreName ? `vers ${details.toStoreName}` : null,
+      ]
+        .filter(Boolean)
+        .join(' — ');
+    case 'STOCK_TRANSFER_RECEIVED':
+      return [details.productName, details.quantity ? `${details.quantity} unité(s)` : null]
+        .filter(Boolean)
+        .join(' — ');
+    case 'OPEN_CASH_DRAWER':
+      return details.openingBalance != null
+        ? `Fonds de départ : ${Number(details.openingBalance).toLocaleString('fr-FR')} GNF`
+        : null;
+    case 'CLOSE_CASH_DRAWER':
+      return [
+        details.closingBalance != null ? `${Number(details.closingBalance).toLocaleString('fr-FR')} GNF` : null,
+        details.discrepancy ? `écart ${Number(details.discrepancy).toLocaleString('fr-FR')} GNF` : null,
+      ]
+        .filter(Boolean)
+        .join(' — ');
+    case 'SET_SELLER_MANAGE_STOCK_PERMISSION':
+      return details.canManageStock ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'SET_SELLER_MANAGE_SUPPLIERS_PERMISSION':
+      return details.canManageSuppliers ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'SET_SELLER_MANAGE_PURCHASES_PERMISSION':
+      return details.canManagePurchases ? 'Vendeur autorisé' : 'Autorisation retirée';
+    case 'UPDATE_STOCK_SETTINGS':
+    case 'UPDATE_SUPPLIERS_SETTINGS':
+    case 'UPDATE_PURCHASES_SETTINGS':
+      return details.allowAllSellers ? 'Tous les vendeurs autorisés' : 'Autorisation globale retirée';
+    case 'ADMIN_PUBLISH_APP_VERSION': {
+      const levelLabels = { OPTIONAL: 'Optionnel', RECOMMENDED: 'Recommandée', MANDATORY: 'Obligatoire' };
+      return [
+        details.versionName ? `${details.versionName} (code ${details.versionCode})` : null,
+        levelLabels[details.updateLevel] || details.updateLevel,
+      ]
+        .filter(Boolean)
+        .join(' — ');
+    }
+    case 'ADMIN_UPDATE_PLAN':
+      return details.planName || null;
+    case 'ADMIN_UPDATE_USER_EMAIL':
+      return details.newEmail || null;
+    case 'ADMIN_REVOKE_SUPER_ADMIN':
+      return details.targetEmail || null;
     default:
       return null;
   }
