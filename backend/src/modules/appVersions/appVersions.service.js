@@ -195,7 +195,14 @@ async function uploadApk(appVersionId, buffer, label) {
   if (!isR2Configured()) {
     throw new AppError("L'envoi de fichiers n'est pas configuré sur ce serveur.", 500, 'UPLOAD_NOT_CONFIGURED');
   }
-  await ensureVersionExists(appVersionId);
+
+  const { rows: versionRows } = await pool.query(
+    'SELECT version_name AS "versionName" FROM app_versions WHERE id = $1',
+    [appVersionId]
+  );
+  if (versionRows.length === 0) {
+    throw new AppError('Version introuvable.', 404, 'VERSION_NOT_FOUND');
+  }
 
   const detected = await fileTypeFromBuffer(buffer);
   if (!detected || !ALLOWED_APK_MIME_TYPES[detected.mime]) {
@@ -203,6 +210,12 @@ async function uploadApk(appVersionId, buffer, label) {
   }
 
   const key = `app-releases/${crypto.randomUUID()}.apk`;
+  // Nom de fichier convivial suggéré au téléchargement (§ décidé en
+  // conversation, ex: "CAMA_v1.1.3.apk") — la clé R2 elle-même reste un
+  // UUID (jamais déductible/réutilisé), seul le Content-Disposition change
+  // ce que le navigateur/téléphone propose comme nom de fichier enregistré.
+  const safeVersionName = (versionRows[0].versionName || '').replace(/[^a-zA-Z0-9._-]/g, '');
+  const downloadFilename = `CAMA_v${safeVersionName || 'app'}.apk`;
   try {
     const client = getR2Client();
     await client.send(
@@ -211,6 +224,7 @@ async function uploadApk(appVersionId, buffer, label) {
         Key: key,
         Body: buffer,
         ContentType: detected.mime,
+        ContentDisposition: `attachment; filename="${downloadFilename}"`,
       })
     );
   } catch (err) {
