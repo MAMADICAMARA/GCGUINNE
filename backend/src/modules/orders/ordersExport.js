@@ -36,18 +36,35 @@ const COLUMNS = [
   'Reste à payer (GNF)',
 ];
 
+// Caractères qui déclenchent l'interprétation d'une cellule comme formule
+// à l'ouverture dans Excel/LibreOffice (§ audit du 2026-08-30, décidé en
+// conversation — faille "injection de formule CSV/Excel", MAJEUR).
+const FORMULA_TRIGGER_CHARS = new Set(['=', '+', '-', '@', '\t', '\r']);
+
 /**
  * Une cellule contenant une virgule, un guillemet ou un retour à la ligne
  * doit être entourée de guillemets (avec les guillemets internes doublés) —
  * format CSV standard (RFC 4180), sinon Excel/LibreOffice découpe la ligne
  * au mauvais endroit.
+ *
+ * Neutralise AUSSI l'injection de formule CSV/Excel : `order.customerName`
+ * et `order.sellerName` sont saisis librement à la création d'un
+ * client/employé — un nom commençant par =, +, -, @ (ou tabulation/retour
+ * chariot) s'exécuterait comme une formule au moment où le Owner ouvre
+ * l'export dans Excel/LibreOffice (ex: `=HYPERLINK("http://...")`), risque
+ * réel d'exfiltration/exécution de commande sur le poste du marchand.
+ * Mitigation standard OWASP : préfixer d'une apostrophe, qui force Excel à
+ * afficher la valeur comme texte brut plutôt que de l'évaluer — appliquée
+ * AVANT le test de guillemets ci-dessous, pour que le résultat final reste
+ * un CSV valide même après ce préfixe.
  */
 function csvCell(value) {
   const str = value === null || value === undefined ? '' : String(value);
-  if (/[",\n]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`;
+  const neutralized = str.length > 0 && FORMULA_TRIGGER_CHARS.has(str[0]) ? `'${str}` : str;
+  if (/[",\n]/.test(neutralized)) {
+    return `"${neutralized.replace(/"/g, '""')}"`;
   }
-  return str;
+  return neutralized;
 }
 
 function formatDate(value) {
