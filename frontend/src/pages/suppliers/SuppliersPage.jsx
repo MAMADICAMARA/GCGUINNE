@@ -7,6 +7,7 @@ import ReceivedOrderDetailModal from './ReceivedOrderDetailModal';
 
 const RECEIVED_ORDER_STATUS_LABELS = {
   PENDING: 'En attente',
+  DELIVERED: 'Livrée',
   RECEIVED: 'Reçue',
   CANCELLED: 'Annulée',
 };
@@ -320,7 +321,9 @@ export default function SuppliersPage() {
                               ? 'bg-green-50 text-green-700'
                               : o.status === 'CANCELLED'
                                 ? 'bg-red-50 text-red-700'
-                                : 'bg-amber-50 text-amber-700'
+                                : o.status === 'DELIVERED'
+                                  ? 'bg-blue-50 text-blue-700'
+                                  : 'bg-amber-50 text-amber-700'
                           }`}
                         >
                           {RECEIVED_ORDER_STATUS_LABELS[o.status]}
@@ -377,7 +380,11 @@ export default function SuppliersPage() {
       )}
 
       {viewingOrderId && (
-        <ReceivedOrderDetailModal orderId={viewingOrderId} onClose={() => setViewingOrderId(null)} />
+        <ReceivedOrderDetailModal
+          orderId={viewingOrderId}
+          onClose={() => setViewingOrderId(null)}
+          onChanged={loadAll}
+        />
       )}
     </div>
   );

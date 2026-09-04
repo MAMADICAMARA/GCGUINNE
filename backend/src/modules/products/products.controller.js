@@ -90,4 +90,39 @@ async function stockHistory(req, res, next) {
   }
 }
 
-module.exports = { list, getOne, create, update, deactivate, reactivate, adjustStock, stockHistory };
+async function duplicateSuggestions(req, res, next) {
+  try {
+    const suggestions = await productsService.suggestDuplicateProducts(req.auth.storeId);
+    res.json({ suggestions });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function merge(req, res, next) {
+  try {
+    checkValidation(req);
+    const result = await productsService.mergeProducts(
+      req.auth.storeId,
+      req.body.keepProductId,
+      req.body.mergeProductId,
+      req.auth.userId
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  list,
+  getOne,
+  create,
+  update,
+  deactivate,
+  reactivate,
+  adjustStock,
+  stockHistory,
+  duplicateSuggestions,
+  merge,
+};

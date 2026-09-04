@@ -10,6 +10,7 @@ import PurchaseOrderDetailModal from './PurchaseOrderDetailModal';
 
 const STATUS_LABELS = {
   PENDING: 'En attente',
+  DELIVERED: 'Livrée',
   RECEIVED: 'Reçue',
   CANCELLED: 'Annulée',
 };
@@ -189,7 +190,9 @@ export default function PurchasesPage() {
                           ? 'bg-green-50 text-green-700'
                           : o.status === 'CANCELLED'
                             ? 'bg-red-50 text-red-700'
-                            : 'bg-amber-50 text-amber-700'
+                            : o.status === 'DELIVERED'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'bg-amber-50 text-amber-700'
                       }`}
                     >
                       {STATUS_LABELS[o.status]}
@@ -237,7 +240,9 @@ export default function PurchasesPage() {
                             ? 'bg-green-50 text-green-700'
                             : o.status === 'CANCELLED'
                               ? 'bg-red-50 text-red-700'
-                              : 'bg-amber-50 text-amber-700'
+                              : o.status === 'DELIVERED'
+                                ? 'bg-blue-50 text-blue-700'
+                                : 'bg-amber-50 text-amber-700'
                         }`}
                       >
                         {STATUS_LABELS[o.status]}

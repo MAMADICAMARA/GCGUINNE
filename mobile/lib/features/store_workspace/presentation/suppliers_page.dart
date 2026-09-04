@@ -62,7 +62,8 @@ class _SuppliersPageState extends State<SuppliersPage> {
       builder: (context) => const _AddSupplierSheet(),
     );
     if (added != null) {
-      setState(() => _successMessage = '"$added" a été ajoutée à vos fournisseurs.');
+      setState(
+          () => _successMessage = '"$added" a été ajoutée à vos fournisseurs.');
       _load();
       Future.delayed(const Duration(seconds: 5), () {
         if (mounted) setState(() => _successMessage = null);
@@ -78,8 +79,12 @@ class _SuppliersPageState extends State<SuppliersPage> {
         title: const Text('Retirer ce fournisseur ?'),
         content: Text('Retirer "${supplier.name}" de vos fournisseurs ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Retirer')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Retirer')),
         ],
       ),
     );
@@ -102,10 +107,15 @@ class _SuppliersPageState extends State<SuppliersPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Retirer ce client ?'),
-        content: Text('Retirer "${client.name}" de vos clients ? Elle perdra l\'accès à votre catalogue.'),
+        content: Text(
+            'Retirer "${client.name}" de vos clients ? Elle perdra l\'accès à votre catalogue.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Retirer')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Retirer')),
         ],
       ),
     );
@@ -124,7 +134,8 @@ class _SuppliersPageState extends State<SuppliersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final loading = _suppliers == null || _clients == null || _receivedOrders == null;
+    final loading =
+        _suppliers == null || _clients == null || _receivedOrders == null;
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAddSheet,
@@ -144,24 +155,36 @@ class _SuppliersPageState extends State<SuppliersPage> {
             if (_successMessage != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Text(_successMessage!, style: TextStyle(color: Colors.green.shade800, fontSize: 12.5)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(_successMessage!,
+                    style: TextStyle(
+                        color: Colors.green.shade800, fontSize: 12.5)),
               ),
             if (_error != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(_error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 13)),
               ),
             if (loading)
-              const Padding(padding: EdgeInsets.only(top: 40), child: Center(child: CircularProgressIndicator()))
+              const Padding(
+                  padding: EdgeInsets.only(top: 40),
+                  child: Center(child: CircularProgressIndicator()))
             else ...[
               const _SectionHeader('Mes fournisseurs'),
               const SizedBox(height: 8),
               if (_suppliers!.isEmpty)
-                const _EmptyState(text: 'Aucun fournisseur ajouté pour l\'instant.')
+                const _EmptyState(
+                    text: 'Aucun fournisseur ajouté pour l\'instant.')
               else
                 for (final supplier in _suppliers!)
                   Padding(
@@ -169,7 +192,8 @@ class _SuppliersPageState extends State<SuppliersPage> {
                     child: _SupplierCard(
                       supplier: supplier,
                       busy: _busyLinkId == supplier.linkId,
-                      onViewCatalog: () => context.push('/workspace/suppliers/${supplier.storeId}/order'),
+                      onViewCatalog: () => context.push(
+                          '/workspace/suppliers/${supplier.storeId}/order'),
                       onRemove: () => _removeSupplier(supplier),
                     ),
                   ),
@@ -181,12 +205,17 @@ class _SuppliersPageState extends State<SuppliersPage> {
               ),
               const SizedBox(height: 8),
               if (_clients!.isEmpty)
-                const _EmptyState(text: 'Aucune boutique ne vous a ajoutée comme fournisseur pour l\'instant.')
+                const _EmptyState(
+                    text:
+                        'Aucune boutique ne vous a ajoutée comme fournisseur pour l\'instant.')
               else
                 for (final client in _clients!)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _ClientCard(client: client, busy: _busyLinkId == client.linkId, onRemove: () => _removeClient(client)),
+                    child: _ClientCard(
+                        client: client,
+                        busy: _busyLinkId == client.linkId,
+                        onRemove: () => _removeClient(client)),
                   ),
               const SizedBox(height: 22),
               const _SectionHeader('Commandes reçues de mes clients'),
@@ -196,12 +225,20 @@ class _SuppliersPageState extends State<SuppliersPage> {
               ),
               const SizedBox(height: 8),
               if (_receivedOrders!.isEmpty)
-                const _EmptyState(text: 'Aucune commande reçue pour l\'instant.')
+                const _EmptyState(
+                    text: 'Aucune commande reçue pour l\'instant.')
               else
                 for (final order in _receivedOrders!)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _ReceivedOrderCard(order: order, onTap: () => showReceivedOrderDetailSheet(context, order.id)),
+                    child: _ReceivedOrderCard(
+                      order: order,
+                      onTap: () async {
+                        final changed = await showReceivedOrderDetailSheet(
+                            context, order.id);
+                        if (changed == true) _load();
+                      },
+                    ),
                   ),
             ],
           ],
@@ -216,7 +253,8 @@ class _SectionHeader extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14));
+  Widget build(BuildContext context) => Text(text,
+      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14));
 }
 
 class _EmptyState extends StatelessWidget {
@@ -227,14 +265,24 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(14)),
-      child: Center(child: Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500))),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(14)),
+      child: Center(
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500))),
     );
   }
 }
 
 class _SupplierCard extends StatelessWidget {
-  const _SupplierCard({required this.supplier, required this.busy, required this.onViewCatalog, required this.onRemove});
+  const _SupplierCard(
+      {required this.supplier,
+      required this.busy,
+      required this.onViewCatalog,
+      required this.onRemove});
 
   final StoreLink supplier;
   final bool busy;
@@ -245,20 +293,34 @@ class _SupplierCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade200)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(supplier.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-          Text(supplier.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+          Text(supplier.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(supplier.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
           const SizedBox(height: 10),
           Row(
             children: [
-              TextButton(onPressed: busy ? null : onViewCatalog, child: const Text('Voir le catalogue', style: TextStyle(fontSize: 12.5))),
+              TextButton(
+                  onPressed: busy ? null : onViewCatalog,
+                  child: const Text('Voir le catalogue',
+                      style: TextStyle(fontSize: 12.5))),
               const SizedBox(width: 4),
               TextButton(
                 onPressed: busy ? null : onRemove,
-                style: TextButton.styleFrom(foregroundColor: Colors.grey.shade500),
+                style:
+                    TextButton.styleFrom(foregroundColor: Colors.grey.shade500),
                 child: const Text('Retirer', style: TextStyle(fontSize: 12.5)),
               ),
             ],
@@ -270,7 +332,8 @@ class _SupplierCard extends StatelessWidget {
 }
 
 class _ClientCard extends StatelessWidget {
-  const _ClientCard({required this.client, required this.busy, required this.onRemove});
+  const _ClientCard(
+      {required this.client, required this.busy, required this.onRemove});
 
   final StoreLink client;
   final bool busy;
@@ -280,15 +343,26 @@ class _ClientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade200)),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(client.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                Text(client.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
+                Text(client.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13.5)),
+                Text(client.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
               ],
             ),
           ),
@@ -310,8 +384,20 @@ class _ReceivedOrderCard extends StatelessWidget {
   final ReceivedOrder order;
   final VoidCallback onTap;
 
-  Color _statusColor() => order.status == 'RECEIVED' ? Colors.green.shade700 : (order.status == 'CANCELLED' ? Colors.red.shade700 : Colors.amber.shade800);
-  Color _statusBg() => order.status == 'RECEIVED' ? Colors.green.shade50 : (order.status == 'CANCELLED' ? Colors.red.shade50 : Colors.amber.shade50);
+  Color _statusColor() => order.status == 'RECEIVED'
+      ? Colors.green.shade700
+      : (order.status == 'CANCELLED'
+          ? Colors.red.shade700
+          : (order.status == 'DELIVERED'
+              ? Colors.blue.shade700
+              : Colors.amber.shade800));
+  Color _statusBg() => order.status == 'RECEIVED'
+      ? Colors.green.shade50
+      : (order.status == 'CANCELLED'
+          ? Colors.red.shade50
+          : (order.status == 'DELIVERED'
+              ? Colors.blue.shade50
+              : Colors.amber.shade50));
 
   @override
   Widget build(BuildContext context) {
@@ -320,25 +406,50 @@ class _ReceivedOrderCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Expanded(
-                  child: Text(order.buyerStoreName ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Theme.of(context).colorScheme.primary)),
+                  child: Text(order.buyerStoreName ?? '—',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.primary)),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: _statusBg(), borderRadius: BorderRadius.circular(20)),
-                  child: Text(kReceivedOrderStatusLabels[order.status] ?? order.status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _statusColor())),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: _statusBg(),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text(
+                      kReceivedOrderStatusLabels[order.status] ?? order.status,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _statusColor())),
                 ),
               ],
             ),
-            Text('${order.reference ?? '—'} · ${formatDateTime(order.createdAt)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+            Text(
+                '${order.reference ?? '—'} · ${formatDateTime(order.createdAt)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
             const SizedBox(height: 6),
-            Align(alignment: Alignment.centerRight, child: Text(formatGNF(order.totalAmount), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5))),
+            Align(
+                alignment: Alignment.centerRight,
+                child: Text(formatGNF(order.totalAmount),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13.5))),
           ],
         ),
       ),
@@ -374,7 +485,9 @@ class _AddSupplierSheetState extends State<_AddSupplierSheet> {
       _error = null;
     });
     try {
-      final name = await context.read<SuppliersApi>().addSupplier(_codeController.text.trim());
+      final name = await context
+          .read<SuppliersApi>()
+          .addSupplier(_codeController.text.trim());
       if (!mounted) return;
       Navigator.of(context).pop(name);
     } on ApiException catch (err) {
@@ -387,14 +500,16 @@ class _AddSupplierSheetState extends State<_AddSupplierSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Ajouter un fournisseur', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              const Text('Ajouter un fournisseur',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const SizedBox(height: 6),
               Text(
                 'Demandez ce code au propriétaire de la boutique fournisseur — il se trouve dans ses Paramètres. Sa quantité en stock reste toujours privée ; son prix de vente n\'est visible qu\'au moment de préparer une commande.',
@@ -404,20 +519,28 @@ class _AddSupplierSheetState extends State<_AddSupplierSheet> {
               if (_error != null)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-                  child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Text(_error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13)),
                 ),
               TextField(
                 controller: _codeController,
                 autofocus: true,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'Code fournisseur', hintText: 'Ex : F5Q8N3Z3SCHW', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Code fournisseur',
+                    hintText: 'Ex : F5Q8N3Z3SCHW',
+                    border: OutlineInputBorder()),
               ),
               const SizedBox(height: 18),
               FilledButton(
                 onPressed: _submitting ? null : _submit,
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48)),
                 child: Text(_submitting ? 'Vérification...' : 'Ajouter'),
               ),
             ],

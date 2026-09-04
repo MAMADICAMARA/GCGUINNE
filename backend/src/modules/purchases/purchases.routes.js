@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
 const controller = require('./purchases.controller');
 const { requireAuth, requireActiveStore } = require('../../middlewares/auth');
 const { requirePlanFeature } = require('../../middlewares/plan');
@@ -101,10 +101,25 @@ router.post(
     body('items.*.supplierProductId').isInt().withMessage('Produit invalide.'),
     body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantité invalide.'),
     body('items.*.purchasePrice').isFloat({ min: 0 }).withMessage("Prix d'achat invalide."),
+    // § décidé en conversation, réduction des doublons — l'acheteur peut
+    // confirmer que ce produit correspond à un produit qu'il a déjà, au
+    // lieu d'en faire créer un nouveau (voir GET /match-suggestions ci-dessous).
+    body('items.*.matchedProductId').optional({ nullable: true }).isInt().withMessage('Produit rapproché invalide.'),
   ],
   checkValidation,
   requirePlanFeature('allowsPurchaseOrders'),
   controller.createOrderFromSupplierStore
+);
+
+// Suggestion automatique de rapprochement avec un produit déjà présent
+// dans le catalogue DE L'ACHETEUR (§ décidé en conversation) — jamais
+// verrouillée par le plan, simple lecture, utilisée pendant la
+// construction du panier avant même la création de la commande.
+router.get(
+  '/match-suggestions',
+  [query('name').trim().notEmpty().withMessage('Nom du produit requis.')],
+  checkValidation,
+  controller.suggestMatchingProducts
 );
 
 // Finaliser (recevoir/annuler) une commande déjà créée reste toujours
@@ -112,7 +127,17 @@ router.post(
 // création d'une nouvelle commande est verrouillée.
 router.post(
   '/orders/:id/receive',
-  [param('id').isInt().withMessage('Identifiant invalide.')],
+  [
+    param('id').isInt().withMessage('Identifiant invalide.'),
+    // § décidé en conversation : le prix de VENTE peut être ajusté ligne
+    // par ligne au moment de la réception (utile surtout pour un produit
+    // copié depuis le catalogue d'un fournisseur) — jamais le prix
+    // d'achat, jamais présent dans ce corps de requête, toujours celui
+    // négocié à la création de la commande.
+    body('items').optional().isArray().withMessage('Format invalide.'),
+    body('items.*.itemId').optional().isInt().withMessage('Ligne de commande invalide.'),
+    body('items.*.sellingPrice').optional().isFloat({ min: 0 }).withMessage('Prix de vente invalide.'),
+  ],
   checkValidation,
   controller.receivePurchaseOrder
 );
@@ -125,16 +150,22 @@ router.post(
 
 // Commandes reçues DE MES CLIENTS — je suis le fournisseur
 // (§29_commande_depuis_fournisseur_plateforme.sql, décidé en conversation).
-// Lecture seule stricte : jamais de confirmer/annuler depuis ce côté, c'est
-// toujours l'acheteur qui contrôle le cycle de vie de sa commande. Jamais
-// verrouillé par le plan : c'est de l'historique déjà arrivé, pas une
-// nouvelle création.
+// Toujours l'acheteur qui contrôle RÉCEPTION/ANNULATION, jamais verrouillé
+// par le plan (historique déjà arrivé, pas une nouvelle création). Depuis
+// §49_confirmation_livraison_fournisseur.sql, une seule action possible
+// côté fournisseur : confirmer l'expédition (/deliver ci-dessous).
 router.get('/received-orders', controller.listReceivedOrders);
 router.get(
   '/received-orders/:id',
   [param('id').isInt().withMessage('Identifiant invalide.')],
   checkValidation,
   controller.getReceivedOrder
+);
+router.post(
+  '/received-orders/:id/deliver',
+  [param('id').isInt().withMessage('Identifiant invalide.')],
+  checkValidation,
+  controller.declareOrderDelivered
 );
 
 module.exports = router;

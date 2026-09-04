@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Lock, Package, PackageSearch, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Merge, Package, PackageSearch, Plus, Search } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { useAuthStore, useIsPlanFrozen } from '@/store/authStore';
 import { formatGNF } from '@/utils/format';
 import UpgradePlanModal from '@/components/UpgradePlanModal';
 import ProductForm from './ProductForm';
 import ProductDetail from './ProductDetail';
+import MergeDuplicateProductsModal from './MergeDuplicateProductsModal';
 
 /**
  * ProductsPage — Gestion du catalogue produits (§4.4 du cahier des charges)
@@ -44,6 +45,7 @@ export default function ProductsPage() {
   // requête séparée.
   const [upgradeModalProduct, setUpgradeModalProduct] = useState(null);
   const [planInfo, setPlanInfo] = useState(null);
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   const [categories, setCategories] = useState([]);
 
@@ -161,14 +163,25 @@ export default function ProductsPage() {
             <p className="text-sm text-slate-500">Catalogue, catégories et stock.</p>
           </div>
         </div>
-        <button
-          onClick={handleCreate}
-          disabled={isFrozen}
-          title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus size={16} /> Ajouter un produit
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {isOwner && (
+            <button
+              onClick={() => setShowMergeModal(true)}
+              title="Fusionner deux fiches produit en double"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-3 py-2 hover:bg-slate-200 transition"
+            >
+              <Merge size={16} /> Fusionner des doublons
+            </button>
+          )}
+          <button
+            onClick={handleCreate}
+            disabled={isFrozen}
+            title={isFrozen ? 'Boutique en mode gratuit — action indisponible' : undefined}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus size={16} /> Ajouter un produit
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -443,6 +456,10 @@ export default function ProductsPage() {
           productName={upgradeModalProduct.name}
           onClose={() => setUpgradeModalProduct(null)}
         />
+      )}
+
+      {showMergeModal && (
+        <MergeDuplicateProductsModal onClose={() => setShowMergeModal(false)} onMerged={loadProducts} />
       )}
     </div>
   );

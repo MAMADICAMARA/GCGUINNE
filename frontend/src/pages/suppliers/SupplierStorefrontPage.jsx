@@ -81,26 +81,62 @@ export default function SupplierStorefrontPage() {
   const visibleProducts = showAllProducts ? filteredProducts : filteredProducts.slice(0, PREVIEW_COUNT);
   const hiddenCount = filteredProducts.length - visibleProducts.length;
 
-  function addToCart(product, requestedQty) {
+  // § décidé en conversation, réduction des doublons : quand un produit est
+  // ajouté au panier pour la première fois, on cherche tout de suite (avant
+  // même la création de la commande, jamais après — voir le fil de
+  // discussion sur l'immuabilité des lignes de commande) s'il ressemble à
+  // un produit déjà présent dans le catalogue DE L'ACHETEUR. Simple
+  // suggestion, jamais un rapprochement automatique silencieux — l'acheteur
+  // doit confirmer d'un clic avant qu'un produit existant soit réutilisé au
+  // lieu d'en créer un nouveau.
+  async function addToCart(product, requestedQty) {
     if (requestedQty <= 0) return;
     setError('');
-    setCart((prev) => {
-      const existing = prev.find((item) => item.supplierProductId === product.id);
-      if (existing) {
-        return prev.map((item) =>
+
+    const alreadyInCart = cart.some((item) => item.supplierProductId === product.id);
+    if (alreadyInCart) {
+      setCart((prev) =>
+        prev.map((item) =>
           item.supplierProductId === product.id ? { ...item, quantity: item.quantity + requestedQty } : item
-        );
-      }
-      return [
-        ...prev,
-        {
-          supplierProductId: product.id,
-          productName: product.name,
-          quantity: requestedQty,
-          unitPrice: product.sellingPrice,
-        },
-      ];
-    });
+        )
+      );
+      return;
+    }
+
+    setCart((prev) => [
+      ...prev,
+      {
+        supplierProductId: product.id,
+        productName: product.name,
+        quantity: requestedQty,
+        unitPrice: product.sellingPrice,
+        matchedProductId: null,
+        suggestion: null,
+        suggestionDismissed: false,
+      },
+    ]);
+
+    try {
+      const { data } = await apiClient.get('/purchases/match-suggestions', { params: { name: product.name } });
+      const suggestion = data.suggestions?.[0] || null;
+      if (!suggestion) return;
+      setCart((prev) =>
+        prev.map((item) => (item.supplierProductId === product.id ? { ...item, suggestion } : item))
+      );
+    } catch {
+      // Silencieux : une suggestion qui échoue à charger ne doit jamais
+      // bloquer l'ajout au panier, simple confort.
+    }
+  }
+
+  function confirmMatch(supplierProductId, matched) {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.supplierProductId === supplierProductId
+          ? { ...item, matchedProductId: matched ? item.suggestion.id : null, suggestionDismissed: true }
+          : item
+      )
+    );
   }
 
   function removeFromCart(supplierProductId) {
@@ -148,6 +184,7 @@ export default function SupplierStorefrontPage() {
           supplierProductId: item.supplierProductId,
           quantity: item.quantity,
           purchasePrice: item.unitPrice,
+          matchedProductId: item.matchedProductId || undefined,
         })),
       });
       setSuccessMessage('Commande créée — retrouvez-la dans "Achats" pour la marquer reçue.');
@@ -352,6 +389,33 @@ export default function SupplierStorefrontPage() {
                     <p className="text-right text-sm font-semibold text-slate-700 mt-1">
                       {formatGNF(item.quantity * item.unitPrice)}
                     </p>
+                    {item.suggestion && !item.suggestionDismissed && (
+                      <div className="mt-2 rounded-md bg-blue-50 border border-blue-100 px-2 py-1.5">
+                        <p className="text-xs text-blue-800">
+                          Vous avez peut-être déjà ce produit : <strong>{item.suggestion.name}</strong> — c'est le
+                          même ?
+                        </p>
+                        <div className="flex gap-2 mt-1.5">
+                          <button
+                            onClick={() => confirmMatch(item.supplierProductId, true)}
+                            className="rounded-md bg-blue-600 text-white text-xs font-medium px-2.5 py-1 hover:bg-blue-700 transition"
+                          >
+                            Oui, c'est le même
+                          </button>
+                          <button
+                            onClick={() => confirmMatch(item.supplierProductId, false)}
+                            className="rounded-md bg-white text-blue-700 border border-blue-200 text-xs font-medium px-2.5 py-1 hover:bg-blue-50 transition"
+                          >
+                            Non, différent
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {item.matchedProductId && (
+                      <p className="mt-1.5 text-xs text-green-700">
+                        ✓ Rapproché à votre produit existant "{item.suggestion?.name}" — aucun doublon créé.
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

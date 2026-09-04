@@ -102,7 +102,9 @@ class _PurchasesPageState extends State<PurchasesPage> {
         title: const Text('Retirer ce fournisseur ?'),
         content: Text('Retirer "${supplier.name}" de vos fournisseurs ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -131,10 +133,16 @@ class _PurchasesPageState extends State<PurchasesPage> {
       floatingActionButton: _loading
           ? null
           : FloatingActionButton.extended(
-              onPressed: _canCreate ? (_tab == _PurchasesTab.orders ? _openCreateOrder : _openAddSupplier) : null,
+              onPressed: _canCreate
+                  ? (_tab == _PurchasesTab.orders
+                      ? _openCreateOrder
+                      : _openAddSupplier)
+                  : null,
               backgroundColor: _canCreate ? null : Colors.grey.shade400,
               icon: const Icon(Icons.add),
-              label: Text(_tab == _PurchasesTab.orders ? 'Nouvelle commande' : 'Ajouter un fournisseur'),
+              label: Text(_tab == _PurchasesTab.orders
+                  ? 'Nouvelle commande'
+                  : 'Ajouter un fournisseur'),
             ),
       body: RefreshIndicator(
         onRefresh: _loadAll,
@@ -149,25 +157,33 @@ class _PurchasesPageState extends State<PurchasesPage> {
             if (!_loading && !_canCreate)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(10)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Les commandes d\'achat sont réservées au plan PREMIUM — passez à ce plan pour en créer. La consultation de ce qui existe déjà reste possible.',
-                      style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.amber.shade800),
                     ),
                     if (isOwner) ...[
                       const SizedBox(height: 8),
                       SizedBox(
                         height: 30,
                         child: FilledButton(
-                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage())),
+                          onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const SubscriptionPlansPage())),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.amber.shade600,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            textStyle: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w700),
                           ),
                           child: const Text('Passer au plan supérieur'),
                         ),
@@ -179,20 +195,33 @@ class _PurchasesPageState extends State<PurchasesPage> {
             if (_error != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(_error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 13)),
               ),
             Row(
               children: [
-                _TabChip(label: 'Commandes', selected: _tab == _PurchasesTab.orders, onTap: () => setState(() => _tab = _PurchasesTab.orders)),
+                _TabChip(
+                    label: 'Commandes',
+                    selected: _tab == _PurchasesTab.orders,
+                    onTap: () => setState(() => _tab = _PurchasesTab.orders)),
                 const SizedBox(width: 8),
-                _TabChip(label: 'Fournisseurs', selected: _tab == _PurchasesTab.suppliers, onTap: () => setState(() => _tab = _PurchasesTab.suppliers)),
+                _TabChip(
+                    label: 'Fournisseurs',
+                    selected: _tab == _PurchasesTab.suppliers,
+                    onTap: () =>
+                        setState(() => _tab = _PurchasesTab.suppliers)),
               ],
             ),
             const SizedBox(height: 14),
             if (_loading)
-              const Padding(padding: EdgeInsets.only(top: 40), child: Center(child: CircularProgressIndicator()))
+              const Padding(
+                  padding: EdgeInsets.only(top: 40),
+                  child: Center(child: CircularProgressIndicator()))
             else if (_tab == _PurchasesTab.orders)
               _buildOrdersTab()
             else
@@ -205,14 +234,17 @@ class _PurchasesPageState extends State<PurchasesPage> {
 
   Widget _buildOrdersTab() {
     if (_orders.isEmpty) {
-      return const _EmptyState(icon: Icons.assignment_outlined, message: "Aucune commande d'achat pour l'instant.");
+      return const _EmptyState(
+          icon: Icons.assignment_outlined,
+          message: "Aucune commande d'achat pour l'instant.");
     }
     return Column(
       children: [
         for (final order in _orders)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: _OrderCard(order: order, onTap: () => _openOrderDetail(order.id)),
+            child: _OrderCard(
+                order: order, onTap: () => _openOrderDetail(order.id)),
           ),
       ],
     );
@@ -220,7 +252,9 @@ class _PurchasesPageState extends State<PurchasesPage> {
 
   Widget _buildSuppliersTab() {
     if (_suppliers.isEmpty) {
-      return const _EmptyState(icon: Icons.shopping_bag_outlined, message: 'Aucun fournisseur enregistré pour l\'instant.');
+      return const _EmptyState(
+          icon: Icons.shopping_bag_outlined,
+          message: 'Aucun fournisseur enregistré pour l\'instant.');
     }
     return Column(
       children: [
@@ -240,7 +274,8 @@ class _PurchasesPageState extends State<PurchasesPage> {
 }
 
 class _TabChip extends StatelessWidget {
-  const _TabChip({required this.label, required this.selected, required this.onTap});
+  const _TabChip(
+      {required this.label, required this.selected, required this.onTap});
 
   final String label;
   final bool selected;
@@ -248,7 +283,10 @@ class _TabChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(label: Text(label, style: const TextStyle(fontSize: 12)), selected: selected, onSelected: (_) => onTap());
+    return ChoiceChip(
+        label: Text(label, style: const TextStyle(fontSize: 12)),
+        selected: selected,
+        onSelected: (_) => onTap());
   }
 }
 
@@ -285,6 +323,8 @@ class _OrderCard extends StatelessWidget {
         return Colors.green.shade700;
       case 'CANCELLED':
         return Colors.red.shade700;
+      case 'DELIVERED':
+        return Colors.blue.shade700;
       default:
         return Colors.amber.shade800;
     }
@@ -296,6 +336,8 @@ class _OrderCard extends StatelessWidget {
         return Colors.green.shade50;
       case 'CANCELLED':
         return Colors.red.shade50;
+      case 'DELIVERED':
+        return Colors.blue.shade50;
       default:
         return Colors.amber.shade50;
     }
@@ -308,7 +350,10 @@ class _OrderCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -319,28 +364,57 @@ class _OrderCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(order.supplierName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: Theme.of(context).colorScheme.primary)),
+                      Text(order.supplierName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13.5,
+                              color: Theme.of(context).colorScheme.primary)),
                       if (order.supplierType == 'PLATFORM')
-                        Text('fournisseur plateforme', style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400)),
+                        Text('fournisseur plateforme',
+                            style: TextStyle(
+                                fontSize: 10.5, color: Colors.grey.shade400)),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: _statusBg(), borderRadius: BorderRadius.circular(20)),
-                  child: Text(kPurchaseOrderStatusLabels[order.status] ?? order.status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _statusColor())),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: _statusBg(),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text(
+                      kPurchaseOrderStatusLabels[order.status] ?? order.status,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _statusColor())),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text('${order.reference ?? '—'} · ${formatDateTime(order.createdAt)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+            Text(
+                '${order.reference ?? '—'} · ${formatDateTime(order.createdAt)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: Text(order.createdByName ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey.shade600))),
+                Expanded(
+                    child: Text(order.createdByName ?? '—',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600))),
                 const SizedBox(width: 8),
-                Text(formatGNF(order.totalAmount), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                Text(formatGNF(order.totalAmount),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13.5)),
               ],
             ),
           ],
@@ -351,7 +425,11 @@ class _OrderCard extends StatelessWidget {
 }
 
 class _SupplierCard extends StatelessWidget {
-  const _SupplierCard({required this.supplier, required this.busy, required this.onEdit, required this.onRemove});
+  const _SupplierCard(
+      {required this.supplier,
+      required this.busy,
+      required this.onEdit,
+      required this.onRemove});
 
   final SupplierContact supplier;
   final bool busy;
@@ -362,24 +440,42 @@ class _SupplierCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade200)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(supplier.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(supplier.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 2),
-          Text(supplier.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          Text(supplier.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           const SizedBox(height: 10),
           Row(
             children: [
               InkWell(
                 onTap: busy ? null : onEdit,
-                child: Text('Modifier', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary)),
+                child: Text('Modifier',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary)),
               ),
               const SizedBox(width: 16),
               InkWell(
                 onTap: busy ? null : onRemove,
-                child: Text('Retirer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
+                child: Text('Retirer',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade500)),
               ),
             ],
           ),

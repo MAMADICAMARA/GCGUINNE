@@ -72,9 +72,18 @@ async function createOrderFromSupplierStore(req, res, next) {
   }
 }
 
+async function suggestMatchingProducts(req, res, next) {
+  try {
+    const suggestions = await service.suggestMatchingProducts(req.auth.storeId, req.query.name);
+    res.json({ suggestions });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function receivePurchaseOrder(req, res, next) {
   try {
-    const result = await service.receivePurchaseOrder(req.auth.storeId, req.params.id, req.auth.userId);
+    const result = await service.receivePurchaseOrder(req.auth.storeId, req.params.id, req.auth.userId, req.body.items);
     res.json(result);
   } catch (err) {
     next(err);
@@ -84,6 +93,15 @@ async function receivePurchaseOrder(req, res, next) {
 async function cancelPurchaseOrder(req, res, next) {
   try {
     const result = await service.cancelPurchaseOrder(req.auth.storeId, req.params.id, req.auth.userId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function declareOrderDelivered(req, res, next) {
+  try {
+    const result = await service.declareOrderDelivered(req.auth.storeId, req.params.id, req.auth.userId);
     res.json(result);
   } catch (err) {
     next(err);
@@ -117,8 +135,10 @@ module.exports = {
   getPurchaseOrder,
   createPurchaseOrder,
   createOrderFromSupplierStore,
+  suggestMatchingProducts,
   receivePurchaseOrder,
   cancelPurchaseOrder,
+  declareOrderDelivered,
   listReceivedOrders,
   getReceivedOrder,
 };

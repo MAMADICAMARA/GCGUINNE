@@ -13,7 +13,13 @@ int _parseInt(Object? value) => (value as num).toInt();
 /// Sert à la fois pour "mes fournisseurs" et "mes clients" — même forme
 /// des deux côtés du lien.
 class StoreLink {
-  const StoreLink({required this.linkId, required this.storeId, required this.name, required this.city, required this.category, required this.linkedAt});
+  const StoreLink(
+      {required this.linkId,
+      required this.storeId,
+      required this.name,
+      required this.city,
+      required this.category,
+      required this.linkedAt});
 
   factory StoreLink.fromJson(Map<String, dynamic> json) => StoreLink(
         linkId: json['linkId'] as int,
@@ -32,7 +38,8 @@ class StoreLink {
   final String? linkedAt;
 
   String get subtitle {
-    final parts = [category, city].where((s) => s != null && s.isNotEmpty).toList();
+    final parts =
+        [category, city].where((s) => s != null && s.isNotEmpty).toList();
     return parts.isEmpty ? '—' : parts.join(' · ');
   }
 }
@@ -41,9 +48,16 @@ class StoreLink {
 /// prix de vente affiché à titre de référence, jamais le stock (voir
 /// suppliers.service.js#getSupplierCatalogForOrder).
 class SupplierProduct {
-  const SupplierProduct({required this.id, required this.name, required this.reference, required this.imageUrl, required this.categoryName, required this.sellingPrice});
+  const SupplierProduct(
+      {required this.id,
+      required this.name,
+      required this.reference,
+      required this.imageUrl,
+      required this.categoryName,
+      required this.sellingPrice});
 
-  factory SupplierProduct.fromJson(Map<String, dynamic> json) => SupplierProduct(
+  factory SupplierProduct.fromJson(Map<String, dynamic> json) =>
+      SupplierProduct(
         id: json['id'] as int,
         name: json['name'] as String,
         reference: json['reference'] as String?,
@@ -61,11 +75,15 @@ class SupplierProduct {
 }
 
 class SupplierOrderCatalog {
-  const SupplierOrderCatalog({required this.supplierName, required this.products});
+  const SupplierOrderCatalog(
+      {required this.supplierName, required this.products});
 
-  factory SupplierOrderCatalog.fromJson(Map<String, dynamic> json) => SupplierOrderCatalog(
+  factory SupplierOrderCatalog.fromJson(Map<String, dynamic> json) =>
+      SupplierOrderCatalog(
         supplierName: json['supplierName'] as String? ?? '',
-        products: (json['products'] as List<dynamic>? ?? []).map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>)).toList(),
+        products: (json['products'] as List<dynamic>? ?? [])
+            .map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   final String supplierName;
@@ -76,17 +94,51 @@ class SupplierOrderCatalog {
 /// prix, contrairement à la Caisse, reste modifiable (c'est un prix
 /// convenu avec le fournisseur, pas un prix de vente fixe).
 class SupplierCartItem {
-  SupplierCartItem({required this.supplierProductId, required this.productName, required this.quantity, required this.unitPrice});
+  SupplierCartItem(
+      {required this.supplierProductId,
+      required this.productName,
+      required this.quantity,
+      required this.unitPrice,
+      this.matchedProductId,
+      this.suggestion,
+      this.suggestionDismissed = false});
 
   final int supplierProductId;
   final String productName;
   int quantity;
   num unitPrice;
 
+  /// § décidé en conversation, réduction des doublons — produit du
+  /// catalogue DE L'ACHETEUR confirmé comme étant "le même" que celui du
+  /// fournisseur, jamais rempli automatiquement (voir [suggestion]
+  /// ci-dessous, une simple proposition à confirmer d'un tap).
+  int? matchedProductId;
+  ProductMatchSuggestion? suggestion;
+  bool suggestionDismissed;
+
   num get lineTotal => quantity * unitPrice;
 }
 
-const kReceivedOrderStatusLabels = {'PENDING': 'En attente', 'RECEIVED': 'Reçue', 'CANCELLED': 'Annulée'};
+/// Suggestion de rapprochement (§ décidé en conversation) — simple
+/// proposition par similarité de nom, jamais un rapprochement automatique
+/// silencieux.
+class ProductMatchSuggestion {
+  const ProductMatchSuggestion({required this.id, required this.name});
+
+  factory ProductMatchSuggestion.fromJson(Map<String, dynamic> json) =>
+      ProductMatchSuggestion(
+          id: json['id'] as int, name: json['name'] as String);
+
+  final int id;
+  final String name;
+}
+
+const kReceivedOrderStatusLabels = {
+  'PENDING': 'En attente',
+  'DELIVERED': 'Livrée',
+  'RECEIVED': 'Reçue',
+  'CANCELLED': 'Annulée',
+};
 
 class ReceivedOrder {
   const ReceivedOrder({
@@ -96,6 +148,8 @@ class ReceivedOrder {
     required this.status,
     required this.createdAt,
     required this.receivedAt,
+    required this.deliveredAt,
+    required this.requiresDeliveryConfirmation,
     required this.buyerStoreName,
   });
 
@@ -106,6 +160,9 @@ class ReceivedOrder {
         status: json['status'] as String,
         createdAt: json['createdAt'] as String?,
         receivedAt: json['receivedAt'] as String?,
+        deliveredAt: json['deliveredAt'] as String?,
+        requiresDeliveryConfirmation:
+            json['requiresDeliveryConfirmation'] as bool? ?? false,
         buyerStoreName: json['buyerStoreName'] as String?,
       );
 
@@ -115,13 +172,21 @@ class ReceivedOrder {
   final String status;
   final String? createdAt;
   final String? receivedAt;
+  final String? deliveredAt;
+
+  /// §49_confirmation_livraison_fournisseur.sql — vrai seulement pour une
+  /// commande créée après ce correctif ; détermine si "Marquer comme livré"
+  /// est proposé côté fournisseur.
+  final bool requiresDeliveryConfirmation;
   final String? buyerStoreName;
 }
 
 class ReceivedOrderItem {
-  const ReceivedOrderItem({required this.id, required this.productName, required this.quantity});
+  const ReceivedOrderItem(
+      {required this.id, required this.productName, required this.quantity});
 
-  factory ReceivedOrderItem.fromJson(Map<String, dynamic> json) => ReceivedOrderItem(
+  factory ReceivedOrderItem.fromJson(Map<String, dynamic> json) =>
+      ReceivedOrderItem(
         id: json['id'] as int,
         productName: json['productName'] as String,
         quantity: _parseInt(json['quantity']),
@@ -135,9 +200,12 @@ class ReceivedOrderItem {
 class ReceivedOrderDetail {
   const ReceivedOrderDetail({required this.order, required this.items});
 
-  factory ReceivedOrderDetail.fromJson(Map<String, dynamic> json) => ReceivedOrderDetail(
+  factory ReceivedOrderDetail.fromJson(Map<String, dynamic> json) =>
+      ReceivedOrderDetail(
         order: ReceivedOrder.fromJson(json['order'] as Map<String, dynamic>),
-        items: (json['items'] as List<dynamic>? ?? []).map((e) => ReceivedOrderItem.fromJson(e as Map<String, dynamic>)).toList(),
+        items: (json['items'] as List<dynamic>? ?? [])
+            .map((e) => ReceivedOrderItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   final ReceivedOrder order;

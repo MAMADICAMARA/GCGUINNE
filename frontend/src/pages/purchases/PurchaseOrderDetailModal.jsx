@@ -4,6 +4,7 @@ import { formatGNF, formatDateTime } from '@/utils/format';
 
 const STATUS_LABELS = {
   PENDING: 'En attente',
+  DELIVERED: 'Livrée par le fournisseur',
   RECEIVED: 'Reçue',
   CANCELLED: 'Annulée',
 };
@@ -15,17 +16,35 @@ const STATUS_LABELS = {
  * encore été reçu. Ces deux actions restent disponibles même si la
  * boutique a depuis perdu l'accès PREMIUM — seule la création d'une
  * nouvelle commande est verrouillée par le plan.
+ *
+ * §49_confirmation_livraison_fournisseur.sql (décidé en conversation) :
+ * pour une commande passée auprès d'un fournisseur DE LA PLATEFORME et
+ * créée après ce correctif (`requiresDeliveryConfirmation`), le fournisseur
+ * doit d'abord confirmer l'expédition (statut DELIVERED) avant que
+ * "Marquer reçue" ne soit disponible ici — sans ça, une fausse commande
+ * immédiatement "reçue" décrémentait le stock du fournisseur sans qu'il
+ * n'ait jamais rien confirmé. Une commande antérieure à ce correctif, ou
+ * venant d'un fournisseur externe (simple carnet d'adresses), garde
+ * l'ancien comportement : réception directe depuis PENDING.
  */
 export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Prix de vente modifiable par ligne, uniquement pour un fournisseur DE LA
+  // PLATEFORME (§ décidé en conversation) — le prix d'achat, lui, n'est
+  // jamais éditable ici : il reste celui négocié à la création de la
+  // commande (`item.purchasePrice`), affiché en lecture seule.
+  const [sellingPriceEdits, setSellingPriceEdits] = useState({});
 
   async function loadOrder() {
     try {
       const res = await apiClient.get(`/purchases/orders/${orderId}`);
       setData(res.data);
+      setSellingPriceEdits(
+        Object.fromEntries(res.data.items.map((item) => [item.id, String(item.currentSellingPrice ?? '')]))
+      );
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Impossible de charger la commande.');
     }
@@ -55,7 +74,13 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
     setError('');
     setBusy(true);
     try {
-      await apiClient.post(`/purchases/orders/${orderId}/receive`);
+      const items =
+        data.order.supplierType === 'PLATFORM'
+          ? data.items
+              .map((item) => ({ itemId: item.id, sellingPrice: Number(sellingPriceEdits[item.id]) }))
+              .filter((entry) => Number.isFinite(entry.sellingPrice) && entry.sellingPrice >= 0)
+          : undefined;
+      await apiClient.post(`/purchases/orders/${orderId}/receive`, { items });
       await loadOrder();
       onChanged?.();
     } catch (err) {
@@ -80,7 +105,10 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
     }
   }
 
-  const canAct = data && data.order.status === 'PENDING';
+  const needsDeliveryFirst = data && data.order.supplierType === 'PLATFORM' && data.order.requiresDeliveryConfirmation;
+  const canReceive = data && (needsDeliveryFirst ? data.order.status === 'DELIVERED' : data.order.status === 'PENDING');
+  const canCancel = data && data.order.status === 'PENDING';
+  const waitingOnSupplier = needsDeliveryFirst && data.order.status === 'PENDING';
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -109,6 +137,7 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
                 <Info label="Créée par" value={data.order.createdByName} />
                 <Info label="Date" value={formatDateTime(data.order.createdAt)} />
                 <Info label="Statut" value={STATUS_LABELS[data.order.status]} />
+                {data.order.deliveredAt && <Info label="Livrée le" value={formatDateTime(data.order.deliveredAt)} />}
                 {data.order.receivedAt && <Info label="Reçue le" value={formatDateTime(data.order.receivedAt)} />}
                 {data.order.receivedByName && <Info label="Reçue par" value={data.order.receivedByName} />}
               </div>
@@ -116,15 +145,41 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Articles</h3>
               <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 mb-4">
                 {data.items.map((item) => (
-                  <div key={item.id} className="px-3 py-2">
-                    <p className="text-sm text-slate-700">{item.productName}</p>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-xs text-slate-500">
-                        {item.quantity} × {formatGNF(item.purchasePrice)}
-                      </span>
-                      <span className="text-sm font-medium text-slate-800">
-                        {formatGNF(item.quantity * item.purchasePrice)}
-                      </span>
+                  <div key={item.id} className="px-3 py-2 flex gap-3">
+                    {item.productImageUrl && (
+                      <img
+                        src={item.productImageUrl}
+                        alt=""
+                        className="h-10 w-10 rounded-md object-cover shrink-0 border border-slate-100"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-700 truncate">{item.productName}</p>
+                      {item.reference && <p className="text-xs text-slate-400">Réf. {item.reference}</p>}
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-xs text-slate-500">
+                          {item.quantity} × {formatGNF(item.purchasePrice)} (achat)
+                        </span>
+                        <span className="text-sm font-medium text-slate-800">
+                          {formatGNF(item.quantity * item.purchasePrice)}
+                        </span>
+                      </div>
+                      {canReceive && data.order.supplierType === 'PLATFORM' && (
+                        <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-500">
+                          Prix de vente
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={sellingPriceEdits[item.id] ?? ''}
+                            onChange={(e) =>
+                              setSellingPriceEdits((prev) => ({ ...prev, [item.id]: e.target.value }))
+                            }
+                            className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          />
+                          GNF
+                        </label>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -134,12 +189,18 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
                 <span>Total</span>
                 <span>{formatGNF(data.order.totalAmount)}</span>
               </div>
+
+              {waitingOnSupplier && (
+                <p className="mt-4 text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                  En attente que le fournisseur confirme l'expédition de cette commande.
+                </p>
+              )}
             </>
           )}
         </div>
 
         <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 shrink-0">
-          {canAct && (
+          {canReceive && (
             <button
               onClick={handleReceive}
               disabled={busy}
@@ -148,7 +209,7 @@ export default function PurchaseOrderDetailModal({ orderId, onClose, onChanged }
               {busy ? 'Traitement...' : 'Marquer reçue'}
             </button>
           )}
-          {canAct && (
+          {canCancel && (
             <button
               onClick={handleCancel}
               disabled={busy}

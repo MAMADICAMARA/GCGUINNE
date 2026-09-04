@@ -513,6 +513,111 @@ async function adjustStock(storeId, productId, delta, userId, note) {
 }
 
 /**
+ * Suggestions de doublons probables au sein du catalogue DE LA BOUTIQUE
+ * (§50_fusion_produits_doublons.sql, décidé en conversation) — même
+ * technique de similarité de nom (pg_trgm) que
+ * purchases.service.js#suggestMatchingProducts, mais en auto-jointure sur
+ * les produits ACTIFS d'une même boutique plutôt qu'une recherche par nom
+ * donné. `a.id < b.id` évite les doublons de paires (A,B) et (B,A).
+ * Simple suggestion à vérifier/confirmer par l'Owner, jamais une fusion
+ * automatique.
+ */
+async function suggestDuplicateProducts(storeId) {
+  const { rows } = await pool.query(
+    `SELECT a.id AS "productAId", a.name AS "productAName", a.quantity AS "productAQuantity",
+            b.id AS "productBId", b.name AS "productBName", b.quantity AS "productBQuantity"
+     FROM products a
+     JOIN products b ON b.store_id = a.store_id AND b.id > a.id AND b.status = 'ACTIVE'
+     WHERE a.store_id = $1 AND a.status = 'ACTIVE' AND similarity(a.name, b.name) > 0.3
+     ORDER BY similarity(a.name, b.name) DESC
+     LIMIT 20`,
+    [storeId]
+  );
+  return rows;
+}
+
+/**
+ * Fusionne un produit en double (`mergeProductId`) dans le produit gardé
+ * (`keepProductId`) — §50_fusion_produits_doublons.sql, décidé en
+ * conversation, en réponse à une faille signalée : un acheteur peut se
+ * retrouver avec deux fiches pour le même article (une créée manuellement,
+ * une auto-créée par une commande fournisseur où il a répondu "non, pas le
+ * même" à la suggestion automatique). Le stock du produit fusionné est
+ * entièrement transféré vers le produit gardé, puis le produit fusionné
+ * est DÉSACTIVÉ (jamais supprimé — l'historique de mouvements déjà lié à
+ * lui reste intact et immuable, comme partout ailleurs dans l'app).
+ * `store_supplier_product_links` est repointée vers le produit gardé, pour
+ * que les PROCHAINES commandes de ce produit fournisseur réutilisent
+ * directement la bonne fiche.
+ */
+async function mergeProducts(storeId, keepProductId, mergeProductId, userId) {
+  if (Number(keepProductId) === Number(mergeProductId)) {
+    throw new AppError('Impossible de fusionner un produit avec lui-même.', 400, 'VALIDATION_ERROR');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const productsResult = await client.query(
+      `SELECT id, name, quantity FROM products WHERE store_id = $1 AND id = ANY($2::int[]) FOR UPDATE`,
+      [storeId, [keepProductId, mergeProductId]]
+    );
+    if (productsResult.rows.length !== 2) {
+      throw new AppError('Produit introuvable.', 404, 'PRODUCT_NOT_FOUND');
+    }
+    const keepProduct = productsResult.rows.find((p) => p.id === Number(keepProductId));
+    const mergeProduct = productsResult.rows.find((p) => p.id === Number(mergeProductId));
+
+    if (mergeProduct.quantity > 0) {
+      await client.query('UPDATE products SET quantity = quantity + $1 WHERE id = $2', [
+        mergeProduct.quantity,
+        keepProductId,
+      ]);
+      await client.query(
+        `INSERT INTO stock_movements (product_id, type, quantity, reference_table, reference_id, user_id, note)
+         VALUES ($1, 'MERGE_IN', $2, 'products', $3, $4, $5)`,
+        [keepProductId, mergeProduct.quantity, mergeProductId, userId, `Fusion depuis "${mergeProduct.name}" (#${mergeProductId})`]
+      );
+      await client.query(
+        `INSERT INTO stock_movements (product_id, type, quantity, reference_table, reference_id, user_id, note)
+         VALUES ($1, 'MERGE_OUT', $2, 'products', $3, $4, $5)`,
+        [mergeProductId, mergeProduct.quantity, keepProductId, userId, `Fusionné dans "${keepProduct.name}" (#${keepProductId})`]
+      );
+    }
+
+    await client.query(`UPDATE products SET quantity = 0, status = 'INACTIVE' WHERE id = $1`, [mergeProductId]);
+
+    await client.query(
+      `UPDATE store_supplier_product_links SET buyer_product_id = $1 WHERE buyer_product_id = $2`,
+      [keepProductId, mergeProductId]
+    );
+
+    await client.query(
+      `INSERT INTO system_logs (user_id, store_id, action, details)
+       VALUES ($1, $2, 'MERGE_DUPLICATE_PRODUCTS', $3::jsonb)`,
+      [
+        userId,
+        storeId,
+        JSON.stringify({ keepProductId, mergeProductId, transferredQuantity: mergeProduct.quantity }),
+      ]
+    );
+
+    await client.query('COMMIT');
+    return {
+      keepProductId: Number(keepProductId),
+      mergeProductId: Number(mergeProductId),
+      newQuantity: Number(keepProduct.quantity) + Number(mergeProduct.quantity),
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Historique des mouvements de stock d'un produit (§4.5).
  */
 async function getStockHistory(storeId, productId) {
@@ -562,6 +667,8 @@ module.exports = {
   deactivateProduct,
   reactivateProduct,
   adjustStock,
+  suggestDuplicateProducts,
+  mergeProducts,
   getStoreStockMovements,
   getStockHistory,
   getEffectiveUnitPrice,

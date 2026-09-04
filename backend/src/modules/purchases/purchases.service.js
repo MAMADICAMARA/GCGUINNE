@@ -134,6 +134,7 @@ async function listPurchaseOrders(storeId, { status, supplierId, page, limit } =
   const result = await pool.query(
     `SELECT po.id, po.reference, po.total_amount AS "totalAmount", po.status,
             po.created_at AS "createdAt", po.received_at AS "receivedAt",
+            po.delivered_at AS "deliveredAt", po.requires_delivery_confirmation AS "requiresDeliveryConfirmation",
             COALESCE(sc.id, ss.id) AS "supplierId", COALESCE(sc.name, ss.name) AS "supplierName",
             CASE WHEN po.supplier_id IS NOT NULL THEN 'EXTERNAL' ELSE 'PLATFORM' END AS "supplierType",
             cu.full_name AS "createdByName"
@@ -159,6 +160,7 @@ async function getPurchaseOrderById(storeId, orderId) {
   const orderResult = await pool.query(
     `SELECT po.id, po.reference, po.total_amount AS "totalAmount", po.status,
             po.created_at AS "createdAt", po.received_at AS "receivedAt",
+            po.delivered_at AS "deliveredAt", po.requires_delivery_confirmation AS "requiresDeliveryConfirmation",
             COALESCE(sc.id, ss.id) AS "supplierId", COALESCE(sc.name, ss.name) AS "supplierName",
             sc.phone AS "supplierPhone",
             CASE WHEN po.supplier_id IS NOT NULL THEN 'EXTERNAL' ELSE 'PLATFORM' END AS "supplierType",
@@ -178,6 +180,7 @@ async function getPurchaseOrderById(storeId, orderId) {
   const itemsResult = await pool.query(
     `SELECT poi.id, poi.product_id AS "productId", poi.quantity,
             poi.purchase_price AS "purchasePrice", p.name AS "productName", p.reference,
+            p.image_url AS "productImageUrl", p.selling_price AS "currentSellingPrice",
             sp.name AS "supplierProductName"
      FROM purchase_order_items poi
      JOIN products p ON p.id = poi.product_id
@@ -283,6 +286,32 @@ async function createPurchaseOrder(storeId, userId, { supplierId, reference, ite
  * externe) ET, symétriquement, celui du fournisseur (`supplierProductId`,
  * conservé sur chaque ligne pour cet usage).
  */
+/**
+ * Suggestion automatique de rapprochement (§ décidé en conversation, pour
+ * éviter les doublons quand l'acheteur a déjà ce produit dans son propre
+ * catalogue avant même sa première commande chez ce fournisseur) —
+ * recherche par similarité de nom (`pg_trgm`, déjà activé en base, jamais
+ * utilisé nulle part ailleurs avant cette fonction) parmi les produits
+ * ACTIFS de L'ACHETEUR uniquement. Seuil 0.3 = seuil par défaut de
+ * pg_trgm, un compromis raisonnable entre bruit et silence.
+ *
+ * Volontairement une SIMPLE SUGGESTION, jamais un rapprochement
+ * automatique/silencieux : c'est `createOrderFromSupplierStore` (via
+ * `item.matchedProductId`) qui applique réellement le choix, uniquement
+ * après confirmation explicite de l'acheteur côté client.
+ */
+async function suggestMatchingProducts(storeId, name) {
+  const { rows } = await pool.query(
+    `SELECT id, name, reference, image_url AS "imageUrl", selling_price AS "sellingPrice", quantity
+     FROM products
+     WHERE store_id = $1 AND status = 'ACTIVE' AND similarity(name, $2) > 0.3
+     ORDER BY similarity(name, $2) DESC
+     LIMIT 5`,
+    [storeId, name]
+  );
+  return rows;
+}
+
 async function createOrderFromSupplierStore(storeId, userId, { supplierStoreId, reference, items }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new AppError('Ajoutez au moins un article à la commande.', 400, 'VALIDATION_ERROR');
@@ -336,7 +365,7 @@ async function createOrderFromSupplierStore(storeId, userId, { supplierStoreId, 
 
   const supplierProductIds = items.map((i) => i.supplierProductId);
   const supplierProductsResult = await pool.query(
-    `SELECT id, name, reference, selling_price AS "sellingPrice"
+    `SELECT id, name, reference, image_url AS "imageUrl", selling_price AS "sellingPrice"
      FROM products WHERE store_id = $1 AND status = 'ACTIVE' AND id = ANY($2::int[])`,
     [supplierStoreId, supplierProductIds]
   );
@@ -364,13 +393,50 @@ async function createOrderFromSupplierStore(storeId, userId, { supplierStoreId, 
       let buyerProductId;
       if (existingLink.rows.length > 0) {
         buyerProductId = existingLink.rows[0].buyerProductId;
+      } else if (item.matchedProductId) {
+        // L'acheteur a confirmé, au moment de construire son panier, que ce
+        // produit du fournisseur correspond à un produit qu'il a DÉJÀ dans
+        // son catalogue (§ décidé en conversation — suggestion automatique
+        // par similarité de nom, jamais un rapprochement silencieux : voir
+        // suggestMatchingProducts ci-dessous, toujours confirmé par un clic
+        // explicite côté client) — jamais de nouvelle fiche créée, le stock
+        // ira sur celle-ci. Revérifié ici côté serveur (jamais fait
+        // confiance à un id fourni par le client sans validation) : doit
+        // appartenir à CETTE boutique et être actif.
+        const matchResult = await client.query(
+          `SELECT id FROM products WHERE id = $1 AND store_id = $2 AND status = 'ACTIVE'`,
+          [item.matchedProductId, storeId]
+        );
+        if (matchResult.rows.length === 0) {
+          throw new AppError('Le produit sélectionné pour le rapprochement est introuvable.', 404, 'PRODUCT_NOT_FOUND');
+        }
+        buyerProductId = item.matchedProductId;
+
+        await client.query(
+          `INSERT INTO store_supplier_product_links (buyer_store_id, supplier_product_id, buyer_product_id)
+           VALUES ($1, $2, $3)`,
+          [storeId, item.supplierProductId, buyerProductId]
+        );
       } else {
+        // Reprend aussi la référence et l'image du fournisseur (§ décidé en
+        // conversation, faille signalée : jusqu'ici seuls name/sellingPrice
+        // étaient copiés) — uniquement à la CRÉATION du lien, jamais
+        // rejoué ensuite (même principe que le reste de ce bloc) : ne
+        // s'applique qu'aux nouveaux produits créés à partir d'aujourd'hui,
+        // jamais rétroactif sur un produit déjà lié.
         const supplierProduct = supplierProductsById.get(item.supplierProductId);
         const newProductResult = await client.query(
-          `INSERT INTO products (store_id, name, purchase_price, selling_price, quantity, status)
-           VALUES ($1, $2, $3, $4, 0, 'ACTIVE')
+          `INSERT INTO products (store_id, name, reference, image_url, purchase_price, selling_price, quantity, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 0, 'ACTIVE')
            RETURNING id`,
-          [storeId, supplierProduct.name, item.purchasePrice, supplierProduct.sellingPrice]
+          [
+            storeId,
+            supplierProduct.name,
+            supplierProduct.reference,
+            supplierProduct.imageUrl,
+            item.purchasePrice,
+            supplierProduct.sellingPrice,
+          ]
         );
         buyerProductId = newProductResult.rows[0].id;
 
@@ -438,7 +504,24 @@ async function createOrderFromSupplierStore(storeId, userId, { supplierStoreId, 
  * et ne doit jamais bloquer la confirmation de réception de l'acheteur, qui
  * constate un événement déjà arrivé dans la réalité.
  */
-async function receivePurchaseOrder(storeId, orderId, userId) {
+/**
+ * `itemOverrides` (§ décidé en conversation, faille signalée : produit
+ * copié du fournisseur sans jamais pouvoir ajuster le prix de vente au
+ * moment de la réception) : liste optionnelle `[{ itemId, sellingPrice }]`
+ * — seul le prix de VENTE du produit BÉNÉFICIAIRE peut être ajusté ici, le
+ * prix d'ACHAT reste TOUJOURS celui négocié avec le fournisseur
+ * (`item.purchasePrice`, jamais modifiable via ce paramètre, jamais lu
+ * depuis `itemOverrides`) — la plateforme retient le prix d'achat réel,
+ * seul le prix de revente est à la discrétion de l'acheteur.
+ */
+async function receivePurchaseOrder(storeId, orderId, userId, itemOverrides = []) {
+  const sellingPriceByItemId = new Map();
+  for (const override of Array.isArray(itemOverrides) ? itemOverrides : []) {
+    if (Number.isInteger(override?.itemId) && typeof override?.sellingPrice === 'number' && override.sellingPrice >= 0) {
+      sellingPriceByItemId.set(override.itemId, override.sellingPrice);
+    }
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -457,6 +540,7 @@ async function receivePurchaseOrder(storeId, orderId, userId) {
       // les tables jointes ne sont que des données de référence en lecture.
       const orderResult = await client.query(
         `SELECT po.id, po.status, po.reference, po.supplier_store_id AS "supplierStoreId",
+                po.requires_delivery_confirmation AS "requiresDeliveryConfirmation",
                 COALESCE(sc.name, ss.name) AS "supplierName"
          FROM purchase_orders po
          LEFT JOIN supplier_contacts sc ON sc.id = po.supplier_id
@@ -469,12 +553,33 @@ async function receivePurchaseOrder(storeId, orderId, userId) {
         throw new AppError('Commande introuvable.', 404, 'PURCHASE_ORDER_NOT_FOUND');
       }
       const order = orderResult.rows[0];
-      if (order.status !== 'PENDING') {
+
+      // §49_confirmation_livraison_fournisseur.sql, décidé en conversation :
+      // pour une commande créée APRÈS ce correctif auprès d'un fournisseur
+      // DE LA PLATEFORME, le fournisseur doit avoir confirmé l'expédition
+      // (DELIVERED) avant que l'acheteur ne puisse confirmer réception —
+      // sans ça, une fausse commande immédiatement "reçue" décrémentait le
+      // stock du fournisseur sans qu'il n'ait jamais rien confirmé. Un
+      // fournisseur EXTERNE (supplier_id, simple carnet d'adresses) n'a pas
+      // de compte plateforme pour confirmer quoi que ce soit — jamais
+      // concerné, quelle que soit la valeur de `requiresDeliveryConfirmation`.
+      const needsDeliveryFirst = order.supplierStoreId && order.requiresDeliveryConfirmation;
+      if (needsDeliveryFirst) {
+        if (order.status !== 'DELIVERED') {
+          throw new AppError(
+            order.status === 'PENDING'
+              ? "Le fournisseur n'a pas encore confirmé l'expédition de cette commande."
+              : 'Seules les commandes livrées peuvent être marquées reçues.',
+            409,
+            'NOT_DELIVERED'
+          );
+        }
+      } else if (order.status !== 'PENDING') {
         throw new AppError('Seules les commandes en attente peuvent être marquées reçues.', 409, 'NOT_PENDING');
       }
 
       const itemsResult = await client.query(
-        `SELECT product_id AS "productId", supplier_product_id AS "supplierProductId",
+        `SELECT id AS "itemId", product_id AS "productId", supplier_product_id AS "supplierProductId",
                 quantity, purchase_price AS "purchasePrice"
          FROM purchase_order_items WHERE purchase_id = $1`,
         [orderId]
@@ -482,11 +587,19 @@ async function receivePurchaseOrder(storeId, orderId, userId) {
 
       const note = `Réception commande ${order.reference || `#${orderId}`} — ${order.supplierName}`;
       for (const item of itemsResult.rows) {
-        await client.query('UPDATE products SET quantity = quantity + $1, purchase_price = $2 WHERE id = $3', [
-          item.quantity,
-          item.purchasePrice,
-          item.productId,
-        ]);
+        const sellingPriceOverride = sellingPriceByItemId.get(item.itemId);
+        if (sellingPriceOverride !== undefined) {
+          await client.query(
+            'UPDATE products SET quantity = quantity + $1, purchase_price = $2, selling_price = $3 WHERE id = $4',
+            [item.quantity, item.purchasePrice, sellingPriceOverride, item.productId]
+          );
+        } else {
+          await client.query('UPDATE products SET quantity = quantity + $1, purchase_price = $2 WHERE id = $3', [
+            item.quantity,
+            item.purchasePrice,
+            item.productId,
+          ]);
+        }
         await client.query(
           `INSERT INTO stock_movements
            (product_id, type, quantity, unit_cost, reference_table, reference_id, user_id, note)
@@ -570,9 +683,49 @@ async function cancelPurchaseOrder(storeId, orderId, userId) {
 
 // --- Commandes reçues DE MES CLIENTS (je suis le fournisseur) -------------
 // (§29_commande_depuis_fournisseur_plateforme.sql, décidé en conversation)
-// Lecture seule stricte : B ne confirme/annule jamais rien ici, c'est
-// toujours A (l'acheteur) qui contrôle le cycle de vie de sa commande —
-// B constate seulement ce qui a été commandé chez lui, et son statut.
+// B ne confirme/annule jamais l'ANNULATION ni ne force la RÉCEPTION — ça
+// reste le rôle exclusif de A (l'acheteur). Depuis
+// §49_confirmation_livraison_fournisseur.sql (décidé en conversation), B a
+// UNE action possible : confirmer qu'il a expédié (declareOrderDelivered
+// ci-dessous), étape désormais requise avant que A puisse marquer reçu.
+
+/**
+ * Le FOURNISSEUR (boutique de la plateforme) confirme avoir expédié une
+ * commande passée chez lui — §49_confirmation_livraison_fournisseur.sql,
+ * décidé en conversation, en réponse à une faille signalée : sans cette
+ * étape, l'acheteur pouvait faire décrémenter le stock du fournisseur avec
+ * une commande jamais réellement expédiée. UPDATE atomique avec toutes les
+ * conditions dans le WHERE (même patron que cancelPurchaseOrder) : si la
+ * commande n'appartient pas à ce fournisseur, n'est plus PENDING, ou ne
+ * nécessite pas cette confirmation (commande créée avant ce correctif),
+ * aucune ligne ne correspond et un message générique est renvoyé — jamais
+ * de distinction fine qui laisserait deviner l'état exact d'une commande
+ * qui ne serait pas la sienne.
+ */
+async function declareOrderDelivered(supplierStoreId, orderId, userId) {
+  const { rows } = await pool.query(
+    `UPDATE purchase_orders
+     SET status = 'DELIVERED', delivered_at = NOW(), delivered_by = $1
+     WHERE id = $2 AND supplier_store_id = $3 AND status = 'PENDING' AND requires_delivery_confirmation = TRUE
+     RETURNING id, status, delivered_at AS "deliveredAt"`,
+    [userId, orderId, supplierStoreId]
+  );
+  if (rows.length === 0) {
+    throw new AppError(
+      'Commande introuvable, déjà traitée, ou ne nécessitant pas de confirmation de livraison.',
+      409,
+      'NOT_DELIVERABLE'
+    );
+  }
+
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'DECLARE_ORDER_DELIVERED', $3::jsonb)`,
+    [userId, supplierStoreId, JSON.stringify({ orderId })]
+  );
+
+  return rows[0];
+}
 
 async function listOrdersFromMyClients(supplierStoreId, { status, page, limit } = {}) {
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -596,6 +749,7 @@ async function listOrdersFromMyClients(supplierStoreId, { status, page, limit } 
   const result = await pool.query(
     `SELECT po.id, po.reference, po.total_amount AS "totalAmount", po.status,
             po.created_at AS "createdAt", po.received_at AS "receivedAt",
+            po.delivered_at AS "deliveredAt", po.requires_delivery_confirmation AS "requiresDeliveryConfirmation",
             bs.id AS "buyerStoreId", bs.name AS "buyerStoreName"
      FROM purchase_orders po
      JOIN stores bs ON bs.id = po.store_id
@@ -617,6 +771,7 @@ async function getReceivedOrderById(supplierStoreId, orderId) {
   const orderResult = await pool.query(
     `SELECT po.id, po.reference, po.total_amount AS "totalAmount", po.status,
             po.created_at AS "createdAt", po.received_at AS "receivedAt",
+            po.delivered_at AS "deliveredAt", po.requires_delivery_confirmation AS "requiresDeliveryConfirmation",
             bs.id AS "buyerStoreId", bs.name AS "buyerStoreName"
      FROM purchase_orders po
      JOIN stores bs ON bs.id = po.store_id
@@ -652,9 +807,11 @@ module.exports = {
   listPurchaseOrders,
   getPurchaseOrderById,
   createPurchaseOrder,
+  suggestMatchingProducts,
   createOrderFromSupplierStore,
   receivePurchaseOrder,
   cancelPurchaseOrder,
+  declareOrderDelivered,
   listOrdersFromMyClients,
   getReceivedOrderById,
 };

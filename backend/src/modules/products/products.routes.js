@@ -12,6 +12,24 @@ router.use(requireAuth, requireActiveStore);
 // Lecture : accessible à tous les rôles d'une boutique (le vendeur a besoin
 // de consulter le catalogue et le stock pour la caisse, cf. §8.1).
 router.get('/', controller.list);
+
+// Fusion de doublons (§50_fusion_produits_doublons.sql, décidé en
+// conversation) — réservée au Owner, même périmètre que
+// désactiver/réactiver/ajuster le stock d'un produit existant. Montée
+// AVANT '/:id' juste en dessous — jamais l'inverse, sinon Express
+// interpréterait "duplicate-suggestions" comme un :id (bug déjà rencontré
+// et corrigé ailleurs dans ce projet, cf. routes/index.js).
+router.get('/duplicate-suggestions', requireRole('OWNER'), controller.duplicateSuggestions);
+router.post(
+  '/merge',
+  requireRole('OWNER'),
+  [
+    body('keepProductId').isInt().withMessage('Produit à garder invalide.'),
+    body('mergeProductId').isInt().withMessage('Produit à fusionner invalide.'),
+  ],
+  controller.merge
+);
+
 router.get('/:id', [param('id').isInt()], controller.getOne);
 router.get('/:id/stock-history', [param('id').isInt()], controller.stockHistory);
 

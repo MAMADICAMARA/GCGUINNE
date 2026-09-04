@@ -11,9 +11,15 @@ num? _parseNum(Object? value) {
 }
 
 class SupplierContact {
-  const SupplierContact({required this.id, required this.name, required this.phone, required this.email, required this.address});
+  const SupplierContact(
+      {required this.id,
+      required this.name,
+      required this.phone,
+      required this.email,
+      required this.address});
 
-  factory SupplierContact.fromJson(Map<String, dynamic> json) => SupplierContact(
+  factory SupplierContact.fromJson(Map<String, dynamic> json) =>
+      SupplierContact(
         id: json['id'] as int,
         name: json['name'] as String,
         phone: json['phone'] as String?,
@@ -28,12 +34,18 @@ class SupplierContact {
   final String? address;
 
   String get subtitle {
-    final parts = [phone, email].where((s) => s != null && s.isNotEmpty).toList();
+    final parts =
+        [phone, email].where((s) => s != null && s.isNotEmpty).toList();
     return parts.isEmpty ? '—' : parts.join(' · ');
   }
 }
 
-const kPurchaseOrderStatusLabels = {'PENDING': 'En attente', 'RECEIVED': 'Reçue', 'CANCELLED': 'Annulée'};
+const kPurchaseOrderStatusLabels = {
+  'PENDING': 'En attente',
+  'DELIVERED': 'Livrée',
+  'RECEIVED': 'Reçue',
+  'CANCELLED': 'Annulée',
+};
 
 class PurchaseOrderSummary {
   const PurchaseOrderSummary({
@@ -43,19 +55,25 @@ class PurchaseOrderSummary {
     required this.status,
     required this.createdAt,
     required this.receivedAt,
+    required this.deliveredAt,
+    required this.requiresDeliveryConfirmation,
     required this.supplierId,
     required this.supplierName,
     required this.supplierType,
     required this.createdByName,
   });
 
-  factory PurchaseOrderSummary.fromJson(Map<String, dynamic> json) => PurchaseOrderSummary(
+  factory PurchaseOrderSummary.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderSummary(
         id: json['id'] as int,
         reference: json['reference'] as String?,
         totalAmount: _parseNum(json['totalAmount']) ?? 0,
         status: json['status'] as String,
         createdAt: json['createdAt'] as String?,
         receivedAt: json['receivedAt'] as String?,
+        deliveredAt: json['deliveredAt'] as String?,
+        requiresDeliveryConfirmation:
+            json['requiresDeliveryConfirmation'] as bool? ?? false,
         supplierId: json['supplierId'] as int?,
         supplierName: json['supplierName'] as String? ?? '—',
         supplierType: json['supplierType'] as String? ?? 'EXTERNAL',
@@ -68,8 +86,16 @@ class PurchaseOrderSummary {
   final String status;
   final String? createdAt;
   final String? receivedAt;
+  final String? deliveredAt;
+
+  /// §49_confirmation_livraison_fournisseur.sql — vrai seulement pour une
+  /// commande créée après ce correctif ; détermine si "Marquer reçue" exige
+  /// d'abord le statut DELIVERED (fournisseur plateforme) ou reste directe
+  /// depuis PENDING (ancienne commande, ou fournisseur externe).
+  final bool requiresDeliveryConfirmation;
   final int? supplierId;
   final String supplierName;
+
   /// 'EXTERNAL' (fournisseur contact) ou 'PLATFORM' (boutique de la plateforme).
   final String supplierType;
   final String? createdByName;
@@ -83,6 +109,8 @@ class PurchaseOrderInfo {
     required this.status,
     required this.createdAt,
     required this.receivedAt,
+    required this.deliveredAt,
+    required this.requiresDeliveryConfirmation,
     required this.supplierId,
     required this.supplierName,
     required this.supplierPhone,
@@ -91,13 +119,17 @@ class PurchaseOrderInfo {
     required this.receivedByName,
   });
 
-  factory PurchaseOrderInfo.fromJson(Map<String, dynamic> json) => PurchaseOrderInfo(
+  factory PurchaseOrderInfo.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderInfo(
         id: json['id'] as int,
         reference: json['reference'] as String?,
         totalAmount: _parseNum(json['totalAmount']) ?? 0,
         status: json['status'] as String,
         createdAt: json['createdAt'] as String?,
         receivedAt: json['receivedAt'] as String?,
+        deliveredAt: json['deliveredAt'] as String?,
+        requiresDeliveryConfirmation:
+            json['requiresDeliveryConfirmation'] as bool? ?? false,
         supplierId: json['supplierId'] as int?,
         supplierName: json['supplierName'] as String? ?? '—',
         supplierPhone: json['supplierPhone'] as String?,
@@ -112,6 +144,8 @@ class PurchaseOrderInfo {
   final String status;
   final String? createdAt;
   final String? receivedAt;
+  final String? deliveredAt;
+  final bool requiresDeliveryConfirmation;
   final int? supplierId;
   final String supplierName;
   final String? supplierPhone;
@@ -121,15 +155,27 @@ class PurchaseOrderInfo {
 }
 
 class PurchaseOrderItem {
-  const PurchaseOrderItem({required this.id, required this.productId, required this.quantity, required this.purchasePrice, required this.productName, required this.reference});
+  const PurchaseOrderItem({
+    required this.id,
+    required this.productId,
+    required this.quantity,
+    required this.purchasePrice,
+    required this.productName,
+    required this.reference,
+    required this.productImageUrl,
+    required this.currentSellingPrice,
+  });
 
-  factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) => PurchaseOrderItem(
+  factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderItem(
         id: json['id'] as int,
         productId: json['productId'] as int,
         quantity: json['quantity'] as int,
         purchasePrice: _parseNum(json['purchasePrice']) ?? 0,
         productName: json['productName'] as String,
         reference: json['reference'] as String?,
+        productImageUrl: json['productImageUrl'] as String?,
+        currentSellingPrice: _parseNum(json['currentSellingPrice']) ?? 0,
       );
 
   final int id;
@@ -138,14 +184,24 @@ class PurchaseOrderItem {
   final num purchasePrice;
   final String productName;
   final String? reference;
+  final String? productImageUrl;
+
+  /// Prix de vente ACTUEL du produit bénéficiaire — utilisé pour préremplir
+  /// le champ modifiable à la réception (§ décidé en conversation),
+  /// jamais le prix d'achat, toujours fixe (`purchasePrice` ci-dessus).
+  final num currentSellingPrice;
 }
 
 class PurchaseOrderDetail {
   const PurchaseOrderDetail({required this.order, required this.items});
 
-  factory PurchaseOrderDetail.fromJson(Map<String, dynamic> json) => PurchaseOrderDetail(
-        order: PurchaseOrderInfo.fromJson(json['order'] as Map<String, dynamic>),
-        items: (json['items'] as List<dynamic>? ?? []).map((e) => PurchaseOrderItem.fromJson(e as Map<String, dynamic>)).toList(),
+  factory PurchaseOrderDetail.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderDetail(
+        order:
+            PurchaseOrderInfo.fromJson(json['order'] as Map<String, dynamic>),
+        items: (json['items'] as List<dynamic>? ?? [])
+            .map((e) => PurchaseOrderItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   final PurchaseOrderInfo order;
@@ -156,7 +212,11 @@ class PurchaseOrderDetail {
 /// DE CETTE BOUTIQUE (contrairement à SupplierCartItem, qui porte sur le
 /// catalogue d'un fournisseur de la plateforme).
 class PurchaseOrderDraftItem {
-  PurchaseOrderDraftItem({this.productId, this.productName, required this.quantity, required this.purchasePrice});
+  PurchaseOrderDraftItem(
+      {this.productId,
+      this.productName,
+      required this.quantity,
+      required this.purchasePrice});
 
   int? productId;
   String? productName;
