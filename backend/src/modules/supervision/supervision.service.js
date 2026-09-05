@@ -1,8 +1,10 @@
+const crypto = require('crypto');
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const dashboardService = require('../dashboard/dashboard.service');
 const productsService = require('../products/products.service');
 const ordersService = require('../orders/orders.service');
+const subscriptionPaymentsService = require('../subscriptionPayments/subscriptionPayments.service');
 const { listStoreAuditLog } = require('../../utils/auditLog');
 const { getEffectivePlan } = require('../../utils/planContext');
 
@@ -73,6 +75,107 @@ async function verifyAccess(userId, storeId) {
 }
 
 /**
+ * Contrôle d'accès allégé pour le paiement d'abonnement d'une boutique
+ * supervisée (§ décidé en conversation) — même première moitié que
+ * verifyAccess (propriétaire OU lien dans store_supervisors), MAIS sans la
+ * condition de plan : c'est justement quand le plan actuel n'autorise plus
+ * la supervision (donc bloquerait verifyAccess) que payer est le plus utile,
+ * pour débloquer l'accès. Utilisée UNIQUEMENT par les 3 fonctions de
+ * paiement ci-dessous — jamais pour la lecture des données de la boutique,
+ * qui reste soumise à verifyAccess sans exception.
+ */
+async function verifySupervisorLink(userId, storeId) {
+  const ownerResult = await pool.query('SELECT 1 FROM stores WHERE id = $1 AND owner_id = $2', [
+    storeId,
+    userId,
+  ]);
+  if (ownerResult.rows.length > 0) return;
+
+  const supervisorResult = await pool.query(
+    'SELECT 1 FROM store_supervisors WHERE store_id = $1 AND supervisor_user_id = $2',
+    [storeId, userId]
+  );
+  if (supervisorResult.rows.length === 0) {
+    throw new AppError("Vous n'avez pas accès à cette boutique.", 403, 'FORBIDDEN');
+  }
+}
+
+/**
+ * Paiement d'abonnement pour une boutique supervisée (§ décidé en
+ * conversation) — reste déclaratif comme pour le Owner lui-même
+ * (subscriptionPayments.service.js#submitPaymentRequest, jamais dupliquée) :
+ * aucun plan n'est activé avant vérification manuelle par un Super Admin.
+ * `requested_by` porte l'identité réelle du superviseur, jamais celle du
+ * propriétaire — le Super Admin le distingue via `requestedBySupervisor`
+ * (listPaymentRequests).
+ */
+async function getSupervisedStoreSubscriptionOptions(userId, storeId) {
+  await verifySupervisorLink(userId, storeId);
+  return subscriptionPaymentsService.getSubscriptionOptions();
+}
+
+async function submitSupervisedStorePaymentRequest(userId, storeId, payload) {
+  await verifySupervisorLink(userId, storeId);
+  return subscriptionPaymentsService.submitPaymentRequest(storeId, userId, payload);
+}
+
+async function getSupervisedStoreLatestPaymentRequest(userId, storeId) {
+  await verifySupervisorLink(userId, storeId);
+  return subscriptionPaymentsService.getLatestPaymentRequest(storeId);
+}
+
+/**
+ * Options de paiement pour "Payer pour toutes" (§52_lot_paiement_abonnement.sql,
+ * décidé en conversation) — le catalogue de plans/tarifs n'est pas une
+ * donnée propre à une boutique (voir getSubscriptionOptions,
+ * subscriptionPayments.service.js), donc aucun contrôle d'accès par
+ * boutique ici : n'importe quel utilisateur authentifié non-employé (déjà
+ * filtré par blockEmployees en amont) peut voir le catalogue, exactement
+ * comme sur la page "Choisir un plan" du Owner.
+ */
+async function getBulkSubscriptionOptions() {
+  return subscriptionPaymentsService.getSubscriptionOptions();
+}
+
+/**
+ * "Payer pour toutes" (§52_lot_paiement_abonnement.sql, décidé en
+ * conversation) — un seul plan + une seule durée choisis une fois par le
+ * superviseur, appliqués à PLUSIEURS boutiques supervisées à la suite (un
+ * seul virement réel de sa part). Chaque boutique garde sa propre ligne
+ * dans subscription_payment_requests (montant individuel jamais multiplié,
+ * calculé serveur comme pour une demande normale) — jamais une seule ligne
+ * "globale", pour que le Super Admin active/rejette chaque boutique
+ * indépendamment. `batchId` (généré ici une seule fois, jamais fourni par
+ * le client) relie ces lignes pour l'affichage groupé côté Super Admin.
+ *
+ * Traite chaque boutique indépendamment plutôt qu'en transaction unique :
+ * une boutique qui a déjà une demande en attente (rare) ne doit jamais
+ * bloquer les autres boutiques du lot — son échec est simplement remonté
+ * dans `results` à côté des succès.
+ */
+async function submitBulkSupervisedStorePaymentRequest(userId, storeIds, payload) {
+  const uniqueStoreIds = [...new Set(storeIds)];
+  if (uniqueStoreIds.length === 0) {
+    throw new AppError('Aucune boutique sélectionnée.', 400, 'VALIDATION_ERROR');
+  }
+
+  const batchId = crypto.randomUUID();
+  const results = [];
+  for (const storeId of uniqueStoreIds) {
+    const storeResult = await pool.query('SELECT name FROM stores WHERE id = $1', [storeId]);
+    const storeName = storeResult.rows[0]?.name || `Boutique #${storeId}`;
+    try {
+      const request = await submitSupervisedStorePaymentRequest(userId, storeId, { ...payload, batchId });
+      results.push({ storeId, storeName, success: true, requestId: request.id });
+    } catch (err) {
+      results.push({ storeId, storeName, success: false, error: err.message });
+    }
+  }
+
+  return { batchId, results };
+}
+
+/**
  * Liste les boutiques de tiers que cet utilisateur supervise via un code de
  * partage (store_supervisors), en lecture seule stricte. Les boutiques
  * qu'il POSSÈDE lui-même n'apparaissent volontairement pas ici (décidé en
@@ -137,11 +240,21 @@ async function listSupervisableStores(userId) {
   const supervisionAllowedByStore = Object.fromEntries(
     stores.map((s, i) => [s.id, plans[i].allowsSupervision])
   );
+  // planName/planExpiresAt (§ décidé en conversation, "payer l'abonnement
+  // depuis Superviser") — toujours renvoyés, MÊME quand supervisionAllowed
+  // est false : c'est justement l'information dont le superviseur a besoin
+  // pour savoir qu'il doit payer pour débloquer l'accès. Pas une fuite de
+  // données commerciales sensibles (juste le nom du plan et sa date
+  // d'expiration), contrairement au CA/bénéfice ci-dessus.
+  const planInfoByStore = Object.fromEntries(
+    stores.map((s, i) => [s.id, { planName: plans[i].planName, planExpiresAt: plans[i].planExpiresAt ?? null }])
+  );
 
   return stores.map((s) => {
     const supervisionAllowed = supervisionAllowedByStore[s.id];
     return {
       ...s,
+      ...planInfoByStore[s.id],
       // Le lien de supervision existe toujours en base même si la boutique
       // a depuis rétrogradé — on continue de l'afficher (transparence :
       // "vous suivez toujours cette boutique") mais ni son aperçu chiffré
@@ -330,4 +443,9 @@ module.exports = {
   getSupervisedStoreOrder,
   getSupervisedStoreStockMovements,
   getSupervisedStoreAuditLog,
+  getSupervisedStoreSubscriptionOptions,
+  submitSupervisedStorePaymentRequest,
+  getSupervisedStoreLatestPaymentRequest,
+  getBulkSubscriptionOptions,
+  submitBulkSupervisedStorePaymentRequest,
 };

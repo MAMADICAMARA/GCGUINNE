@@ -31,6 +31,7 @@ router.post(
       .withMessage('Méthode de paiement invalide.'),
     body('transactionReference').trim().notEmpty().withMessage('La référence de transaction est requise.'),
     body('payerPhone').optional({ checkFalsy: true }).trim(),
+    body('months').optional().isInt({ min: 1 }).withMessage('Le nombre de mois doit être un entier positif.'),
   ],
   checkValidation,
   controller.submitRequest

@@ -36,6 +36,11 @@ dependencies:
   # Stockage sécurisé du jeton de session (Keychain iOS / Keystore Android).
   flutter_secure_storage: ^9.2.2
 
+  # Déverrouillage rapide (§ décidé en conversation) — déclenche le verrou
+  # natif du téléphone (biométrie OU code/schéma de l'appareil) pour
+  # reconnecter automatiquement sans retaper les identifiants.
+  local_auth: ^2.3.0
+
   # Formatage des montants (GNF) et des dates. Version épinglée par
   # flutter_localizations (SDK) — ^0.19.0 ne résout plus depuis son ajout.
   intl: ^0.20.2

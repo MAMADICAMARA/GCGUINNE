@@ -613,279 +613,295 @@ class _PosPageState extends State<PosPage> {
           minChildSize: 0.5,
           maxChildSize: 0.95,
           expand: false,
-          builder: (context, scrollController) => Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Panier',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 16)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Text(
-                          '$_itemCount article${_itemCount > 1 ? 's' : ''}',
-                          style: const TextStyle(fontSize: 11)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: _cart.isEmpty
-                      ? const Center(
-                          child: Text('Le panier est vide.',
-                              style: TextStyle(color: Colors.grey)))
-                      : ListView(
-                          controller: scrollController,
-                          children: [
-                            for (final item in _cart)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(10)),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                            child: Text(item.productName,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.w500,
-                                                    fontSize: 13))),
-                                        InkWell(
-                                          onTap: () {
-                                            _removeFromCart(item.productId);
-                                            setSheetState(() {});
-                                          },
-                                          child: const Icon(
-                                              Icons.delete_outline,
-                                              size: 18,
-                                              color: Colors.redAccent),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            _qtyButton(Icons.remove, () {
-                                              _updateQuantity(item.productId,
-                                                  item.quantity - 1);
-                                              setSheetState(() {});
-                                            }),
-                                            Container(
-                                              width: 36,
-                                              alignment: Alignment.center,
-                                              child: Text('${item.quantity}',
+          // SafeArea(top: false) — même principe que _CartSummaryBar
+          // ci-dessus : cette feuille (showModalBottomSheet) a son propre
+          // bouton "Valider la vente" tout en bas, distinct de la barre
+          // récapitulative déjà corrigée — sans elle, il se retrouve sous
+          // la barre de navigation système sur un téléphone à boutons
+          // classiques (§ signalé par un second utilisateur, même cause).
+          builder: (context, scrollController) => SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Panier',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 16)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text(
+                            '$_itemCount article${_itemCount > 1 ? 's' : ''}',
+                            style: const TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: _cart.isEmpty
+                        ? const Center(
+                            child: Text('Le panier est vide.',
+                                style: TextStyle(color: Colors.grey)))
+                        : ListView(
+                            controller: scrollController,
+                            children: [
+                              for (final item in _cart)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                      color: Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(10)),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                              child: Text(item.productName,
                                                   style: const TextStyle(
-                                                      fontSize: 13)),
-                                            ),
-                                            _qtyButton(Icons.add, () {
-                                              _updateQuantity(item.productId,
-                                                  item.quantity + 1);
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      fontSize: 13))),
+                                          InkWell(
+                                            onTap: () {
+                                              _removeFromCart(item.productId);
                                               setSheetState(() {});
-                                            }),
-                                          ],
-                                        ),
-                                        Flexible(
-                                          child: Text(
-                                            formatGNF(item.lineTotal),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            textAlign: TextAlign.right,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13),
+                                            },
+                                            child: const Icon(
+                                                Icons.delete_outline,
+                                                size: 18,
+                                                color: Colors.redAccent),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (canEditPrice) ...[
+                                        ],
+                                      ),
                                       const SizedBox(height: 6),
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Text('Prix unitaire négocié',
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey)),
-                                          SizedBox(
-                                            width: 90,
-                                            child: TextField(
-                                              key: ValueKey(
-                                                  'price-${item.productId}'),
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              textAlign: TextAlign.right,
-                                              controller: TextEditingController(
-                                                  text: '${item.unitPrice}'),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: !isOwner &&
-                                                        item.priceEdited &&
-                                                        item.unitPrice <
-                                                            _normalUnitPriceFor(
-                                                                item)
-                                                    ? Colors.red
-                                                    : null,
-                                              ),
-                                              decoration: InputDecoration(
-                                                isDense: true,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                        vertical: 6,
-                                                        horizontal: 8),
-                                                border:
-                                                    const OutlineInputBorder(),
-                                                enabledBorder:
-                                                    OutlineInputBorder(
-                                                  borderSide: BorderSide(
-                                                    color: !isOwner &&
-                                                            item.priceEdited &&
-                                                            item.unitPrice <
-                                                                _normalUnitPriceFor(
-                                                                    item)
-                                                        ? Colors.red.shade300
-                                                        : Colors.grey.shade300,
-                                                  ),
-                                                ),
-                                              ),
-                                              onChanged: (value) {
-                                                _updateUnitPrice(
-                                                    item.productId, value);
+                                          Row(
+                                            children: [
+                                              _qtyButton(Icons.remove, () {
+                                                _updateQuantity(item.productId,
+                                                    item.quantity - 1);
                                                 setSheetState(() {});
-                                              },
+                                              }),
+                                              Container(
+                                                width: 36,
+                                                alignment: Alignment.center,
+                                                child: Text('${item.quantity}',
+                                                    style: const TextStyle(
+                                                        fontSize: 13)),
+                                              ),
+                                              _qtyButton(Icons.add, () {
+                                                _updateQuantity(item.productId,
+                                                    item.quantity + 1);
+                                                setSheetState(() {});
+                                              }),
+                                            ],
+                                          ),
+                                          Flexible(
+                                            child: Text(
+                                              formatGNF(item.lineTotal),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.right,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13),
                                             ),
                                           ),
                                         ],
                                       ),
-                                      if (!isOwner &&
-                                          item.priceEdited &&
-                                          item.unitPrice <
-                                              _normalUnitPriceFor(item))
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            'Minimum : ${formatGNF(_normalUnitPriceFor(item))}',
-                                            style: const TextStyle(
-                                                fontSize: 10.5,
-                                                color: Colors.red),
-                                          ),
+                                      if (canEditPrice) ...[
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            const Text('Prix unitaire négocié',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey)),
+                                            SizedBox(
+                                              width: 90,
+                                              child: TextField(
+                                                key: ValueKey(
+                                                    'price-${item.productId}'),
+                                                keyboardType:
+                                                    TextInputType.number,
+                                                textAlign: TextAlign.right,
+                                                controller:
+                                                    TextEditingController(
+                                                        text:
+                                                            '${item.unitPrice}'),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: !isOwner &&
+                                                          item.priceEdited &&
+                                                          item.unitPrice <
+                                                              _normalUnitPriceFor(
+                                                                  item)
+                                                      ? Colors.red
+                                                      : null,
+                                                ),
+                                                decoration: InputDecoration(
+                                                  isDense: true,
+                                                  contentPadding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 6,
+                                                          horizontal: 8),
+                                                  border:
+                                                      const OutlineInputBorder(),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                      color: !isOwner &&
+                                                              item
+                                                                  .priceEdited &&
+                                                              item.unitPrice <
+                                                                  _normalUnitPriceFor(
+                                                                      item)
+                                                          ? Colors.red.shade300
+                                                          : Colors
+                                                              .grey.shade300,
+                                                    ),
+                                                  ),
+                                                ),
+                                                onChanged: (value) {
+                                                  _updateUnitPrice(
+                                                      item.productId, value);
+                                                  setSheetState(() {});
+                                                },
+                                              ),
+                                            ),
+                                          ],
                                         ),
+                                        if (!isOwner &&
+                                            item.priceEdited &&
+                                            item.unitPrice <
+                                                _normalUnitPriceFor(item))
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              'Minimum : ${formatGNF(_normalUnitPriceFor(item))}',
+                                              style: const TextStyle(
+                                                  fontSize: 10.5,
+                                                  color: Colors.red),
+                                            ),
+                                          ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
+                  ),
+                  const Divider(),
+                  _totalsLine('Sous-total', formatGNF(_subtotal)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Réduction (%)',
+                          style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                      SizedBox(
+                        width: 70,
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          controller: TextEditingController(
+                              text: _discountPercent == 0
+                                  ? ''
+                                  : '$_discountPercent'),
+                          decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 6),
+                              border: OutlineInputBorder()),
+                          onChanged: (value) {
+                            final parsed =
+                                (num.tryParse(value) ?? 0).clamp(0, 100);
+                            setState(() => _discountPercent = parsed);
+                            setSheetState(() {});
+                          },
                         ),
-                ),
-                const Divider(),
-                _totalsLine('Sous-total', formatGNF(_subtotal)),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Réduction (%)',
-                        style: TextStyle(fontSize: 12.5, color: Colors.grey)),
-                    SizedBox(
-                      width: 70,
-                      child: TextField(
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        controller: TextEditingController(
-                            text: _discountPercent == 0
-                                ? ''
-                                : '$_discountPercent'),
-                        decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 6),
-                            border: OutlineInputBorder()),
-                        onChanged: (value) {
-                          final parsed =
-                              (num.tryParse(value) ?? 0).clamp(0, 100);
-                          setState(() => _discountPercent = parsed);
-                          setSheetState(() {});
-                        },
                       ),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Taxe (%)',
-                        style: TextStyle(fontSize: 12.5, color: Colors.grey)),
-                    SizedBox(
-                      width: 70,
-                      child: TextField(
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        controller: TextEditingController(
-                            text: _taxPercent == 0 ? '' : '$_taxPercent'),
-                        decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 6),
-                            border: OutlineInputBorder()),
-                        onChanged: (value) {
-                          final parsed =
-                              (num.tryParse(value) ?? 0).clamp(0, 100);
-                          setState(() => _taxPercent = parsed);
-                          setSheetState(() {});
-                        },
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Taxe (%)',
+                          style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                      SizedBox(
+                        width: 70,
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          controller: TextEditingController(
+                              text: _taxPercent == 0 ? '' : '$_taxPercent'),
+                          decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 6),
+                              border: OutlineInputBorder()),
+                          onChanged: (value) {
+                            final parsed =
+                                (num.tryParse(value) ?? 0).clamp(0, 100);
+                            setState(() => _taxPercent = parsed);
+                            setSheetState(() {});
+                          },
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                _totalsLine('TOTAL', formatGNF(_total), bold: true),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: _paymentMethod,
-                  decoration: const InputDecoration(
-                      labelText: 'Méthode de paiement',
-                      border: OutlineInputBorder(),
-                      isDense: true),
-                  items: const [
-                    DropdownMenuItem(value: 'CASH', child: Text('Espèces')),
-                    DropdownMenuItem(
-                        value: 'MOBILE_MONEY', child: Text('Mobile Money')),
-                    DropdownMenuItem(value: 'CARD', child: Text('Carte')),
-                    DropdownMenuItem(value: 'OTHER', child: Text('Autre')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) setState(() => _paymentMethod = value);
-                    setSheetState(() {});
-                  },
-                ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed:
-                      _cart.isEmpty || _submitting || _cartHasPriceBelowFloor
-                          ? null
-                          : () {
-                              Navigator.of(sheetContext).pop();
-                              _startCheckout();
-                            },
-                  style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48)),
-                  child: Text(_submitting
-                      ? 'Validation en cours...'
-                      : 'Valider la vente'),
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _totalsLine('TOTAL', formatGNF(_total), bold: true),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: _paymentMethod,
+                    decoration: const InputDecoration(
+                        labelText: 'Méthode de paiement',
+                        border: OutlineInputBorder(),
+                        isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 'CASH', child: Text('Espèces')),
+                      DropdownMenuItem(
+                          value: 'MOBILE_MONEY', child: Text('Mobile Money')),
+                      DropdownMenuItem(value: 'CARD', child: Text('Carte')),
+                      DropdownMenuItem(value: 'OTHER', child: Text('Autre')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _paymentMethod = value);
+                      setSheetState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed:
+                        _cart.isEmpty || _submitting || _cartHasPriceBelowFloor
+                            ? null
+                            : () {
+                                Navigator.of(sheetContext).pop();
+                                _startCheckout();
+                              },
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48)),
+                    child: Text(_submitting
+                        ? 'Validation en cours...'
+                        : 'Valider la vente'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

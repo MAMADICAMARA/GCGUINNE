@@ -29,6 +29,9 @@ export default function MyStorePage() {
   const [submitting, setSubmitting] = useState(false);
   const [openingId, setOpeningId] = useState(null);
   const [suspendedStoreName, setSuspendedStoreName] = useState(null);
+  const [deactivatedStore, setDeactivatedStore] = useState(null);
+  const [reactivating, setReactivating] = useState(false);
+  const [reactivateError, setReactivateError] = useState('');
 
   const [storeTypes, setStoreTypes] = useState([]);
   const [storeTypesLoading, setStoreTypesLoading] = useState(true);
@@ -40,7 +43,10 @@ export default function MyStorePage() {
   // §13_un_seul_owner_par_boutique.sql) — pas seulement la boutique
   // active : on regarde s'il est OWNER de N'IMPORTE LAQUELLE de ses
   // boutiques, y compris s'il est par ailleurs juste employé ailleurs.
-  const alreadyOwnsStore = stores.some((s) => s.roleCode === 'OWNER');
+  // Une boutique DÉSACTIVÉE (§53_desactivation_boutique.sql, décidé en
+  // conversation) ne compte pas : c'est précisément ce qui libère l'Owner
+  // pour, par exemple, en créer une nouvelle.
+  const alreadyOwnsStore = stores.some((s) => s.roleCode === 'OWNER' && s.status !== 'DEACTIVATED');
 
   // La liste des boutiques peut avoir changé depuis la connexion (ex :
   // création depuis un autre onglet) — on la rafraîchit toujours ici plutôt
@@ -150,10 +156,30 @@ export default function MyStorePage() {
     } catch (err) {
       if (err.response?.data?.error?.code === 'STORE_SUSPENDED') {
         setSuspendedStoreName(store.name);
+      } else if (err.response?.data?.error?.code === 'STORE_DEACTIVATED') {
+        setDeactivatedStore(store);
       } else {
         setError(err.response?.data?.error?.message || "Impossible d'ouvrir cette boutique.");
       }
       setOpeningId(null);
+    }
+  }
+
+  // Réactivation en libre-service par l'Owner (§53_desactivation_boutique.sql,
+  // décidé en conversation) — refusée si un autre poste a été pris
+  // entre-temps (message renvoyé tel quel par le serveur dans ce cas).
+  async function handleReactivate(store) {
+    setReactivateError('');
+    setReactivating(true);
+    try {
+      await apiClient.post(`/stores/${store.id}/reactivate`);
+      setDeactivatedStore(null);
+      const { data } = await apiClient.get('/stores/mine');
+      setStores(data.stores);
+    } catch (err) {
+      setReactivateError(err.response?.data?.error?.message || 'Réactivation impossible.');
+    } finally {
+      setReactivating(false);
     }
   }
 
@@ -209,6 +235,11 @@ export default function MyStorePage() {
                   {store.status === 'SUSPENDED' && (
                     <span className="inline-block rounded-full bg-red-50 text-red-600 px-2 py-0.5 text-xs font-medium">
                       Suspendue
+                    </span>
+                  )}
+                  {store.status === 'DEACTIVATED' && (
+                    <span className="inline-block rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-xs font-medium">
+                      Désactivée
                     </span>
                   )}
                 </p>
@@ -465,6 +496,51 @@ export default function MyStorePage() {
                 className="rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-200 transition"
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Réactivation en libre-service (§53_desactivation_boutique.sql,
+          décidé en conversation) — contrairement à la suspension par le
+          Super Admin ci-dessus, l'Owner peut lui-même réactiver ce qu'il a
+          lui-même désactivé. */}
+      {deactivatedStore && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="px-6 py-5 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                <Ban size={22} className="text-slate-500" />
+              </div>
+              <h2 className="font-semibold text-slate-800 mb-1">Boutique désactivée</h2>
+              <p className="text-sm text-slate-500">
+                <span className="font-medium">"{deactivatedStore.name}"</span> a été désactivée. Vous
+                pouvez la réactiver vous-même, sauf si vous occupez entre-temps un autre poste
+                (propriétaire ou vendeur) ailleurs.
+              </p>
+              {reactivateError && (
+                <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  {reactivateError}
+                </p>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-center gap-3">
+              <button
+                onClick={() => {
+                  setDeactivatedStore(null);
+                  setReactivateError('');
+                }}
+                className="rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-200 transition"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => handleReactivate(deactivatedStore)}
+                disabled={reactivating}
+                className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition disabled:opacity-60"
+              >
+                {reactivating ? 'Réactivation...' : 'Réactiver'}
               </button>
             </div>
           </div>

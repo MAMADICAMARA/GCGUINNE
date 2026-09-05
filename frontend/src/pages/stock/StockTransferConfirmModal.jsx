@@ -20,6 +20,24 @@ export default function StockTransferConfirmModal({ product, onClose, onBack, on
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // Boutiques destinataires déjà utilisées (§ décidé en conversation,
+  // "proposer les boutiques déjà transférées") — aucune donnée nouvelle,
+  // juste une relecture de l'historique déjà en base (stock_transfers).
+  const [recentDestinations, setRecentDestinations] = useState([]);
+  const [showAllRecents, setShowAllRecents] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/stock-transfers/recent-destinations');
+        setRecentDestinations(data.destinations);
+      } catch {
+        // Discret : l'absence de suggestions ne bloque jamais la saisie
+        // manuelle du code, qui reste toujours possible.
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     const trimmed = code.trim();
     setResolved(null);
@@ -64,8 +82,8 @@ export default function StockTransferConfirmModal({ product, onClose, onBack, on
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h2 className="font-semibold text-slate-800">Transférer le stock</h2>
           <button
             onClick={onClose}
@@ -76,7 +94,7 @@ export default function StockTransferConfirmModal({ product, onClose, onBack, on
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto">
           <div>
             <p className="text-sm font-medium text-slate-800">{product.name}</p>
             <p className="text-xs text-slate-400">Stock disponible : {product.quantity}</p>
@@ -86,6 +104,47 @@ export default function StockTransferConfirmModal({ product, onClose, onBack, on
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
               {submitError}
             </p>
+          )}
+
+          {recentDestinations.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Boutiques récentes</label>
+              <div className="space-y-1.5">
+                {(showAllRecents ? recentDestinations : recentDestinations.slice(0, 5)).map((d) => (
+                  <button
+                    key={d.storeId}
+                    type="button"
+                    onClick={() => setCode(d.transferCode)}
+                    className={`w-full text-left rounded-lg border px-3 py-2 transition ${
+                      code === d.transferCode
+                        ? 'border-brand-400 bg-brand-50/40'
+                        : 'border-slate-200 hover:border-brand-300 hover:bg-brand-50/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{d.name}</p>
+                        {(d.category || d.city) && (
+                          <p className="text-xs text-slate-400 truncate">
+                            {[d.category, d.city].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      <span className="shrink-0 font-mono text-[11px] text-slate-400">{d.transferCode}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {recentDestinations.length > 5 && !showAllRecents && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllRecents(true)}
+                  className="mt-1.5 text-xs font-medium text-brand-500 hover:text-brand-600"
+                >
+                  Voir plus ({recentDestinations.length - 5})
+                </button>
+              )}
+            </div>
           )}
 
           <div>

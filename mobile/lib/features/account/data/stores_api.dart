@@ -13,7 +13,9 @@ class StoresApi {
   Future<List<StoreRef>> listMine() async {
     final data = await _client.get('/stores/mine');
     final raw = data['stores'] as List<dynamic>? ?? <dynamic>[];
-    return raw.map((e) => StoreRef.fromJson(e as Map<String, dynamic>)).toList();
+    return raw
+        .map((e) => StoreRef.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// POST /stores — création d'une boutique (première ou supplémentaire).
@@ -39,6 +41,24 @@ class StoresApi {
       if (address != null && address.isNotEmpty) 'address': address,
       if (phone != null && phone.isNotEmpty) 'phone': phone,
     });
+  }
+
+  /// POST /stores/deactivate — désactivation volontaire de la boutique
+  /// ACTIVE par son Owner (§53_desactivation_boutique.sql, décidé en
+  /// conversation) — le seul moyen de libérer son "poste" d'Owner (par ex.
+  /// pour rejoindre une autre boutique comme Vendeur). Aucune donnée
+  /// supprimée, seul le statut change. Miroir de
+  /// SettingsPage.jsx#handleDeactivateStore côté web.
+  Future<void> deactivateStore() async {
+    await _client.post('/stores/deactivate');
+  }
+
+  /// POST /stores/:storeId/reactivate — réactivation, par l'Owner
+  /// lui-même, d'une boutique qu'il avait désactivée. Refusée s'il occupe
+  /// entre-temps un autre poste ailleurs (message renvoyé par le serveur
+  /// dans ce cas). Miroir de MyStorePage.jsx#handleReactivate côté web.
+  Future<void> reactivateStore(int storeId) async {
+    await _client.post('/stores/$storeId/reactivate');
   }
 
   /// GET /stores/plan-status — plan EFFECTIF de la boutique active (jamais
@@ -101,7 +121,9 @@ class StoresApi {
   Future<List<StoreTypeOption>> listStoreTypes() async {
     final data = await _client.get('/stores/types');
     final raw = data['storeTypes'] as List<dynamic>? ?? [];
-    return raw.map((e) => StoreTypeOption.fromJson(e as Map<String, dynamic>)).toList();
+    return raw
+        .map((e) => StoreTypeOption.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// Définitif une fois enregistré — pas de re-changement possible côté
@@ -135,11 +157,16 @@ class StoresApi {
 
   Future<(ReceiptSettings, StoreContactInfo)> getReceiptSettings() async {
     final data = await _client.get('/stores/receipt-settings');
-    return (ReceiptSettings.fromJson(data), StoreContactInfo.fromJson(data['store'] as Map<String, dynamic>? ?? {}));
+    return (
+      ReceiptSettings.fromJson(data),
+      StoreContactInfo.fromJson(data['store'] as Map<String, dynamic>? ?? {})
+    );
   }
 
-  Future<ReceiptSettings> updateReceiptSettings(ReceiptSettings settings) async {
-    final data = await _client.put('/stores/receipt-settings', data: settings.toJson());
+  Future<ReceiptSettings> updateReceiptSettings(
+      ReceiptSettings settings) async {
+    final data =
+        await _client.put('/stores/receipt-settings', data: settings.toJson());
     return ReceiptSettings.fromJson(data);
   }
 
@@ -148,8 +175,10 @@ class StoresApi {
     return BillingSettings.fromJson(data);
   }
 
-  Future<BillingSettings> updateBillingSettings(BillingSettings settings) async {
-    final data = await _client.put('/stores/billing-settings', data: settings.toJson());
+  Future<BillingSettings> updateBillingSettings(
+      BillingSettings settings) async {
+    final data =
+        await _client.put('/stores/billing-settings', data: settings.toJson());
     return BillingSettings.fromJson(data);
   }
 
@@ -159,7 +188,8 @@ class StoresApi {
   }
 
   Future<bool> updateVoidReturnSettings(bool allowAllSellers) async {
-    final data = await _client.put('/stores/void-return-settings', data: {'allowAllSellers': allowAllSellers});
+    final data = await _client.put('/stores/void-return-settings',
+        data: {'allowAllSellers': allowAllSellers});
     return data['allowAllSellers'] as bool? ?? false;
   }
 
@@ -179,7 +209,8 @@ class StoresApi {
   }
 
   Future<bool> updateEditPriceSettings(bool allowAllSellers) async {
-    final data = await _client.put('/stores/edit-price-settings', data: {'allowAllSellers': allowAllSellers});
+    final data = await _client.put('/stores/edit-price-settings',
+        data: {'allowAllSellers': allowAllSellers});
     return data['allowAllSellers'] as bool? ?? false;
   }
 
@@ -196,7 +227,8 @@ class StoresApi {
   }
 
   Future<bool> updateAddProductSettings(bool allowAllSellers) async {
-    final data = await _client.put('/stores/add-product-settings', data: {'allowAllSellers': allowAllSellers});
+    final data = await _client.put('/stores/add-product-settings',
+        data: {'allowAllSellers': allowAllSellers});
     return data['allowAllSellers'] as bool? ?? false;
   }
 
@@ -215,7 +247,8 @@ class StoresApi {
   }
 
   Future<bool> updateStockSettings(bool allowAllSellers) async {
-    final data = await _client.put('/stores/stock-settings', data: {'allowAllSellers': allowAllSellers});
+    final data = await _client.put('/stores/stock-settings',
+        data: {'allowAllSellers': allowAllSellers});
     return data['allowAllSellers'] as bool? ?? false;
   }
 
@@ -234,7 +267,8 @@ class StoresApi {
   }
 
   Future<bool> updateSuppliersSettings(bool allowAllSellers) async {
-    final data = await _client.put('/stores/suppliers-settings', data: {'allowAllSellers': allowAllSellers});
+    final data = await _client.put('/stores/suppliers-settings',
+        data: {'allowAllSellers': allowAllSellers});
     return data['allowAllSellers'] as bool? ?? false;
   }
 
@@ -253,7 +287,8 @@ class StoresApi {
   }
 
   Future<bool> updatePurchasesSettings(bool allowAllSellers) async {
-    final data = await _client.put('/stores/purchases-settings', data: {'allowAllSellers': allowAllSellers});
+    final data = await _client.put('/stores/purchases-settings',
+        data: {'allowAllSellers': allowAllSellers});
     return data['allowAllSellers'] as bool? ?? false;
   }
 

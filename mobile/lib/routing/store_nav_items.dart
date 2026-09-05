@@ -24,7 +24,7 @@ class StoreNavItem {
 const List<StoreNavItem> kStoreNavItems = [
   StoreNavItem('/workspace', Icons.dashboard_outlined, 'Tableau de bord',
       ['OWNER', 'SELLER']),
-  StoreNavItem('/workspace/pos', Icons.point_of_sale_outlined, 'Caisse',
+  StoreNavItem('/workspace/pos', Icons.point_of_sale_outlined, 'Vente/Caisse',
       ['OWNER', 'SELLER']),
   // Visible au Owner ET au Vendeur (§30_fond_de_caisse.sql, décidé en
   // conversation) — c'est le Vendeur qui ouvre/ferme sa propre caisse ; le

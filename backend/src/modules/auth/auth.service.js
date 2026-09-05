@@ -237,8 +237,13 @@ async function verifyEmail({ email, code }) {
   );
 
   const stores = await getStoresForUser(user.id);
+  // Une boutique désactivée par son Owner (§53_desactivation_boutique.sql)
+  // n'est pas non plus auto-sélectionnée — même raison que SUSPENDED
+  // ci-dessous : elle n'est plus ouvrable tant qu'elle n'est pas réactivée.
   const activeStore =
-    stores.length === 1 && stores[0].status !== 'SUSPENDED' ? stores[0] : null;
+    stores.length === 1 && stores[0].status !== 'SUSPENDED' && stores[0].status !== 'DEACTIVATED'
+      ? stores[0]
+      : null;
 
   const token = signToken({
     userId: user.id,
@@ -410,12 +415,14 @@ async function login({ email, password }) {
   }
 
   const stores = await getStoresForUser(user.id);
-  // Une boutique suspendue n'est jamais auto-sélectionnée comme active —
-  // sinon un utilisateur avec une seule boutique (suspendue) contournerait
-  // entièrement le blocage de switchStore, en atterrissant directement
-  // dedans dès la connexion.
+  // Une boutique suspendue ou désactivée n'est jamais auto-sélectionnée
+  // comme active — sinon un utilisateur avec une seule boutique dans cet
+  // état contournerait entièrement le blocage de switchStore, en
+  // atterrissant directement dedans dès la connexion.
   const activeStore =
-    stores.length === 1 && stores[0].status !== 'SUSPENDED' ? stores[0] : null;
+    stores.length === 1 && stores[0].status !== 'SUSPENDED' && stores[0].status !== 'DEACTIVATED'
+      ? stores[0]
+      : null;
 
   const token = signToken({
     userId: user.id,
@@ -466,6 +473,18 @@ async function switchStore({ userId, storeId }) {
       'Cette boutique a été suspendue. Contactez l\'administrateur de la plateforme.',
       403,
       'STORE_SUSPENDED'
+    );
+  }
+
+  // Une boutique désactivée volontairement par son Owner
+  // (§53_desactivation_boutique.sql, décidé en conversation) — même
+  // blocage, mais réactivable par l'Owner lui-même (cf. POST
+  // /stores/:storeId/reactivate), pas seulement par le Super Admin.
+  if (target.status === 'DEACTIVATED') {
+    throw new AppError(
+      'Cette boutique a été désactivée. Réactivez-la depuis la liste de vos boutiques.',
+      403,
+      'STORE_DEACTIVATED'
     );
   }
 

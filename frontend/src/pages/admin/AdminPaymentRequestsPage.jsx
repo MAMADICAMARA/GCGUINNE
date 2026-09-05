@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Wallet } from 'lucide-react';
+import { ChevronDown, ChevronRight, Layers, Wallet } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatDateTime } from '@/utils/format';
 
@@ -14,6 +14,34 @@ const STATUS_LABELS = {
   CONFIRMED: 'Confirmée',
   REJECTED: 'Refusée',
 };
+
+/**
+ * Regroupe les demandes partageant un batchId (§52_lot_paiement_abonnement.sql,
+ * "Payer pour toutes", décidé en conversation) — plusieurs boutiques payées
+ * en une fois par un même superviseur. `requests` arrive déjà trié du plus
+ * récent au plus ancien (ORDER BY created_at DESC côté serveur) ; on
+ * préserve cet ordre global en triant les items de lot par la date de leur
+ * membre le plus récent.
+ */
+function buildDisplayItems(requests) {
+  const batches = new Map();
+  const singles = [];
+  for (const r of requests) {
+    if (r.batchId) {
+      if (!batches.has(r.batchId)) batches.set(r.batchId, []);
+      batches.get(r.batchId).push(r);
+    } else {
+      singles.push({ type: 'single', request: r, sortKey: r.createdAt });
+    }
+  }
+  const batchItems = [...batches.entries()].map(([batchId, members]) => ({
+    type: 'batch',
+    batchId,
+    members,
+    sortKey: members[0].createdAt,
+  }));
+  return [...singles, ...batchItems].sort((a, b) => new Date(b.sortKey) - new Date(a.sortKey));
+}
 
 /**
  * Demandes de paiement d'abonnement déclarées par les Owners
@@ -31,6 +59,16 @@ export default function AdminPaymentRequestsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [rejectingRequest, setRejectingRequest] = useState(null);
+  const [expandedBatches, setExpandedBatches] = useState(() => new Set());
+
+  function toggleBatch(batchId) {
+    setExpandedBatches((prev) => {
+      const next = new Set(prev);
+      if (next.has(batchId)) next.delete(batchId);
+      else next.add(batchId);
+      return next;
+    });
+  }
 
   async function loadRequests() {
     setLoading(true);
@@ -51,9 +89,10 @@ export default function AdminPaymentRequestsPage() {
   }, [status]);
 
   async function handleConfirm(request) {
+    const months = request.months || 1;
     if (
       !window.confirm(
-        `Confirmer le paiement de ${request.storeName} (${request.planName}, ${request.amountDeclared.toLocaleString('fr-FR')} GNF) ? Le plan sera activé immédiatement pour 30 jours.`
+        `Confirmer le paiement de ${request.storeName} (${request.planName}, ${request.amountDeclared.toLocaleString('fr-FR')} GNF) ? Le plan sera activé immédiatement pour ${months} mois (${months * 30} jours).`
       )
     ) {
       return;
@@ -120,57 +159,31 @@ export default function AdminPaymentRequestsPage() {
         <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
           {/* Vue mobile : cartes empilées (< md) */}
           <div className="md:hidden divide-y divide-slate-100">
-            {requests.map((r) => (
-              <div key={r.id} className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{r.storeName}</p>
-                    <p className="text-xs text-slate-400">
-                      {r.planName} · {PAYMENT_METHOD_LABELS[r.paymentMethod]}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      r.status === 'CONFIRMED'
-                        ? 'bg-green-50 text-green-700'
-                        : r.status === 'REJECTED'
-                          ? 'bg-red-50 text-red-700'
-                          : 'bg-amber-50 text-amber-700'
-                    }`}
-                  >
-                    {STATUS_LABELS[r.status]}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-slate-800 mt-2">
-                  {Number(r.amountDeclared).toLocaleString('fr-FR')} GNF
-                </p>
-                <p className="text-xs text-slate-400 font-mono">{r.transactionReference}</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {r.requestedByName} · {formatDateTime(r.createdAt)}
-                </p>
-                {r.status === 'REJECTED' && r.rejectionReason && (
-                  <p className="text-xs text-slate-400 mt-1">{r.rejectionReason}</p>
-                )}
-                {status === 'PENDING' && (
-                  <div className="flex gap-4 mt-3 text-xs font-medium">
-                    <button
-                      onClick={() => handleConfirm(r)}
-                      disabled={busyId === r.id}
-                      className="text-green-600 disabled:opacity-50"
-                    >
-                      Confirmer
-                    </button>
-                    <button
-                      onClick={() => setRejectingRequest(r)}
-                      disabled={busyId === r.id}
-                      className="text-red-500 disabled:opacity-50"
-                    >
-                      Rejeter
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+            {buildDisplayItems(requests).map((item) =>
+              item.type === 'single' ? (
+                <RequestCard
+                  key={item.request.id}
+                  r={item.request}
+                  status={status}
+                  busyId={busyId}
+                  onConfirm={handleConfirm}
+                  onReject={setRejectingRequest}
+                />
+              ) : (
+                <BatchGroup
+                  key={item.batchId}
+                  batchId={item.batchId}
+                  members={item.members}
+                  expanded={expandedBatches.has(item.batchId)}
+                  onToggle={() => toggleBatch(item.batchId)}
+                  view="mobile"
+                  status={status}
+                  busyId={busyId}
+                  onConfirm={handleConfirm}
+                  onReject={setRejectingRequest}
+                />
+              )
+            )}
           </div>
 
           {/* Vue desktop : tableau complet (dès md) */}
@@ -189,56 +202,31 @@ export default function AdminPaymentRequestsPage() {
               </tr>
             </thead>
             <tbody>
-              {requests.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-800">{r.storeName}</td>
-                  <td className="px-4 py-3 text-slate-600">{r.planName}</td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {PAYMENT_METHOD_LABELS[r.paymentMethod]}
-                    {r.payerPhone && <span className="block text-xs text-slate-400">{r.payerPhone}</span>}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 font-mono text-xs">{r.transactionReference}</td>
-                  <td className="px-4 py-3 text-right font-medium text-slate-800">
-                    {Number(r.amountDeclared).toLocaleString('fr-FR')} GNF
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">{r.requestedByName}</td>
-                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(r.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        r.status === 'CONFIRMED'
-                          ? 'bg-green-50 text-green-700'
-                          : r.status === 'REJECTED'
-                            ? 'bg-red-50 text-red-700'
-                            : 'bg-amber-50 text-amber-700'
-                      }`}
-                    >
-                      {STATUS_LABELS[r.status]}
-                    </span>
-                    {r.status === 'REJECTED' && r.rejectionReason && (
-                      <span className="block text-xs text-slate-400 mt-1">{r.rejectionReason}</span>
-                    )}
-                  </td>
-                  {status === 'PENDING' && (
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => handleConfirm(r)}
-                        disabled={busyId === r.id}
-                        className="text-xs font-medium text-green-600 hover:text-green-700 disabled:opacity-50 mr-3"
-                      >
-                        Confirmer
-                      </button>
-                      <button
-                        onClick={() => setRejectingRequest(r)}
-                        disabled={busyId === r.id}
-                        className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
-                      >
-                        Rejeter
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
+              {buildDisplayItems(requests).map((item) =>
+                item.type === 'single' ? (
+                  <RequestRow
+                    key={item.request.id}
+                    r={item.request}
+                    status={status}
+                    busyId={busyId}
+                    onConfirm={handleConfirm}
+                    onReject={setRejectingRequest}
+                  />
+                ) : (
+                  <BatchGroup
+                    key={item.batchId}
+                    batchId={item.batchId}
+                    members={item.members}
+                    expanded={expandedBatches.has(item.batchId)}
+                    onToggle={() => toggleBatch(item.batchId)}
+                    view="desktop"
+                    status={status}
+                    busyId={busyId}
+                    onConfirm={handleConfirm}
+                    onReject={setRejectingRequest}
+                  />
+                )
+              )}
             </tbody>
           </table>
         </div>
@@ -255,6 +243,210 @@ export default function AdminPaymentRequestsPage() {
         />
       )}
     </div>
+  );
+}
+
+function StatusPill({ s }) {
+  return (
+    <span
+      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        s === 'CONFIRMED' ? 'bg-green-50 text-green-700' : s === 'REJECTED' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+      }`}
+    >
+      {STATUS_LABELS[s]}
+    </span>
+  );
+}
+
+function RequestCard({ r, status, busyId, onConfirm, onReject, indent = false }) {
+  return (
+    <div className={`p-4 ${indent ? 'pl-8 bg-slate-50/60' : ''}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-medium text-slate-800 truncate">{r.storeName}</p>
+          <p className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap">
+            {r.planName} · {PAYMENT_METHOD_LABELS[r.paymentMethod]}
+            <span className="inline-block rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 font-medium">
+              {r.months || 1} mois
+            </span>
+          </p>
+        </div>
+        <StatusPill s={r.status} />
+      </div>
+      <p className="text-sm font-medium text-slate-800 mt-2">{Number(r.amountDeclared).toLocaleString('fr-FR')} GNF</p>
+      {!indent && <p className="text-xs text-slate-400 font-mono">{r.transactionReference}</p>}
+      <p className="text-xs text-slate-400 mt-1">
+        {r.requestedByName}
+        {r.requestedBySupervisor && (
+          <span className="ml-1 inline-block rounded-full bg-violet-50 text-violet-600 px-1.5 py-0.5 text-[10px] font-medium align-middle">
+            superviseur
+          </span>
+        )}{' '}
+        · {formatDateTime(r.createdAt)}
+      </p>
+      {r.status === 'REJECTED' && r.rejectionReason && <p className="text-xs text-slate-400 mt-1">{r.rejectionReason}</p>}
+      {status === 'PENDING' && r.status === 'PENDING' && (
+        <div className="flex gap-4 mt-3 text-xs font-medium">
+          <button onClick={() => onConfirm(r)} disabled={busyId === r.id} className="text-green-600 disabled:opacity-50">
+            Confirmer
+          </button>
+          <button onClick={() => onReject(r)} disabled={busyId === r.id} className="text-red-500 disabled:opacity-50">
+            Rejeter
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RequestRow({ r, status, busyId, onConfirm, onReject, indent = false }) {
+  return (
+    <tr className={`border-t border-slate-100 ${indent ? 'bg-slate-50/60' : ''}`}>
+      <td className={`px-4 py-3 font-medium text-slate-800 ${indent ? 'pl-8' : ''}`}>{r.storeName}</td>
+      <td className="px-4 py-3 text-slate-600">
+        {r.planName}{' '}
+        <span className="inline-block rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 text-xs font-medium">
+          {r.months || 1} mois
+        </span>
+      </td>
+      <td className="px-4 py-3 text-slate-600">
+        {PAYMENT_METHOD_LABELS[r.paymentMethod]}
+        {r.payerPhone && <span className="block text-xs text-slate-400">{r.payerPhone}</span>}
+      </td>
+      <td className="px-4 py-3 text-slate-600 font-mono text-xs">{indent ? '—' : r.transactionReference}</td>
+      <td className="px-4 py-3 text-right font-medium text-slate-800">
+        {Number(r.amountDeclared).toLocaleString('fr-FR')} GNF
+      </td>
+      <td className="px-4 py-3 text-slate-500">
+        {r.requestedByName}
+        {r.requestedBySupervisor && (
+          <span className="ml-1.5 inline-block rounded-full bg-violet-50 text-violet-600 px-1.5 py-0.5 text-[10px] font-medium align-middle">
+            superviseur
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(r.createdAt)}</td>
+      <td className="px-4 py-3">
+        <StatusPill s={r.status} />
+        {r.status === 'REJECTED' && r.rejectionReason && (
+          <span className="block text-xs text-slate-400 mt-1">{r.rejectionReason}</span>
+        )}
+      </td>
+      {status === 'PENDING' && (
+        <td className="px-4 py-3 text-right whitespace-nowrap">
+          {r.status === 'PENDING' && (
+            <>
+              <button
+                onClick={() => onConfirm(r)}
+                disabled={busyId === r.id}
+                className="text-xs font-medium text-green-600 hover:text-green-700 disabled:opacity-50 mr-3"
+              >
+                Confirmer
+              </button>
+              <button
+                onClick={() => onReject(r)}
+                disabled={busyId === r.id}
+                className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+              >
+                Rejeter
+              </button>
+            </>
+          )}
+        </td>
+      )}
+    </tr>
+  );
+}
+
+/**
+ * Lot "Payer pour toutes" (§52_lot_paiement_abonnement.sql, décidé en
+ * conversation) — carte/ligne d'en-tête repliable montrant le total et le
+ * décompte par statut, qui déplie la liste des boutiques du lot ; chacune
+ * garde son propre bouton Confirmer/Rejeter indépendant (même logique que
+ * pour une demande normale, jamais un seul geste pour tout le lot).
+ */
+function BatchGroup({ members, expanded, onToggle, view, status, busyId, onConfirm, onReject }) {
+  const total = members.reduce((sum, m) => sum + Number(m.amountDeclared), 0);
+  const confirmedCount = members.filter((m) => m.status === 'CONFIRMED').length;
+  const pendingCount = members.filter((m) => m.status === 'PENDING').length;
+  const rejectedCount = members.filter((m) => m.status === 'REJECTED').length;
+  const first = members[0];
+  const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+
+  const summary = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+        <Layers size={14} />
+      </div>
+      <div className="min-w-0">
+        <p className="font-medium text-slate-800">
+          Lot de {members.length} boutiques — {first.planName} · {first.months || 1} mois
+        </p>
+        <p className="text-xs text-slate-400 font-mono">{first.transactionReference}</p>
+      </div>
+    </div>
+  );
+
+  const counts = (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {pendingCount > 0 && <StatusPill s="PENDING" />}
+      {confirmedCount > 0 && (
+        <span className="inline-block rounded-full bg-green-50 text-green-700 px-2.5 py-0.5 text-xs font-medium">
+          {confirmedCount} confirmée{confirmedCount > 1 ? 's' : ''}
+        </span>
+      )}
+      {rejectedCount > 0 && (
+        <span className="inline-block rounded-full bg-red-50 text-red-700 px-2.5 py-0.5 text-xs font-medium">
+          {rejectedCount} refusée{rejectedCount > 1 ? 's' : ''}
+        </span>
+      )}
+    </div>
+  );
+
+  if (view === 'mobile') {
+    return (
+      <div>
+        <button onClick={onToggle} className="w-full text-left p-4 hover:bg-slate-50 transition">
+          <div className="flex items-start justify-between gap-2">
+            {summary}
+            <ChevronIcon size={16} className="text-slate-400 shrink-0 mt-1" />
+          </div>
+          <p className="text-sm font-semibold text-slate-800 mt-2">
+            Total : {total.toLocaleString('fr-FR')} GNF
+          </p>
+          <div className="mt-2">{counts}</div>
+        </button>
+        {expanded && (
+          <div className="divide-y divide-slate-100 border-t border-slate-100">
+            {members.map((m) => (
+              <RequestCard key={m.id} r={m} status={status} busyId={busyId} onConfirm={onConfirm} onReject={onReject} indent />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <tr className="border-t border-slate-100 bg-violet-50/30 cursor-pointer hover:bg-violet-50/60" onClick={onToggle}>
+        <td className="px-4 py-3" colSpan={4}>
+          <div className="flex items-center gap-2">
+            <ChevronIcon size={14} className="text-slate-400 shrink-0" />
+            {summary}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-right font-semibold text-slate-800">{total.toLocaleString('fr-FR')} GNF</td>
+        <td className="px-4 py-3 text-slate-500" colSpan={2}>
+          {counts}
+        </td>
+        <td className="px-4 py-3" colSpan={status === 'PENDING' ? 2 : 1} />
+      </tr>
+      {expanded &&
+        members.map((m) => (
+          <RequestRow key={m.id} r={m} status={status} busyId={busyId} onConfirm={onConfirm} onReject={onReject} indent />
+        ))}
+    </>
   );
 }
 

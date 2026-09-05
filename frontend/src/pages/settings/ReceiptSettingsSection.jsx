@@ -48,7 +48,7 @@ function buildPreview(form, store) {
   return lines.join('\n');
 }
 
-export default function ReceiptSettingsSection() {
+export default function ReceiptSettingsSection({ bare = false }) {
   const [store, setStore] = useState(null);
   const [form, setForm] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
@@ -96,13 +96,17 @@ export default function ReceiptSettingsSection() {
     }
   }
 
-  return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 mb-6">
-      <h2 className="text-sm font-semibold text-slate-700 mb-1">Personnaliser le reçu</h2>
-      <p className="text-xs text-slate-500 mb-3">
-        Message d'en-tête/pied de page et informations affichées sur le reçu remis après une
-        vente — l'aperçu ci-dessous se met à jour pendant que vous modifiez les réglages.
-      </p>
+  const content = (
+    <>
+      {!bare && (
+        <>
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">Personnaliser le reçu</h2>
+          <p className="text-xs text-slate-500 mb-3">
+            Message d'en-tête/pied de page et informations affichées sur le reçu remis après une
+            vente — l'aperçu ci-dessous se met à jour pendant que vous modifiez les réglages.
+          </p>
+        </>
+      )}
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-3">{error}</p>}
       {success && (
@@ -211,6 +215,12 @@ export default function ReceiptSettingsSection() {
           </div>
         </div>
       )}
-    </section>
+    </>
+  );
+
+  return bare ? (
+    content
+  ) : (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 mb-6">{content}</section>
   );
 }

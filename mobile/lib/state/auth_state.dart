@@ -79,7 +79,8 @@ class AuthState extends ChangeNotifier {
   /// (création de boutique) : nouveau jeton + boutique désormais active.
   void applyStoreSwitch(Map<String, dynamic> json) {
     token = json['token'] as String;
-    activeStore = StoreRef.fromJson(json['activeStore'] as Map<String, dynamic>);
+    activeStore =
+        StoreRef.fromJson(json['activeStore'] as Map<String, dynamic>);
     if (json['stores'] != null) {
       stores = _parseStores(json['stores']);
     }
@@ -166,6 +167,17 @@ class AuthState extends ChangeNotifier {
   /// sans toucher au jeton ni à la boutique active.
   void setStores(List<StoreRef> newStores) {
     stores = newStores;
+    _persist();
+    notifyListeners();
+  }
+
+  /// Quitte la boutique active sans déconnecter le compte
+  /// (§53_desactivation_boutique.sql, décidé en conversation) — utilisé
+  /// après une désactivation volontaire de la boutique, qui la rend
+  /// aussitôt inaccessible. app_router.dart redirige alors automatiquement
+  /// vers "Ma Boutique" (activeStore == null).
+  void clearActiveStore() {
+    activeStore = null;
     _persist();
     notifyListeners();
   }

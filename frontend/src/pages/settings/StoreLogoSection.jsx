@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore';
  * principe que le reste de Paramètres : coller un lien OU envoyer un
  * fichier, au choix, jamais l'un sans l'autre.
  */
-export default function StoreLogoSection() {
+export default function StoreLogoSection({ bare = false }) {
   const activeStore = useAuthStore((s) => s.activeStore);
   const setActiveStore = useAuthStore((s) => s.setActiveStore);
   const [logoUrl, setLogoUrl] = useState('');
@@ -55,12 +55,16 @@ export default function StoreLogoSection() {
     }
   }
 
-  return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">
-      <h2 className="text-sm font-semibold text-slate-700 mb-1">Logo de la boutique</h2>
-      <p className="text-xs text-slate-500 mb-3">
-        Collez un lien existant, ou envoyez directement un fichier depuis votre appareil.
-      </p>
+  const content = (
+    <>
+      {!bare && (
+        <>
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">Logo de la boutique</h2>
+          <p className="text-xs text-slate-500 mb-3">
+            Collez un lien existant, ou envoyez directement un fichier depuis votre appareil.
+          </p>
+        </>
+      )}
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-3">{error}</p>}
       {success && (
@@ -105,6 +109,12 @@ export default function StoreLogoSection() {
           </button>
         </form>
       )}
-    </section>
+    </>
+  );
+
+  return bare ? (
+    content
+  ) : (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">{content}</section>
   );
 }

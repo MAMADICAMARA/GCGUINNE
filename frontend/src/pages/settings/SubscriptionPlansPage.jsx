@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatDateTime, formatGNF } from '@/utils/format';
+import { getDurationOptions } from '@/utils/subscriptionPricing';
 import SubscriptionPaymentModal from './SubscriptionPaymentModal';
 
 /**
@@ -87,7 +88,7 @@ export default function SubscriptionPlansPage() {
       </button>
 
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/25 mb-4">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-linear-to-br from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/25 mb-4">
           <Crown size={22} />
         </div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Choisissez votre plan</h1>
@@ -148,6 +149,11 @@ export default function SubscriptionPlansPage() {
 
 function PlanCard({ plan, renewalDays, isCurrent, isHighlighted, onChoose }) {
   const isFree = plan.price === 0;
+  // Meilleur prix/mois parmi les paliers de durée configurés (§ décidé en
+  // conversation) — un repère de "bonne affaire" immédiat, pas un chiffre
+  // à comparer soi-même.
+  const durationOptions = !isFree ? getDurationOptions(plan) : [];
+  const cheapestPerMonth = durationOptions.length > 1 ? Math.min(...durationOptions.map((d) => d.pricePerMonth)) : null;
 
   const features = [
     { icon: Users, label: `${plan.maxUsersPerStore} utilisateur${plan.maxUsersPerStore > 1 ? 's' : ''} / boutique`, included: true },
@@ -163,12 +169,12 @@ function PlanCard({ plan, renewalDays, isCurrent, isHighlighted, onChoose }) {
     <div
       className={`relative flex flex-col rounded-3xl p-7 transition-all duration-300 ${
         isHighlighted
-          ? 'bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl shadow-slate-900/20 lg:-translate-y-3'
+          ? 'bg-linear-to-b from-slate-900 to-slate-800 text-white shadow-2xl shadow-slate-900/20 lg:-translate-y-3'
           : 'bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1'
       }`}
     >
       {isHighlighted && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 text-xs font-bold px-3.5 py-1 shadow-lg shadow-amber-500/30">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-linear-to-r from-amber-400 to-amber-500 text-slate-900 text-xs font-bold px-3.5 py-1 shadow-lg shadow-amber-500/30">
           <Sparkles size={12} /> Le plus complet
         </span>
       )}
@@ -191,6 +197,15 @@ function PlanCard({ plan, renewalDays, isCurrent, isHighlighted, onChoose }) {
           </span>
         )}
       </div>
+      {cheapestPerMonth !== null && (
+        <span
+          className={`inline-flex items-center rounded-full text-xs font-semibold px-2.5 py-1 mb-2 w-fit ${
+            isHighlighted ? 'bg-emerald-400/20 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
+          }`}
+        >
+          à partir de {formatGNF(cheapestPerMonth)} / mois
+        </span>
+      )}
       <p className={`text-sm mb-6 ${isHighlighted ? 'text-slate-400' : 'text-slate-500'}`}>
         {isFree ? 'Pour démarrer sans engagement' : 'Facturation manuelle, renouvelable à tout moment'}
       </p>

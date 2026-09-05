@@ -1,7 +1,8 @@
 import '../../../core/network/api_client.dart';
 
 class StockTransferPreview {
-  const StockTransferPreview({required this.storeId, required this.storeName, this.storeTypeLabel});
+  const StockTransferPreview(
+      {required this.storeId, required this.storeName, this.storeTypeLabel});
 
   final int storeId;
   final String storeName;
@@ -42,6 +43,37 @@ class StockTransferResult {
   }
 }
 
+/// Boutique destinataire déjà utilisée par le passé (§ décidé en
+/// conversation, "proposer les boutiques déjà transférées") — aucune
+/// donnée nouvelle, juste une relecture de l'historique déjà en base
+/// (stock_transfers). Miroir de la réponse de
+/// GET /stock-transfers/recent-destinations.
+class RecentTransferDestination {
+  const RecentTransferDestination({
+    required this.storeId,
+    required this.name,
+    required this.city,
+    required this.category,
+    required this.transferCode,
+  });
+
+  final int storeId;
+  final String name;
+  final String? city;
+  final String? category;
+  final String transferCode;
+
+  factory RecentTransferDestination.fromJson(Map<String, dynamic> json) {
+    return RecentTransferDestination(
+      storeId: json['storeId'] as int,
+      name: json['name'] as String,
+      city: json['city'] as String?,
+      category: json['category'] as String?,
+      transferCode: json['transferCode'] as String,
+    );
+  }
+}
+
 /// Miroir de stockTransfers.service.js (§45_transfert_de_stock.sql) —
 /// transfert instantané de stock entre boutiques du même type, via le code
 /// de transfert de la boutique destination. Réservé à l'Owner côté serveur.
@@ -51,8 +83,18 @@ class StockTransfersApi {
   final ApiClient _client;
 
   Future<StockTransferPreview> resolveCode(String code) async {
-    final data = await _client.get('/stock-transfers/resolve-code', query: {'code': code});
+    final data = await _client
+        .get('/stock-transfers/resolve-code', query: {'code': code});
     return StockTransferPreview.fromJson(data);
+  }
+
+  Future<List<RecentTransferDestination>> listRecentDestinations() async {
+    final data = await _client.get('/stock-transfers/recent-destinations');
+    final raw = data['destinations'] as List<dynamic>? ?? [];
+    return raw
+        .map((e) =>
+            RecentTransferDestination.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<StockTransferResult> create({

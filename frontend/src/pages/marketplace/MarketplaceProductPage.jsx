@@ -93,11 +93,11 @@ export default function MarketplaceProductPage() {
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300">
+          <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-slate-200 to-slate-300">
             <Package className="h-16 w-16 text-slate-400" strokeWidth={1.25} />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-transparent to-black/10" />
+        <div className="absolute inset-0 bg-linear-to-t from-slate-50 via-transparent to-black/10" />
 
         <div className="absolute top-0 inset-x-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <button
@@ -126,7 +126,7 @@ export default function MarketplaceProductPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-slate-800 leading-snug">{product.name}</h1>
-          <p className="text-3xl font-extrabold bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent mt-2">
+          <p className="text-3xl font-extrabold bg-linear-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent mt-2">
             {formatGNF(product.sellingPrice)}
           </p>
 
@@ -174,7 +174,7 @@ export default function MarketplaceProductPage() {
           <div className="mt-7 rounded-2xl bg-white border border-slate-200/80 shadow-sm p-5">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Vendu par</p>
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 shrink-0 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center font-bold text-base">
+              <div className="h-11 w-11 shrink-0 rounded-full bg-linear-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center font-bold text-base">
                 {product.store.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -371,11 +371,11 @@ export default function MarketplaceProductPage() {
 //         {product.imageUrl ? (
 //           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
 //         ) : (
-//           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300">
+//           <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-slate-200 to-slate-300">
 //             <Package className="h-16 w-16 text-slate-400" strokeWidth={1.25} />
 //           </div>
 //         )}
-//         <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-transparent to-black/10" />
+//         <div className="absolute inset-0 bg-linear-to-t from-slate-50 via-transparent to-black/10" />
 
 //         <div className="absolute top-0 inset-x-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
 //           <button
@@ -404,7 +404,7 @@ export default function MarketplaceProductPage() {
 //           </div>
 
 //           <h1 className="text-2xl font-bold text-slate-800 leading-snug">{product.name}</h1>
-//           <p className="text-3xl font-extrabold bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent mt-2">
+//           <p className="text-3xl font-extrabold bg-linear-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent mt-2">
 //             {formatGNF(product.sellingPrice)}
 //           </p>
 
@@ -452,7 +452,7 @@ export default function MarketplaceProductPage() {
 //           <div className="mt-7 rounded-2xl bg-white border border-slate-200/80 shadow-sm p-5">
 //             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Vendu par</p>
 //             <div className="flex items-center gap-3">
-//               <div className="h-11 w-11 shrink-0 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center font-bold text-base">
+//               <div className="h-11 w-11 shrink-0 rounded-full bg-linear-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center font-bold text-base">
 //                 {product.store.name.charAt(0).toUpperCase()}
 //               </div>
 //               <div className="min-w-0">

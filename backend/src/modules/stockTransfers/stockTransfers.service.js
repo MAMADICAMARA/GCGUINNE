@@ -254,4 +254,31 @@ async function createTransfer(sourceStoreId, userId, { transferCode, productId, 
   }
 }
 
-module.exports = { resolveTransferCode, createTransfer };
+/**
+ * Boutiques destinataires déjà utilisées par cette boutique (§ décidé en
+ * conversation, "proposer les boutiques déjà transférées") — aucune
+ * nouvelle donnée stockée : chaque transfert déjà effectué est déjà en
+ * base ici même (stock_transfers), cette fonction ne fait que le relire.
+ * Une ligne par boutique destination DISTINCTE, la plus récente en
+ * premier — toutes, sans limite : "voir plus" (au-delà des 5 premières)
+ * est une pure question d'affichage laissée au client, pas de pagination
+ * nécessaire à cette échelle.
+ */
+async function listRecentDestinations(sourceStoreId) {
+  const { rows } = await pool.query(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (st.to_store_id)
+         st.to_store_id AS "storeId", s.name, s.city, s.category,
+         s.transfer_code AS "transferCode", st.created_at AS "lastUsedAt"
+       FROM stock_transfers st
+       JOIN stores s ON s.id = st.to_store_id
+       WHERE st.from_store_id = $1
+       ORDER BY st.to_store_id, st.created_at DESC
+     ) recent
+     ORDER BY "lastUsedAt" DESC`,
+    [sourceStoreId]
+  );
+  return rows;
+}
+
+module.exports = { resolveTransferCode, createTransfer, listRecentDestinations };

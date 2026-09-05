@@ -76,7 +76,9 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
       _error = null;
     });
     try {
-      final result = await context.read<CashDrawersApi>().close(closingBalance: closingBalance, note: note);
+      final result = await context
+          .read<CashDrawersApi>()
+          .close(closingBalance: closingBalance, note: note);
       setState(() => _closeResult = result);
       await _load();
     } on ApiException catch (err) {
@@ -98,17 +100,22 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+              child: Text(_error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 13)),
             ),
           if (_closeResult != null)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: _closeResult!.discrepancy == 0 ? Colors.green.shade50 : Colors.amber.shade50,
+                color: _closeResult!.discrepancy == 0
+                    ? Colors.green.shade50
+                    : Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: _closeResult!.discrepancy == 0 ? Colors.green.shade100 : Colors.amber.shade200,
+                  color: _closeResult!.discrepancy == 0
+                      ? Colors.green.shade100
+                      : Colors.amber.shade200,
                 ),
               ),
               child: Row(
@@ -121,7 +128,9 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
-                  TextButton(onPressed: () => setState(() => _closeResult = null), child: const Text('OK')),
+                  TextButton(
+                      onPressed: () => setState(() => _closeResult = null),
+                      child: const Text('OK')),
                 ],
               ),
             ),
@@ -134,9 +143,12 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
               ),
               child: Row(
                 children: [
-                  const Expanded(child: Text('Caisse fermée', style: TextStyle(color: Colors.grey))),
+                  const Expanded(
+                      child: Text('Caisse fermée',
+                          style: TextStyle(color: Colors.grey))),
                   TextButton(
-                    onPressed: _submitting ? null : () => _showOpenSheet(context),
+                    onPressed:
+                        _submitting ? null : () => _showOpenSheet(context),
                     child: const Text('Ouvrir la caisse'),
                   ),
                 ],
@@ -146,8 +158,15 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.05),
+                border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.2)),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -160,7 +179,8 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
                     ),
                   ),
                   TextButton(
-                    onPressed: _submitting ? null : () => _showCloseSheet(context),
+                    onPressed:
+                        _submitting ? null : () => _showCloseSheet(context),
                     child: const Text('Fermer'),
                   ),
                 ],
@@ -176,35 +196,45 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Ouvrir la caisse', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Fond de départ (GNF)', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                final value = num.tryParse(controller.text) ?? 0;
-                Navigator.of(sheetContext).pop();
-                _openDrawer(value);
-              },
-              child: const Text('Ouvrir'),
-            ),
-          ],
+      // SafeArea(top: false) — § décidé en conversation, même correctif que
+      // pos_page.dart#_showCartSheet : sans elle, le bouton "Ouvrir" tout en
+      // bas se retrouve sous la barre de navigation système sur un
+      // téléphone à boutons classiques.
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Ouvrir la caisse',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: const InputDecoration(
+                    labelText: 'Fond de départ (GNF)',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  final value = num.tryParse(controller.text) ?? 0;
+                  Navigator.of(sheetContext).pop();
+                  _openDrawer(value);
+                },
+                child: const Text('Ouvrir'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -216,41 +246,50 @@ class _CashDrawerBannerState extends State<CashDrawerBanner> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Fermer la caisse', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: balanceController,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Montant compté (GNF)', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(labelText: 'Note (optionnel)', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                final value = num.tryParse(balanceController.text) ?? 0;
-                final note = noteController.text;
-                Navigator.of(sheetContext).pop();
-                _closeDrawer(value, note);
-              },
-              child: const Text('Confirmer'),
-            ),
-          ],
+      // SafeArea(top: false) — même correctif que _showOpenSheet ci-dessus.
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Fermer la caisse',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: balanceController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: const InputDecoration(
+                    labelText: 'Montant compté (GNF)',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(
+                    labelText: 'Note (optionnel)',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  final value = num.tryParse(balanceController.text) ?? 0;
+                  final note = noteController.text;
+                  Navigator.of(sheetContext).pop();
+                  _closeDrawer(value, note);
+                },
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
         ),
       ),
     );

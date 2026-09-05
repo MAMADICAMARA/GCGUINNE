@@ -189,224 +189,239 @@ class _PurchaseOrderDetailSheetState extends State<_PurchaseOrderDetailSheet> {
         minChildSize: 0.5,
         maxChildSize: 0.95,
         expand: false,
-        builder: (context, scrollController) => ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          children: [
-            const Text('Détail de la commande',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-            const SizedBox(height: 14),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 13)),
-              ),
-            if (detail == null)
-              const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator()))
-            else ...[
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 2.4,
-                children: [
-                  _Info(label: 'Fournisseur', value: detail.order.supplierName),
-                  _Info(
-                      label: 'Référence', value: detail.order.reference ?? '—'),
-                  _Info(
-                      label: 'Créée par',
-                      value: detail.order.createdByName ?? '—'),
-                  _Info(
-                      label: 'Date',
-                      value: formatDateTime(detail.order.createdAt)),
-                  _Info(
-                      label: 'Statut',
-                      value: kPurchaseOrderStatusLabels[detail.order.status] ??
-                          detail.order.status),
-                  if (detail.order.deliveredAt != null)
-                    _Info(
-                        label: 'Livrée le',
-                        value: formatDateTime(detail.order.deliveredAt)),
-                  if (detail.order.receivedAt != null)
-                    _Info(
-                        label: 'Reçue le',
-                        value: formatDateTime(detail.order.receivedAt)),
-                  if (detail.order.receivedByName != null)
-                    _Info(
-                        label: 'Reçue par',
-                        value: detail.order.receivedByName!),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('Articles',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              const SizedBox(height: 6),
-              Container(
-                decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade200),
-                    borderRadius: BorderRadius.circular(10)),
-                child: Column(
+        // SafeArea(top: false) — § décidé en conversation, même correctif
+        // que pos_page.dart#_showCartSheet : les boutons "Marquer reçue"/
+        // "Annuler la commande" sont les derniers éléments de cette liste,
+        // protégés ici même une fois défilés tout en bas.
+        builder: (context, scrollController) => SafeArea(
+          top: false,
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            children: [
+              const Text('Détail de la commande',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 14),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(_error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13)),
+                ),
+              if (detail == null)
+                const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: CircularProgressIndicator()))
+              else ...[
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 2.4,
                   children: [
-                    for (var i = 0; i < detail.items.length; i++)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 9),
-                        decoration: BoxDecoration(
-                            border: i == 0
-                                ? null
-                                : Border(
-                                    top: BorderSide(
-                                        color: Colors.grey.shade100))),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (detail.items[i].productImageUrl != null) ...[
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  detail.items[i].productImageUrl!,
-                                  width: 36,
-                                  height: 36,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const SizedBox(width: 36, height: 36),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                            ],
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(detail.items[i].productName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 13)),
-                                  if (detail.items[i].reference != null)
-                                    Text('Réf. ${detail.items[i].reference}',
-                                        style: TextStyle(
-                                            fontSize: 10.5,
-                                            color: Colors.grey.shade400)),
-                                  Text(
-                                    '${detail.items[i].quantity} × ${formatGNF(detail.items[i].purchasePrice)} (achat)',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade500),
+                    _Info(
+                        label: 'Fournisseur', value: detail.order.supplierName),
+                    _Info(
+                        label: 'Référence',
+                        value: detail.order.reference ?? '—'),
+                    _Info(
+                        label: 'Créée par',
+                        value: detail.order.createdByName ?? '—'),
+                    _Info(
+                        label: 'Date',
+                        value: formatDateTime(detail.order.createdAt)),
+                    _Info(
+                        label: 'Statut',
+                        value:
+                            kPurchaseOrderStatusLabels[detail.order.status] ??
+                                detail.order.status),
+                    if (detail.order.deliveredAt != null)
+                      _Info(
+                          label: 'Livrée le',
+                          value: formatDateTime(detail.order.deliveredAt)),
+                    if (detail.order.receivedAt != null)
+                      _Info(
+                          label: 'Reçue le',
+                          value: formatDateTime(detail.order.receivedAt)),
+                    if (detail.order.receivedByName != null)
+                      _Info(
+                          label: 'Reçue par',
+                          value: detail.order.receivedByName!),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('Articles',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < detail.items.length; i++)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(
+                              border: i == 0
+                                  ? null
+                                  : Border(
+                                      top: BorderSide(
+                                          color: Colors.grey.shade100))),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (detail.items[i].productImageUrl != null) ...[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.network(
+                                    detail.items[i].productImageUrl!,
+                                    width: 36,
+                                    height: 36,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const SizedBox(width: 36, height: 36),
                                   ),
-                                  if (canReceive &&
-                                      detail.order.supplierType == 'PLATFORM')
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Row(
-                                        children: [
-                                          Text('Prix de vente',
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500)),
-                                          const SizedBox(width: 8),
-                                          SizedBox(
-                                            width: 90,
-                                            height: 32,
-                                            child: TextField(
-                                              controller:
-                                                  _sellingPriceControllers[
-                                                      detail.items[i].id],
-                                              keyboardType: const TextInputType
-                                                  .numberWithOptions(
-                                                  decimal: false),
-                                              style:
-                                                  const TextStyle(fontSize: 12),
-                                              decoration: const InputDecoration(
-                                                isDense: true,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 6),
-                                                border: OutlineInputBorder(),
-                                                suffixText: 'GNF',
-                                                suffixStyle:
-                                                    TextStyle(fontSize: 10),
+                                ),
+                                const SizedBox(width: 10),
+                              ],
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(detail.items[i].productName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13)),
+                                    if (detail.items[i].reference != null)
+                                      Text('Réf. ${detail.items[i].reference}',
+                                          style: TextStyle(
+                                              fontSize: 10.5,
+                                              color: Colors.grey.shade400)),
+                                    Text(
+                                      '${detail.items[i].quantity} × ${formatGNF(detail.items[i].purchasePrice)} (achat)',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500),
+                                    ),
+                                    if (canReceive &&
+                                        detail.order.supplierType == 'PLATFORM')
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Row(
+                                          children: [
+                                            Text('Prix de vente',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        Colors.grey.shade500)),
+                                            const SizedBox(width: 8),
+                                            SizedBox(
+                                              width: 90,
+                                              height: 32,
+                                              child: TextField(
+                                                controller:
+                                                    _sellingPriceControllers[
+                                                        detail.items[i].id],
+                                                keyboardType:
+                                                    const TextInputType
+                                                        .numberWithOptions(
+                                                        decimal: false),
+                                                style: const TextStyle(
+                                                    fontSize: 12),
+                                                decoration:
+                                                    const InputDecoration(
+                                                  isDense: true,
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 6),
+                                                  border: OutlineInputBorder(),
+                                                  suffixText: 'GNF',
+                                                  suffixStyle:
+                                                      TextStyle(fontSize: 10),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                                formatGNF(detail.items[i].quantity *
-                                    detail.items[i].purchasePrice),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 13)),
-                          ],
+                              const SizedBox(width: 8),
+                              Text(
+                                  formatGNF(detail.items[i].quantity *
+                                      detail.items[i].purchasePrice),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13)),
+                            ],
+                          ),
                         ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('Total',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                    const Spacer(),
+                    Text(formatGNF(detail.order.totalAmount),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                  ],
+                ),
+                if (waitingOnSupplier) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text(
+                      "En attente que le fournisseur confirme l'expédition de cette commande.",
+                      style: TextStyle(
+                          fontSize: 12.5, color: Colors.amber.shade900),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    if (canReceive)
+                      OutlinedButton(
+                        onPressed: _busy ? null : _handleReceive,
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green.shade700,
+                            side: BorderSide(color: Colors.green.shade200)),
+                        child: Text(_busy ? 'Traitement...' : 'Marquer reçue'),
+                      ),
+                    if (canCancel)
+                      OutlinedButton(
+                        onPressed: _busy ? null : _handleCancel,
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: BorderSide(color: Colors.red.shade200)),
+                        child: const Text('Annuler la commande'),
                       ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text('Total',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                  const Spacer(),
-                  Text(formatGNF(detail.order.totalAmount),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15)),
-                ],
-              ),
-              if (waitingOnSupplier) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(10)),
-                  child: Text(
-                    "En attente que le fournisseur confirme l'expédition de cette commande.",
-                    style:
-                        TextStyle(fontSize: 12.5, color: Colors.amber.shade900),
-                  ),
-                ),
               ],
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  if (canReceive)
-                    OutlinedButton(
-                      onPressed: _busy ? null : _handleReceive,
-                      style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green.shade700,
-                          side: BorderSide(color: Colors.green.shade200)),
-                      child: Text(_busy ? 'Traitement...' : 'Marquer reçue'),
-                    ),
-                  if (canCancel)
-                    OutlinedButton(
-                      onPressed: _busy ? null : _handleCancel,
-                      style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red.shade700,
-                          side: BorderSide(color: Colors.red.shade200)),
-                      child: const Text('Annuler la commande'),
-                    ),
-                ],
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );

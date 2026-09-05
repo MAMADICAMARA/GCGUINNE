@@ -8,13 +8,19 @@ import '../../store_workspace/data/order_models.dart';
 import '../../store_workspace/data/pos_models.dart';
 import '../../store_workspace/data/product_detail_models.dart';
 import '../../store_workspace/data/sales_report_models.dart';
+import '../../store_workspace/presentation/settings/subscription_payment_sheet.dart';
+import '../../../core/widgets/plan_status_badge.dart';
 import '../data/supervision_api.dart';
+import '../data/supervision_models.dart';
 import 'audit_log_panel.dart';
 
 /// Miroir de SupervisedStoreDetailPage.jsx — détail en lecture stricte
-/// d'une boutique supervisée. Aucune action possible nulle part sur cette
-/// page (décidé en conversation, règle absolue) : uniquement des données
-/// déjà exposées en lecture par /supervision/stores/:storeId/*.
+/// d'une boutique supervisée. Chaque onglet reste strictement en lecture
+/// (données déjà exposées par /supervision/stores/:storeId/*) — seule
+/// exception (§ décidé en conversation, "le superviseur peut payer
+/// l'abonnement") : le bouton "Payer l'abonnement" du bandeau ci-dessous,
+/// qui ne fait que déclarer un paiement (jamais d'activation automatique,
+/// vérifié par un Super Admin).
 class SupervisedStoreDetailPage extends StatefulWidget {
   const SupervisedStoreDetailPage({super.key, required this.storeId});
 
@@ -28,13 +34,17 @@ class SupervisedStoreDetailPage extends StatefulWidget {
 class _SupervisedStoreDetailPageState extends State<SupervisedStoreDetailPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  String? _storeName;
+  // Vient de la liste (GET /supervision/stores), PAS de getStats : ce
+  // dernier est bloqué par verifyAccess quand le plan de la boutique
+  // n'autorise plus la supervision — exactement le cas où on a le plus
+  // besoin d'afficher le nom + le bouton "Payer" pour débloquer l'accès.
+  SupervisableStore? _storeInfo;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
-    _loadStoreName();
+    _loadStoreInfo();
   }
 
   @override
@@ -43,22 +53,35 @@ class _SupervisedStoreDetailPageState extends State<SupervisedStoreDetailPage>
     super.dispose();
   }
 
-  Future<void> _loadStoreName() async {
+  Future<void> _loadStoreInfo() async {
     try {
-      final result =
-          await context.read<SupervisionApi>().getStats(widget.storeId);
-      if (mounted) setState(() => _storeName = result.storeName);
+      final stores = await context.read<SupervisionApi>().listStores();
+      if (!mounted) return;
+      for (final s in stores) {
+        if (s.id == widget.storeId) {
+          setState(() => _storeInfo = s);
+          break;
+        }
+      }
     } on ApiException catch (_) {
       // Le titre reste générique si la requête échoue — chaque onglet
       // affiche de toute façon sa propre erreur d'accès le cas échéant.
     }
   }
 
+  Future<void> _payStore() async {
+    final store = _storeInfo;
+    if (store == null) return;
+    final submitted = await showSubscriptionPaymentSheet(context,
+        supervisedStoreId: store.id);
+    if (submitted == true) _loadStoreInfo();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_storeName ?? 'Boutique supervisée'),
+        title: Text(_storeInfo?.name ?? 'Boutique supervisée'),
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
@@ -85,20 +108,57 @@ class _SupervisedStoreDetailPageState extends State<SupervisedStoreDetailPage>
               color: Colors.amber.shade50,
               border: Border(bottom: BorderSide(color: Colors.amber.shade100)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.visibility_outlined,
-                    size: 14, color: Colors.amber.shade800),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Vue en lecture seule stricte — aucune action possible depuis cette page.',
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.amber.shade900,
-                        fontWeight: FontWeight.w500),
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.visibility_outlined,
+                        size: 14, color: Colors.amber.shade800),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Vue en lecture seule stricte — seule exception : payer l\'abonnement de cette boutique.',
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.amber.shade900,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
                 ),
+                // Ligne séparée (§ décidé en conversation — corrige un
+                // débordement) : le badge + le bouton "Payer" ne rentraient
+                // pas toujours sur la même ligne que le texte d'avertissement
+                // sur un écran étroit. Wrap plutôt que Row : passe à la
+                // ligne tout seul si même les deux ensemble sont trop
+                // larges, jamais un dépassement horizontal.
+                if (_storeInfo != null) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      PlanStatusBadge(
+                        supervisionAllowed: _storeInfo!.supervisionAllowed,
+                        planExpiresAt: _storeInfo!.planExpiresAt,
+                      ),
+                      FilledButton.icon(
+                        onPressed: _payStore,
+                        icon: const Icon(Icons.credit_card, size: 14),
+                        label: const Text('Payer l\'abonnement',
+                            style: TextStyle(fontSize: 11.5)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          minimumSize: const Size(0, 30),
+                          textStyle: const TextStyle(fontSize: 11.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

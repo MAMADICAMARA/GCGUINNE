@@ -1,9 +1,9 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
-const { activateStorePlan } = require('../admin/admin.service');
+const { activateStorePlan, getEffectivePricePerMonth, DURATION_TIERS_SUBQUERY } = require('../admin/admin.service');
 
 const PAYMENT_METHODS = ['ORANGE_MONEY', 'MOBILE_MONEY', 'PAYCARD'];
-const RENEWAL_DAYS = 30; // même convention que le +30 jours par défaut de StorePlanModal.jsx
+const RENEWAL_DAYS = 30; // même convention que le +30 jours par défaut de StorePlanModal.jsx — durée d'"1 mois"
 
 /**
  * Plans payants disponibles (prix inclus, jamais exposé par
@@ -14,14 +14,15 @@ const RENEWAL_DAYS = 30; // même convention que le +30 jours par défaut de Sto
 async function getSubscriptionOptions() {
   const [plansResult, settingsResult] = await Promise.all([
     pool.query(
-      `SELECT id, name, price, max_users_per_store AS "maxUsersPerStore",
-              max_products_per_store AS "maxProductsPerStore",
-              allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
-              allows_purchase_orders AS "allowsPurchaseOrders", allows_marketplace AS "allowsMarketplace",
-              allows_stock_transfer AS "allowsStockTransfer"
-       FROM subscription_plans
-       WHERE price > 0
-       ORDER BY price ASC`
+      `SELECT sp.id, sp.name, sp.price, sp.max_users_per_store AS "maxUsersPerStore",
+              sp.max_products_per_store AS "maxProductsPerStore",
+              sp.allows_supervision AS "allowsSupervision", sp.allows_suppliers AS "allowsSuppliers",
+              sp.allows_purchase_orders AS "allowsPurchaseOrders", sp.allows_marketplace AS "allowsMarketplace",
+              sp.allows_stock_transfer AS "allowsStockTransfer",
+              ${DURATION_TIERS_SUBQUERY}
+       FROM subscription_plans sp
+       WHERE sp.price > 0
+       ORDER BY sp.price ASC`
     ),
     pool.query(
       `SELECT orange_money_number AS "orangeMoneyNumber", mobile_money_number AS "mobileMoneyNumber",
@@ -46,7 +47,11 @@ async function getSubscriptionOptions() {
  * ultérieure du prix par le Super Admin ne change jamais rétroactivement
  * une demande déjà soumise).
  */
-async function submitPaymentRequest(storeId, userId, { planId, paymentMethod, payerPhone, transactionReference }) {
+async function submitPaymentRequest(
+  storeId,
+  userId,
+  { planId, paymentMethod, payerPhone, transactionReference, months, batchId }
+) {
   if (!PAYMENT_METHODS.includes(paymentMethod)) {
     throw new AppError('Méthode de paiement invalide.', 400, 'VALIDATION_ERROR');
   }
@@ -54,9 +59,13 @@ async function submitPaymentRequest(storeId, userId, { planId, paymentMethod, pa
   if (!reference) {
     throw new AppError('La référence de transaction est requise.', 400, 'VALIDATION_ERROR');
   }
+  // Défaut 1 mois (comportement historique inchangé) — § décidé en
+  // conversation, paiement multi-mois avec paliers dégressifs par durée.
+  const monthsCount = Number.isInteger(months) && months >= 1 ? months : 1;
 
   const planResult = await pool.query(
-    'SELECT id, name, price FROM subscription_plans WHERE id = $1 AND price > 0',
+    `SELECT sp.id, sp.name, sp.price, ${DURATION_TIERS_SUBQUERY}
+     FROM subscription_plans sp WHERE sp.id = $1 AND sp.price > 0`,
     [planId]
   );
   if (planResult.rows.length === 0) {
@@ -76,18 +85,38 @@ async function submitPaymentRequest(storeId, userId, { planId, paymentMethod, pa
     );
   }
 
+  // Montant TOUJOURS recalculé serveur à partir du prix courant du plan et
+  // de ses paliers de durée — jamais fourni par le client (règle déjà en
+  // place pour le prix simple, étendue ici à la durée choisie).
+  const pricePerMonth = getEffectivePricePerMonth(Number(plan.price), plan.durationTiers, monthsCount);
+  const amountDeclared = monthsCount * pricePerMonth;
+
   const { rows } = await pool.query(
     `INSERT INTO subscription_payment_requests
-     (store_id, requested_by, plan_id, payment_method, payer_phone, transaction_reference, amount_declared)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, status, amount_declared AS "amountDeclared", created_at AS "createdAt"`,
-    [storeId, userId, plan.id, paymentMethod, (payerPhone || '').trim() || null, reference, plan.price]
+     (store_id, requested_by, plan_id, payment_method, payer_phone, transaction_reference, amount_declared, months, batch_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id, status, amount_declared AS "amountDeclared", months, batch_id AS "batchId", created_at AS "createdAt"`,
+    [
+      storeId,
+      userId,
+      plan.id,
+      paymentMethod,
+      (payerPhone || '').trim() || null,
+      reference,
+      amountDeclared,
+      monthsCount,
+      batchId || null,
+    ]
   );
 
   await pool.query(
     `INSERT INTO system_logs (user_id, store_id, action, details)
      VALUES ($1, $2, 'SUBMIT_PAYMENT_REQUEST', $3::jsonb)`,
-    [userId, storeId, JSON.stringify({ planId: plan.id, planName: plan.name, paymentMethod, amount: plan.price })]
+    [
+      userId,
+      storeId,
+      JSON.stringify({ planId: plan.id, planName: plan.name, paymentMethod, months: monthsCount, amount: amountDeclared }),
+    ]
   );
 
   return rows[0];
@@ -102,7 +131,8 @@ async function getLatestPaymentRequest(storeId) {
   const { rows } = await pool.query(
     `SELECT pr.id, pr.status, pr.payment_method AS "paymentMethod",
             pr.transaction_reference AS "transactionReference",
-            pr.amount_declared AS "amountDeclared", pr.rejection_reason AS "rejectionReason",
+            pr.amount_declared AS "amountDeclared", pr.months, pr.batch_id AS "batchId",
+            pr.rejection_reason AS "rejectionReason",
             pr.created_at AS "createdAt", pr.reviewed_at AS "reviewedAt",
             sp.name AS "planName"
      FROM subscription_payment_requests pr
@@ -141,11 +171,12 @@ async function listPaymentRequests({ status = 'PENDING', page, limit } = {}) {
   const result = await pool.query(
     `SELECT pr.id, pr.status, pr.payment_method AS "paymentMethod", pr.payer_phone AS "payerPhone",
             pr.transaction_reference AS "transactionReference", pr.amount_declared AS "amountDeclared",
-            pr.rejection_reason AS "rejectionReason", pr.created_at AS "createdAt",
+            pr.months, pr.batch_id AS "batchId", pr.rejection_reason AS "rejectionReason", pr.created_at AS "createdAt",
             pr.reviewed_at AS "reviewedAt",
             s.id AS "storeId", s.name AS "storeName",
             sp.id AS "planId", sp.name AS "planName",
             u.full_name AS "requestedByName", u.email AS "requestedByEmail",
+            (pr.requested_by != s.owner_id) AS "requestedBySupervisor",
             rv.full_name AS "reviewedByName"
      FROM subscription_payment_requests pr
      JOIN stores s ON s.id = pr.store_id
@@ -170,14 +201,21 @@ async function listPaymentRequests({ status = 'PENDING', page, limit } = {}) {
  * Confirmation d'une demande (§27, décidé en conversation) — appelle
  * EXACTEMENT `activateStorePlan` (admin.service.js), jamais dupliquée ni
  * modifiée : c'est la même fonction que l'activation 100% manuelle
- * existante utilise déjà. La date d'expiration est toujours calculée à
- * partir d'aujourd'hui (+30 jours), jamais cumulée avec un reliquat
- * éventuel d'un plan déjà actif — même logique que le Super Admin manuel,
- * qui choisit toujours une date absolue plutôt qu'un cumul.
+ * existante utilise déjà.
+ *
+ * Date d'expiration (§51_paliers_duree_abonnement.sql, décidé en
+ * conversation — CHANGEMENT de comportement) : si la boutique a encore un
+ * plan actif non expiré au moment de la confirmation, les mois payés
+ * s'AJOUTENT à sa date d'expiration actuelle plutôt que de repartir
+ * d'aujourd'hui — sinon un Owner qui paie à l'avance perdrait le reliquat
+ * déjà payé. Sans plan actif (ou déjà expiré), on repart d'aujourd'hui,
+ * comme avant. Ne concerne que ce flux déclaratif ; l'activation 100%
+ * manuelle du Super Admin (activateStorePlan/renewStorePlan) choisit
+ * toujours une date absolue, inchangée.
  */
 async function confirmPaymentRequest(requestId, adminUserId) {
   const { rows } = await pool.query(
-    `SELECT id, store_id AS "storeId", plan_id AS "planId", status
+    `SELECT id, store_id AS "storeId", plan_id AS "planId", status, months
      FROM subscription_payment_requests WHERE id = $1`,
     [requestId]
   );
@@ -189,7 +227,16 @@ async function confirmPaymentRequest(requestId, adminUserId) {
     throw new AppError('Cette demande a déjà été traitée.', 409, 'REQUEST_ALREADY_PROCESSED');
   }
 
-  const expiresAt = new Date(Date.now() + RENEWAL_DAYS * 24 * 60 * 60 * 1000);
+  const storeResult = await pool.query('SELECT plan_expires_at AS "planExpiresAt" FROM stores WHERE id = $1', [
+    request.storeId,
+  ]);
+  if (storeResult.rows.length === 0) {
+    throw new AppError('Boutique introuvable.', 404, 'STORE_NOT_FOUND');
+  }
+  const currentExpiresAt = storeResult.rows[0].planExpiresAt;
+  const baseDate = currentExpiresAt && new Date(currentExpiresAt) > new Date() ? new Date(currentExpiresAt) : new Date();
+  const monthsCount = request.months || 1;
+  const expiresAt = new Date(baseDate.getTime() + monthsCount * RENEWAL_DAYS * 24 * 60 * 60 * 1000);
 
   // Fonction existante, non modifiée — voir commentaire ci-dessus. Si cette
   // étape échoue, la demande reste PENDING (rien n'est marqué confirmé à

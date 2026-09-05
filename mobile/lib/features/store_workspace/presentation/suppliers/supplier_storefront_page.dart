@@ -370,239 +370,250 @@ class _SupplierStorefrontPageState extends State<SupplierStorefrontPage> {
           minChildSize: 0.5,
           maxChildSize: 0.95,
           expand: false,
-          builder: (context, scrollController) => Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Text('Panier',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 16)),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Text(
-                          '$_itemCount article${_itemCount > 1 ? 's' : ''}',
-                          style: const TextStyle(fontSize: 11)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
+          // SafeArea(top: false) — même correctif que pos_page.dart#_showCartSheet :
+          // sans elle, le bouton "Commander" tout en bas se retrouve sous la
+          // barre de navigation système sur un téléphone à boutons classiques.
+          builder: (context, scrollController) => SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      for (final item in _cart)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(10)),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                      child: Text(item.productName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13))),
-                                  InkWell(
-                                    onTap: () {
-                                      setState(() => _cart.removeWhere((i) =>
-                                          i.supplierProductId ==
-                                          item.supplierProductId));
-                                      setSheetState(() {});
-                                    },
-                                    child: const Icon(Icons.delete_outline,
-                                        size: 18, color: Colors.redAccent),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: TextEditingController(
-                                          text: '${item.quantity}'),
-                                      keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
-                                          labelText: 'Quantité',
-                                          isDense: true,
-                                          border: OutlineInputBorder()),
-                                      onChanged: (value) {
-                                        final qty = int.tryParse(value);
-                                        setState(() => item.quantity =
-                                            (qty == null || qty < 1) ? 1 : qty);
-                                        setSheetState(() {});
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: TextEditingController(
-                                          text: item.unitPrice
-                                              .toStringAsFixed(0)),
-                                      keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
-                                          labelText: 'Prix/u.',
-                                          isDense: true,
-                                          border: OutlineInputBorder()),
-                                      onChanged: (value) {
-                                        final price = num.tryParse(value);
-                                        setState(
-                                            () => item.unitPrice = price ?? 0);
-                                        setSheetState(() {});
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(formatGNF(item.lineTotal),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13))),
-                              if (item.suggestion != null &&
-                                  !item.suggestionDismissed) ...[
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                      color: Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                          color: Colors.blue.shade100)),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      RichText(
-                                        text: TextSpan(
-                                          style: TextStyle(
-                                              fontSize: 11.5,
-                                              color: Colors.blue.shade900),
-                                          children: [
-                                            const TextSpan(
-                                                text:
-                                                    'Vous avez peut-être déjà ce produit : '),
-                                            TextSpan(
-                                                text: item.suggestion!.name,
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w700)),
-                                            const TextSpan(
-                                                text: " — c'est le même ?"),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          TextButton(
-                                            style: TextButton.styleFrom(
-                                                backgroundColor:
-                                                    Colors.blue.shade600,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(0, 30),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 10)),
-                                            onPressed: () {
-                                              _confirmMatch(item, true);
-                                              setSheetState(() {});
-                                            },
-                                            child: const Text('Oui, le même',
-                                                style:
-                                                    TextStyle(fontSize: 11.5)),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          TextButton(
-                                            style: TextButton.styleFrom(
-                                                foregroundColor:
-                                                    Colors.blue.shade700,
-                                                minimumSize: const Size(0, 30),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 10)),
-                                            onPressed: () {
-                                              _confirmMatch(item, false);
-                                              setSheetState(() {});
-                                            },
-                                            child: const Text('Non, différent',
-                                                style:
-                                                    TextStyle(fontSize: 11.5)),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              if (item.matchedProductId != null) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                    '✓ Rapproché à votre produit existant — aucun doublon créé.',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.green.shade700)),
-                              ],
-                            ],
-                          ),
-                        ),
+                      const Text('Panier',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text(
+                            '$_itemCount article${_itemCount > 1 ? 's' : ''}',
+                            style: const TextStyle(fontSize: 11)),
+                      ),
                     ],
                   ),
-                ),
-                const Divider(),
-                TextField(
-                  controller: _referenceController,
-                  decoration: const InputDecoration(
-                      labelText: 'Référence (optionnel)',
-                      hintText: 'Ex : BC-2026-014',
-                      border: OutlineInputBorder(),
-                      isDense: true),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Text('TOTAL',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
-                    const Spacer(),
-                    Text(formatGNF(_total),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed:
-                      (_cart.isEmpty || _submitting || !_allowsPurchaseOrders)
-                          ? null
-                          : () {
-                              Navigator.of(sheetContext).pop();
-                              _submitOrder();
-                            },
-                  style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48)),
-                  child: Text(!_allowsPurchaseOrders
-                      ? 'Réservé au plan PREMIUM'
-                      : (_submitting ? 'Envoi...' : 'Commander')),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      children: [
+                        for (final item in _cart)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(10)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                        child: Text(item.productName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13))),
+                                    InkWell(
+                                      onTap: () {
+                                        setState(() => _cart.removeWhere((i) =>
+                                            i.supplierProductId ==
+                                            item.supplierProductId));
+                                        setSheetState(() {});
+                                      },
+                                      child: const Icon(Icons.delete_outline,
+                                          size: 18, color: Colors.redAccent),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: TextEditingController(
+                                            text: '${item.quantity}'),
+                                        keyboardType: TextInputType.number,
+                                        decoration: const InputDecoration(
+                                            labelText: 'Quantité',
+                                            isDense: true,
+                                            border: OutlineInputBorder()),
+                                        onChanged: (value) {
+                                          final qty = int.tryParse(value);
+                                          setState(() => item.quantity =
+                                              (qty == null || qty < 1)
+                                                  ? 1
+                                                  : qty);
+                                          setSheetState(() {});
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: TextEditingController(
+                                            text: item.unitPrice
+                                                .toStringAsFixed(0)),
+                                        keyboardType: TextInputType.number,
+                                        decoration: const InputDecoration(
+                                            labelText: 'Prix/u.',
+                                            isDense: true,
+                                            border: OutlineInputBorder()),
+                                        onChanged: (value) {
+                                          final price = num.tryParse(value);
+                                          setState(() =>
+                                              item.unitPrice = price ?? 0);
+                                          setSheetState(() {});
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(formatGNF(item.lineTotal),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13))),
+                                if (item.suggestion != null &&
+                                    !item.suggestionDismissed) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: Colors.blue.shade100)),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        RichText(
+                                          text: TextSpan(
+                                            style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: Colors.blue.shade900),
+                                            children: [
+                                              const TextSpan(
+                                                  text:
+                                                      'Vous avez peut-être déjà ce produit : '),
+                                              TextSpan(
+                                                  text: item.suggestion!.name,
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700)),
+                                              const TextSpan(
+                                                  text: " — c'est le même ?"),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            TextButton(
+                                              style: TextButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.blue.shade600,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize:
+                                                      const Size(0, 30),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 10)),
+                                              onPressed: () {
+                                                _confirmMatch(item, true);
+                                                setSheetState(() {});
+                                              },
+                                              child: const Text('Oui, le même',
+                                                  style: TextStyle(
+                                                      fontSize: 11.5)),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            TextButton(
+                                              style: TextButton.styleFrom(
+                                                  foregroundColor:
+                                                      Colors.blue.shade700,
+                                                  minimumSize:
+                                                      const Size(0, 30),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 10)),
+                                              onPressed: () {
+                                                _confirmMatch(item, false);
+                                                setSheetState(() {});
+                                              },
+                                              child: const Text(
+                                                  'Non, différent',
+                                                  style: TextStyle(
+                                                      fontSize: 11.5)),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                if (item.matchedProductId != null) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                      '✓ Rapproché à votre produit existant — aucun doublon créé.',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.green.shade700)),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+                  TextField(
+                    controller: _referenceController,
+                    decoration: const InputDecoration(
+                        labelText: 'Référence (optionnel)',
+                        hintText: 'Ex : BC-2026-014',
+                        border: OutlineInputBorder(),
+                        isDense: true),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Text('TOTAL',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 15)),
+                      const Spacer(),
+                      Text(formatGNF(_total),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 15)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed:
+                        (_cart.isEmpty || _submitting || !_allowsPurchaseOrders)
+                            ? null
+                            : () {
+                                Navigator.of(sheetContext).pop();
+                                _submitOrder();
+                              },
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48)),
+                    child: Text(!_allowsPurchaseOrders
+                        ? 'Réservé au plan PREMIUM'
+                        : (_submitting ? 'Envoi...' : 'Commander')),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

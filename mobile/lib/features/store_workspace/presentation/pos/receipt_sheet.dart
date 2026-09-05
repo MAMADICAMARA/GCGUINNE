@@ -35,7 +35,8 @@ class _ReceiptSheetState extends State<_ReceiptSheet> {
 
   Future<void> _handleDownloadInvoice() async {
     setState(() => _downloadingInvoice = true);
-    await shareInvoicePdf(context, orderId: order.orderId, orderNumber: order.orderNumber);
+    await shareInvoicePdf(context,
+        orderId: order.orderId, orderNumber: order.orderNumber);
     if (mounted) setState(() => _downloadingInvoice = false);
   }
 
@@ -46,50 +47,66 @@ class _ReceiptSheetState extends State<_ReceiptSheet> {
       minChildSize: 0.4,
       maxChildSize: 0.95,
       expand: false,
-      builder: (context, scrollController) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const Text('Vente validée', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            const SizedBox(height: 12),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
-                  child: Text(order.receiptText, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: _downloadingInvoice ? null : _handleDownloadInvoice,
-                child: Text(_downloadingInvoice ? 'Génération...' : 'Télécharger la facture (PDF)'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Share.share(order.receiptText, subject: 'Reçu ${order.orderNumber}'),
-                    child: const Text('Partager'),
+      // SafeArea(top: false) — § décidé en conversation, même correctif que
+      // pos_page.dart#_showCartSheet : particulièrement important ici, la
+      // feuille est non-fermable au balayage/tap extérieur (isDismissible:
+      // false), donc un bouton "Fermer" masqué piégerait l'utilisateur.
+      builder: (context, scrollController) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const Text('Vente validée',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(order.receiptText,
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 12)),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Fermer'),
-                  ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed:
+                      _downloadingInvoice ? null : _handleDownloadInvoice,
+                  child: Text(_downloadingInvoice
+                      ? 'Génération...'
+                      : 'Télécharger la facture (PDF)'),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Share.share(order.receiptText,
+                          subject: 'Reçu ${order.orderNumber}'),
+                      child: const Text('Partager'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Fermer'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

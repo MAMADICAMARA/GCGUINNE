@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
+import 'core/auth/quick_unlock_service.dart';
 import 'core/config/app_config.dart';
 import 'core/network/api_client.dart';
+import 'core/storage/quick_unlock_storage.dart';
 import 'core/storage/token_storage.dart';
 import 'features/account/data/stores_api.dart';
 import 'features/account/data/supervision_api.dart';
@@ -61,6 +63,8 @@ Future<void> main() async {
         ChangeNotifierProvider<AuthState>.value(value: authState),
         ChangeNotifierProvider<UpdateState>.value(value: updateState),
         Provider<ApiClient>.value(value: apiClient),
+        Provider<QuickUnlockStorage>(create: (_) => const QuickUnlockStorage()),
+        Provider<QuickUnlockService>(create: (_) => const QuickUnlockService()),
         Provider<AppUpdateApi>.value(value: appUpdateApi),
         Provider<AuthApi>(create: (_) => AuthApi(apiClient)),
         Provider<StoresApi>(create: (_) => StoresApi(apiClient)),
@@ -78,8 +82,10 @@ Future<void> main() async {
         Provider<EmployeesApi>(create: (_) => EmployeesApi(apiClient)),
         Provider<SuppliersApi>(create: (_) => SuppliersApi(apiClient)),
         Provider<PurchasesApi>(create: (_) => PurchasesApi(apiClient)),
-        Provider<StockTransfersApi>(create: (_) => StockTransfersApi(apiClient)),
-        Provider<SubscriptionPaymentsApi>(create: (_) => SubscriptionPaymentsApi(apiClient)),
+        Provider<StockTransfersApi>(
+            create: (_) => StockTransfersApi(apiClient)),
+        Provider<SubscriptionPaymentsApi>(
+            create: (_) => SubscriptionPaymentsApi(apiClient)),
       ],
       child: const App(),
     ),

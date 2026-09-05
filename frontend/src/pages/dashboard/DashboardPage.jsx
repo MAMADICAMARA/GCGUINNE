@@ -150,7 +150,7 @@ export default function DashboardPage() {
               {stats.revenueTrend.map((d) => (
                 <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
                   <div
-                    className="w-full bg-gradient-to-t from-brand-400 to-brand-300 rounded-t-md transition-all duration-300 hover:opacity-80"
+                    className="w-full bg-linear-to-t from-brand-400 to-brand-300 rounded-t-md transition-all duration-300 hover:opacity-80"
                     style={{ height: `${Math.max(4, (Number(d.revenue) / maxTrend) * 100)}%` }}
                     title={formatGNF(d.revenue)}
                   />

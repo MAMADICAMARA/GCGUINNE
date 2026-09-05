@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Check, CreditCard, X } from 'lucide-react';
+import { Calendar, Check, CreditCard, X } from 'lucide-react';
 import apiClient from '@/services/apiClient';
+import { formatGNF } from '@/utils/format';
 
 /**
  * Plans d'abonnement (§20_plans_abonnement.sql) — éditables par le Super
@@ -180,6 +181,10 @@ export default function AdminPlansPage() {
   );
 }
 
+// Une ligne vide sert de saisie vierge — filtrée avant l'envoi si
+// l'utilisateur ne la remplit pas (même convention que ProductForm.jsx).
+const emptyDurationTier = { minMonths: '', unitPrice: '' };
+
 function PlanEditorModal({ plan, onClose, onSaved }) {
   const [name, setName] = useState(plan.name);
   const [price, setPrice] = useState(String(plan.price));
@@ -190,13 +195,41 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
   const [allowsPurchaseOrders, setAllowsPurchaseOrders] = useState(plan.allowsPurchaseOrders);
   const [allowsMarketplace, setAllowsMarketplace] = useState(plan.allowsMarketplace);
   const [allowsStockTransfer, setAllowsStockTransfer] = useState(plan.allowsStockTransfer);
+  // Paliers de durée (§51_paliers_duree_abonnement.sql, décidé en
+  // conversation) — miroir exact des paliers de prix produit
+  // (ProductForm.jsx), appliqués à la durée d'abonnement.
+  const [durationTiersList, setDurationTiersList] = useState(() =>
+    Array.isArray(plan.durationTiers) && plan.durationTiers.length > 0
+      ? plan.durationTiers.map((t) => ({ minMonths: String(t.minMonths), unitPrice: String(t.unitPrice) }))
+      : []
+  );
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  function updateDurationTier(index, field, value) {
+    setDurationTiersList((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
+  }
+
+  function addDurationTierRow() {
+    setDurationTiersList((prev) => [...prev, { ...emptyDurationTier }]);
+  }
+
+  function removeDurationTierRow(index) {
+    setDurationTiersList((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setSubmitting(true);
+
+    // Même convention que ProductForm.jsx : une ligne dont un des deux
+    // champs est vide n'est pas envoyée — le serveur reste de toute façon
+    // l'autorité finale sur la validation.
+    const durationTiers = durationTiersList
+      .filter((t) => t.minMonths.trim() !== '' && t.unitPrice.trim() !== '')
+      .map((t) => ({ minMonths: parseInt(t.minMonths, 10), unitPrice: parseFloat(t.unitPrice) }));
+
     try {
       await apiClient.put(`/admin/plans/${plan.id}`, {
         name: name.trim(),
@@ -208,6 +241,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
         allowsPurchaseOrders,
         allowsMarketplace,
         allowsStockTransfer,
+        durationTiers,
       });
       onSaved();
     } catch (err) {
@@ -221,9 +255,9 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-xl shadow-xl w-full max-w-md"
+        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h2 className="font-semibold text-slate-800">Modifier le plan</h2>
           <button
             type="button"
@@ -235,7 +269,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
           </button>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="px-6 py-5 overflow-y-auto flex-1 min-h-0">
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
           <label className="block text-sm font-medium text-slate-600 mb-1">Nom</label>
@@ -283,6 +317,91 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
 
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 mb-4">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                  <Calendar size={14} />
+                </div>
+                <label className="text-sm font-medium text-slate-700">Paliers de durée (optionnel)</label>
+              </div>
+              <button
+                type="button"
+                onClick={addDurationTierRow}
+                className="text-xs font-medium text-brand-500 hover:text-brand-600"
+              >
+                + Ajouter un palier
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mb-3">
+              Ex : à partir de 6 mois, 80 000 GNF/mois au lieu du tarif normal — incite un client à payer
+              plusieurs mois d'avance. Le prix baisse à chaque palier, jamais le contraire.
+            </p>
+            <div className="space-y-3">
+              {durationTiersList.map((tier, index) => {
+                const basePrice = Number(price) || 0;
+                const monthsNum = parseInt(tier.minMonths, 10);
+                const unitPriceNum = parseFloat(tier.unitPrice);
+                const hasPreview =
+                  Number.isInteger(monthsNum) && monthsNum > 1 && !Number.isNaN(unitPriceNum) && unitPriceNum >= 0;
+                const totalPrice = hasPreview ? monthsNum * unitPriceNum : 0;
+                const savingsPercent =
+                  hasPreview && basePrice > 0 ? Math.round((1 - unitPriceNum / basePrice) * 100) : null;
+
+                return (
+                  <div key={index} className="rounded-lg bg-white border border-slate-200 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 whitespace-nowrap">À partir de</span>
+                      <input
+                        type="number"
+                        min="2"
+                        step="1"
+                        value={tier.minMonths}
+                        onChange={(e) => updateDurationTier(index, 'minMonths', e.target.value)}
+                        placeholder="6"
+                        className="w-20 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <span className="text-xs text-slate-400 whitespace-nowrap">mois →</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={tier.unitPrice}
+                        onChange={(e) => updateDurationTier(index, 'unitPrice', e.target.value)}
+                        placeholder="80000"
+                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <span className="text-xs text-slate-400 whitespace-nowrap">GNF/mois</span>
+                      <button
+                        type="button"
+                        onClick={() => removeDurationTierRow(index)}
+                        className="text-slate-300 hover:text-red-500 px-1"
+                        aria-label="Retirer ce palier"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    {hasPreview && (
+                      <p className="text-xs text-slate-500 mt-2 pl-1">
+                        → Un client qui choisit ce palier paiera{' '}
+                        <span className="font-semibold text-slate-700">{formatGNF(totalPrice)}</span> au total
+                        {savingsPercent !== null && savingsPercent > 0 && (
+                          <>
+                            {' '}
+                            , soit{' '}
+                            <span className="font-semibold text-emerald-600">-{savingsPercent}%</span> vs. tarif
+                            normal
+                          </>
+                        )}
+                        .
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
@@ -327,7 +446,7 @@ function PlanEditorModal({ plan, onClose, onSaved }) {
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
           <button type="button" onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700">
             Annuler
           </button>

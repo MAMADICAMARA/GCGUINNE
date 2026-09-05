@@ -18,4 +18,13 @@ async function create(req, res, next) {
   }
 }
 
-module.exports = { resolveCode, create };
+async function listRecentDestinations(req, res, next) {
+  try {
+    const result = await stockTransfersService.listRecentDestinations(req.auth.storeId);
+    res.json({ destinations: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { resolveCode, create, listRecentDestinations };

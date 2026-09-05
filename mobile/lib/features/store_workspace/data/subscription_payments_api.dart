@@ -25,9 +25,11 @@ class SubscriptionPaymentsApi {
     required String paymentMethod,
     required String transactionReference,
     String? payerPhone,
+    int months = 1,
   }) {
     return _client.post('/subscription-payments', data: {
       'planId': planId,
+      'months': months,
       'paymentMethod': paymentMethod,
       'transactionReference': transactionReference,
       if (payerPhone != null && payerPhone.isNotEmpty) 'payerPhone': payerPhone,

@@ -65,25 +65,36 @@ class _CustomerStepSheetState extends State<_CustomerStepSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: DraggableScrollableSheet(
         initialChildSize: 0.7,
         minChildSize: 0.4,
         maxChildSize: 0.95,
         expand: false,
-        builder: (context, scrollController) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: ListView(
-            controller: scrollController,
-            children: [
-              const Text('Client', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-              const Text(
-                'Recherchez un client existant, ajoutez-en un nouveau, ou vendez sans client.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              if (!_showCreateForm) ..._buildSearchStep() else ..._buildCreateForm(),
-            ],
+        // SafeArea(top: false) — § décidé en conversation, même correctif
+        // que pos_page.dart#_showCartSheet.
+        builder: (context, scrollController) => SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: ListView(
+              controller: scrollController,
+              children: [
+                const Text('Client',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                const Text(
+                  'Recherchez un client existant, ajoutez-en un nouveau, ou vendez sans client.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                if (!_showCreateForm)
+                  ..._buildSearchStep()
+                else
+                  ..._buildCreateForm(),
+              ],
+            ),
           ),
         ),
       ),
@@ -102,27 +113,35 @@ class _CustomerStepSheetState extends State<_CustomerStepSheet> {
         ),
       ),
       const SizedBox(height: 10),
-      if (_searching) const Text('Recherche...', style: TextStyle(color: Colors.grey)),
+      if (_searching)
+        const Text('Recherche...', style: TextStyle(color: Colors.grey)),
       if (_results.isNotEmpty)
         Container(
           margin: const EdgeInsets.only(top: 6),
-          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8)),
           child: Column(
             children: [
               for (final customer in _results)
                 ListTile(
                   title: Text(customer.name),
                   subtitle: Text(customer.phone ?? 'Sans téléphone'),
-                  onTap: () => Navigator.of(context)
-                      .pop(SelectedCustomer(id: customer.id, name: customer.name, phone: customer.phone)),
+                  onTap: () => Navigator.of(context).pop(SelectedCustomer(
+                      id: customer.id,
+                      name: customer.name,
+                      phone: customer.phone)),
                 ),
             ],
           ),
         ),
-      if (_searchController.text.trim().isNotEmpty && !_searching && _results.isEmpty)
+      if (_searchController.text.trim().isNotEmpty &&
+          !_searching &&
+          _results.isEmpty)
         const Padding(
           padding: EdgeInsets.only(top: 6),
-          child: Text('Aucun client trouvé.', style: TextStyle(color: Colors.grey)),
+          child: Text('Aucun client trouvé.',
+              style: TextStyle(color: Colors.grey)),
         ),
       const SizedBox(height: 14),
       OutlinedButton(
@@ -134,7 +153,8 @@ class _CustomerStepSheetState extends State<_CustomerStepSheet> {
       ),
       const SizedBox(height: 10),
       FilledButton(
-        onPressed: () => Navigator.of(context).pop(const SelectedCustomer(name: 'Client anonyme')),
+        onPressed: () => Navigator.of(context)
+            .pop(const SelectedCustomer(name: 'Client anonyme')),
         child: const Text('Vente sans client'),
       ),
     ];
@@ -151,13 +171,15 @@ class _CustomerStepSheetState extends State<_CustomerStepSheet> {
         controller: _nameController,
         autofocus: true,
         onChanged: (_) => setState(() {}),
-        decoration: const InputDecoration(labelText: 'Nom', border: OutlineInputBorder()),
+        decoration: const InputDecoration(
+            labelText: 'Nom', border: OutlineInputBorder()),
       ),
       const SizedBox(height: 10),
       TextField(
         controller: _phoneController,
         keyboardType: TextInputType.phone,
-        decoration: const InputDecoration(labelText: 'Téléphone (optionnel)', border: OutlineInputBorder()),
+        decoration: const InputDecoration(
+            labelText: 'Téléphone (optionnel)', border: OutlineInputBorder()),
       ),
       const SizedBox(height: 16),
       Row(
@@ -168,7 +190,9 @@ class _CustomerStepSheetState extends State<_CustomerStepSheet> {
                   ? null
                   : () => Navigator.of(context).pop(SelectedCustomer(
                         name: _nameController.text.trim(),
-                        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+                        phone: _phoneController.text.trim().isEmpty
+                            ? null
+                            : _phoneController.text.trim(),
                         isNewCustomer: true,
                       )),
               child: const Text('Continuer'),

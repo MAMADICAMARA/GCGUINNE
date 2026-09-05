@@ -20,9 +20,12 @@ class SupervisableStore {
     required this.todayRevenue,
     required this.todayProfit,
     required this.lowStockCount,
+    required this.planName,
+    required this.planExpiresAt,
   });
 
-  factory SupervisableStore.fromJson(Map<String, dynamic> json) => SupervisableStore(
+  factory SupervisableStore.fromJson(Map<String, dynamic> json) =>
+      SupervisableStore(
         id: json['id'] as int,
         name: json['name'] as String,
         city: json['city'] as String?,
@@ -30,7 +33,11 @@ class SupervisableStore {
         supervisionAllowed: json['supervisionAllowed'] as bool,
         todayRevenue: _parseNum(json['todayRevenue']),
         todayProfit: _parseNum(json['todayProfit']),
-        lowStockCount: json['lowStockCount'] == null ? null : (json['lowStockCount'] as num).toInt(),
+        lowStockCount: json['lowStockCount'] == null
+            ? null
+            : (json['lowStockCount'] as num).toInt(),
+        planName: json['planName'] as String?,
+        planExpiresAt: json['planExpiresAt'] as String?,
       );
 
   final int id;
@@ -41,6 +48,8 @@ class SupervisableStore {
   final num? todayRevenue;
   final num? todayProfit;
   final int? lowStockCount;
+  final String? planName;
+  final String? planExpiresAt;
 }
 
 /// Une entrée du journal d'activité (system_logs) — voir
@@ -76,9 +85,14 @@ class AuditLogEntry {
 }
 
 class AuditLogListResult {
-  const AuditLogListResult({required this.logs, required this.total, required this.page, required this.pages});
+  const AuditLogListResult(
+      {required this.logs,
+      required this.total,
+      required this.page,
+      required this.pages});
 
-  factory AuditLogListResult.fromJson(Map<String, dynamic> json) => AuditLogListResult(
+  factory AuditLogListResult.fromJson(Map<String, dynamic> json) =>
+      AuditLogListResult(
         logs: (json['logs'] as List<dynamic>? ?? [])
             .map((e) => AuditLogEntry.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -91,4 +105,45 @@ class AuditLogListResult {
   final int total;
   final int page;
   final int pages;
+}
+
+/// Résultat d'une boutique dans "Payer pour toutes"
+/// (§52_lot_paiement_abonnement.sql, décidé en conversation) — une boutique
+/// peut échouer indépendamment des autres (ex. demande déjà en attente),
+/// jamais bloquant pour le reste du lot.
+class BulkPaymentResult {
+  const BulkPaymentResult({
+    required this.storeId,
+    required this.storeName,
+    required this.success,
+    required this.error,
+  });
+
+  factory BulkPaymentResult.fromJson(Map<String, dynamic> json) =>
+      BulkPaymentResult(
+        storeId: json['storeId'] as int,
+        storeName: json['storeName'] as String,
+        success: json['success'] as bool,
+        error: json['error'] as String?,
+      );
+
+  final int storeId;
+  final String storeName;
+  final bool success;
+  final String? error;
+}
+
+class BulkPaymentSubmitResult {
+  const BulkPaymentSubmitResult({required this.batchId, required this.results});
+
+  factory BulkPaymentSubmitResult.fromJson(Map<String, dynamic> json) =>
+      BulkPaymentSubmitResult(
+        batchId: json['batchId'] as String,
+        results: (json['results'] as List<dynamic>? ?? [])
+            .map((e) => BulkPaymentResult.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  final String batchId;
+  final List<BulkPaymentResult> results;
 }

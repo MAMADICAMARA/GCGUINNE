@@ -25,24 +25,34 @@ class AuthorizationCard extends StatelessWidget {
         onTap: () => showAuthorizationSheet(context),
         child: Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200)),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: AppColors.violet.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.verified_user_outlined, size: 20, color: AppColors.violet),
+                decoration: BoxDecoration(
+                    color: AppColors.violet.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.verified_user_outlined,
+                    size: 20, color: AppColors.violet),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Autorisation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    const Text('Autorisation',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 13.5)),
                     const SizedBox(height: 2),
                     Text(
                       'Choisissez ce que vos vendeurs peuvent faire : annuler/retourner une vente, modifier un prix, créer un produit.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500, height: 1.3),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          height: 1.3),
                     ),
                   ],
                 ),
@@ -58,9 +68,15 @@ class AuthorizationCard extends StatelessWidget {
 }
 
 class _PermissionDef {
-  const _PermissionDef({required this.key, required this.icon, required this.color, required this.title, required this.description});
+  const _PermissionDef(
+      {required this.key,
+      required this.icon,
+      required this.color,
+      required this.title,
+      required this.description});
 
-  final String key; // canVoidReturn | canEditPrice | canAddProduct | canManageStock | canManageSuppliers | canManagePurchases
+  final String
+      key; // canVoidReturn | canEditPrice | canAddProduct | canManageStock | canManageSuppliers | canManagePurchases
   final IconData icon;
   final Color color;
   final String title;
@@ -73,42 +89,48 @@ const _permissions = [
     icon: Icons.assignment_return_outlined,
     color: AppColors.rose,
     title: 'Annulation / retour de vente',
-    description: "Annuler une vente ou accepter le retour d'un article. Un vendeur autorisé ne peut agir que sur ses propres ventes, jamais celles d'un collègue.",
+    description:
+        "Annuler une vente ou accepter le retour d'un article. Un vendeur autorisé ne peut agir que sur ses propres ventes, jamais celles d'un collègue.",
   ),
   _PermissionDef(
     key: 'canEditPrice',
     icon: Icons.sell_outlined,
     color: AppColors.teal,
     title: 'Modification du prix à la Caisse',
-    description: 'Négocier un prix différent avec le client au moment de la vente — jamais en dessous du prix normal, toujours vérifié automatiquement.',
+    description:
+        'Négocier un prix différent avec le client au moment de la vente — jamais en dessous du prix normal, toujours vérifié automatiquement.',
   ),
   _PermissionDef(
     key: 'canAddProduct',
     icon: Icons.add_box_outlined,
     color: AppColors.emerald,
     title: 'Création de produit',
-    description: 'Ajouter une nouvelle fiche produit au catalogue. Modifier ou désactiver un produit existant reste réservé à vous.',
+    description:
+        'Ajouter une nouvelle fiche produit au catalogue. Modifier ou désactiver un produit existant reste réservé à vous.',
   ),
   _PermissionDef(
     key: 'canManageStock',
     icon: Icons.warehouse_outlined,
     color: AppColors.amber,
     title: 'Accès à Stock',
-    description: 'Ouvrir la page Stock et ajuster une quantité (casse, inventaire...). Consulter le stock ailleurs (Produits, Caisse) reste toujours possible pour tous.',
+    description:
+        'Ouvrir la page Stock et ajuster une quantité (casse, inventaire...). Consulter le stock ailleurs (Produits, Caisse) reste toujours possible pour tous.',
   ),
   _PermissionDef(
     key: 'canManageSuppliers',
     icon: Icons.local_shipping_outlined,
     color: AppColors.blue,
     title: 'Accès à Fournisseurs',
-    description: 'Ouvrir la page Fournisseurs — voir/ajouter des fournisseurs, consulter leur catalogue. Réservé au Owner tant que non autorisé.',
+    description:
+        'Ouvrir la page Fournisseurs — voir/ajouter des fournisseurs, consulter leur catalogue. Réservé au Owner tant que non autorisé.',
   ),
   _PermissionDef(
     key: 'canManagePurchases',
     icon: Icons.shopping_bag_outlined,
     color: AppColors.violet,
     title: 'Accès à Achats',
-    description: 'Ouvrir la page Achats — créer et suivre des commandes auprès de vos fournisseurs. Réservé au Owner tant que non autorisé.',
+    description:
+        'Ouvrir la page Achats — créer et suivre des commandes auprès de vos fournisseurs. Réservé au Owner tant que non autorisé.',
   ),
 ];
 
@@ -163,7 +185,9 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
         _allowAll['canManageStock'] = results[3] as bool;
         _allowAll['canManageSuppliers'] = results[4] as bool;
         _allowAll['canManagePurchases'] = results[5] as bool;
-        _sellers = (results[6] as List<Employee>).where((e) => e.roleCode == 'SELLER').toList();
+        _sellers = (results[6] as List<Employee>)
+            .where((e) => e.roleCode == 'SELLER')
+            .toList();
         _loading = false;
       });
     } on ApiException catch (err) {
@@ -197,7 +221,8 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
     }
   }
 
-  Future<void> _toggleSeller(_PermissionDef permission, Employee seller, bool value) async {
+  Future<void> _toggleSeller(
+      _PermissionDef permission, Employee seller, bool value) async {
     final savingId = '${seller.userId}:${permission.key}';
     setState(() => _savingSeller = savingId);
     try {
@@ -212,9 +237,11 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
         case 'canManageStock':
           await employeesApi.updateManageStockPermission(seller.userId, value);
         case 'canManageSuppliers':
-          await employeesApi.updateManageSuppliersPermission(seller.userId, value);
+          await employeesApi.updateManageSuppliersPermission(
+              seller.userId, value);
         default:
-          await employeesApi.updateManagePurchasesPermission(seller.userId, value);
+          await employeesApi.updateManagePurchasesPermission(
+              seller.userId, value);
       }
       if (!mounted) return;
       setState(() {
@@ -260,54 +287,76 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
-      builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Autorisations des vendeurs', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Choisissez ce que vos vendeurs peuvent faire sans vous demander à chaque fois.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                      children: [
-                        if (_error != null)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 14),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-                            child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+      // SafeArea(top: false) — § décidé en conversation, même correctif
+      // que pos_page.dart#_showCartSheet : protège la dernière ligne de la
+      // liste une fois défilée tout en bas.
+      builder: (context, scrollController) => SafeArea(
+        top: false,
+        child: Container(
+          decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Autorisations des vendeurs',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 16)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Choisissez ce que vos vendeurs peuvent faire sans vous demander à chaque fois.',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade500),
                           ),
-                        for (var i = 0; i < _permissions.length; i++) ...[
-                          if (i > 0) ...[const SizedBox(height: 20), Divider(color: Colors.grey.shade100), const SizedBox(height: 16)],
-                          _buildPermissionBlock(_permissions[i]),
                         ],
-                      ],
+                      ),
                     ),
-            ),
-          ],
+                    IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close)),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                        children: [
+                          if (_error != null)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 14),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(10)),
+                              child: Text(_error!,
+                                  style: const TextStyle(
+                                      color: Colors.red, fontSize: 12.5)),
+                            ),
+                          for (var i = 0; i < _permissions.length; i++) ...[
+                            if (i > 0) ...[
+                              const SizedBox(height: 20),
+                              Divider(color: Colors.grey.shade100),
+                              const SizedBox(height: 16)
+                            ],
+                            _buildPermissionBlock(_permissions[i]),
+                          ],
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -323,7 +372,9 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: permission.color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                  color: permission.color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12)),
               child: Icon(permission.icon, size: 18, color: permission.color),
             ),
             const SizedBox(width: 12),
@@ -331,9 +382,15 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(permission.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                  Text(permission.title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 13.5)),
                   const SizedBox(height: 2),
-                  Text(permission.description, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, height: 1.35)),
+                  Text(permission.description,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          height: 1.35)),
                 ],
               ),
             ),
@@ -343,11 +400,16 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
           padding: const EdgeInsets.only(left: 50, top: 10),
           child: Row(
             children: [
-              const Expanded(child: Text('Autoriser tous les vendeurs', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600))),
+              const Expanded(
+                  child: Text('Autoriser tous les vendeurs',
+                      style: TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w600))),
               Switch(
                 value: allOn,
                 activeThumbColor: permission.color,
-                onChanged: _savingAllKey == permission.key ? null : (value) => _toggleAll(permission, value),
+                onChanged: _savingAllKey == permission.key
+                    ? null
+                    : (value) => _toggleAll(permission, value),
               ),
             ],
           ),
@@ -355,18 +417,25 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
         Padding(
           padding: const EdgeInsets.only(left: 50, top: 4),
           child: _sellers.isEmpty
-              ? Text("Aucun vendeur dans l'équipe pour l'instant.", style: TextStyle(fontSize: 12, color: Colors.grey.shade400))
+              ? Text("Aucun vendeur dans l'équipe pour l'instant.",
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400))
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      allOn ? 'Déjà autorisés (tous les vendeurs ci-dessus) :' : 'Ou choisissez qui, individuellement :',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade400),
+                      allOn
+                          ? 'Déjà autorisés (tous les vendeurs ci-dessus) :'
+                          : 'Ou choisissez qui, individuellement :',
+                      style: TextStyle(
+                          fontSize: 11.5, color: Colors.grey.shade400),
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       child: Column(
                         children: [
                           for (final seller in _sellers)
@@ -376,23 +445,37 @@ class _AuthorizationSheetState extends State<_AuthorizationSheet> {
                                   width: 24,
                                   height: 24,
                                   alignment: Alignment.center,
-                                  decoration: BoxDecoration(color: Colors.grey.shade200, shape: BoxShape.circle),
-                                  child: Text(_initials(seller.fullName), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Colors.grey.shade600)),
+                                  decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      shape: BoxShape.circle),
+                                  child: Text(_initials(seller.fullName),
+                                      style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey.shade600)),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     seller.fullName,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 13, color: allOn ? Colors.grey.shade400 : Colors.black87),
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: allOn
+                                            ? Colors.grey.shade400
+                                            : Colors.black87),
                                   ),
                                 ),
                                 Switch(
-                                  value: allOn || _sellerValue(seller, permission.key),
+                                  value: allOn ||
+                                      _sellerValue(seller, permission.key),
                                   activeThumbColor: permission.color,
-                                  onChanged: (allOn || _savingSeller == '${seller.userId}:${permission.key}')
+                                  onChanged: (allOn ||
+                                          _savingSeller ==
+                                              '${seller.userId}:${permission.key}')
                                       ? null
-                                      : (value) => _toggleSeller(permission, seller, value),
+                                      : (value) => _toggleSeller(
+                                          permission, seller, value),
                                 ),
                               ],
                             ),

@@ -18,7 +18,7 @@ function firstOfMonthIso() {
  * même convention que getOrders) : on ajoute donc un jour à la date choisie
  * pour que le jour de fin sélectionné soit bien inclus dans l'export.
  */
-export default function OrdersExportSection() {
+export default function OrdersExportSection({ bare = false }) {
   const [startDate, setStartDate] = useState(firstOfMonthIso());
   const [endDate, setEndDate] = useState(todayIso());
   const [downloading, setDownloading] = useState(false);
@@ -38,13 +38,17 @@ export default function OrdersExportSection() {
     }
   }
 
-  return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h3 className="text-sm font-semibold text-slate-700 mb-1">Export comptable</h3>
-      <p className="text-xs text-slate-500 mb-3">
-        Télécharge les ventes de la période choisie au format CSV (compatible Excel), à donner à
-        ton comptable.
-      </p>
+  const content = (
+    <>
+      {!bare && (
+        <>
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">Export comptable</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            Télécharge les ventes de la période choisie au format CSV (compatible Excel), à donner à
+            ton comptable.
+          </p>
+        </>
+      )}
 
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 mb-3">{error}</p>}
 
@@ -79,6 +83,8 @@ export default function OrdersExportSection() {
           {downloading ? 'Génération...' : 'Exporter (CSV)'}
         </button>
       </div>
-    </section>
+    </>
   );
+
+  return bare ? content : <section className="rounded-xl border border-slate-200 bg-white p-5">{content}</section>;
 }

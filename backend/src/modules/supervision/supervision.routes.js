@@ -252,4 +252,116 @@ router.get(
   }
 );
 
+// Paiement de l'abonnement d'une boutique supervisée (§ décidé en
+// conversation, "le superviseur peut payer") — contrôle d'accès allégé
+// (verifySupervisorLink, PAS verifyAccess) : reste accessible même quand le
+// plan actuel bloque la lecture, puisque c'est justement le cas qu'on veut
+// débloquer. Déclaratif, jamais d'activation automatique (même garde-fou
+// que /subscription-payments pour le Owner).
+router.get(
+  '/stores/:storeId/subscription-options',
+  [param('storeId').isInt().withMessage('Identifiant de boutique invalide.')],
+  checkValidation,
+  async (req, res, next) => {
+    try {
+      const result = await supervisionService.getSupervisedStoreSubscriptionOptions(
+        req.auth.userId,
+        req.params.storeId
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.get(
+  '/stores/:storeId/subscription-request',
+  [param('storeId').isInt().withMessage('Identifiant de boutique invalide.')],
+  checkValidation,
+  async (req, res, next) => {
+    try {
+      const result = await supervisionService.getSupervisedStoreLatestPaymentRequest(
+        req.auth.userId,
+        req.params.storeId
+      );
+      res.json({ request: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post(
+  '/stores/:storeId/subscription-payments',
+  [
+    param('storeId').isInt().withMessage('Identifiant de boutique invalide.'),
+    body('planId').isInt().withMessage('Plan invalide.'),
+    body('months').optional().isInt({ min: 1 }).withMessage('Le nombre de mois doit être un entier positif.'),
+    body('paymentMethod')
+      .isIn(['ORANGE_MONEY', 'MOBILE_MONEY', 'PAYCARD'])
+      .withMessage('Méthode de paiement invalide.'),
+    body('transactionReference').trim().notEmpty().withMessage('La référence de transaction est requise.'),
+    body('payerPhone').optional({ checkFalsy: true }).trim(),
+  ],
+  checkValidation,
+  async (req, res, next) => {
+    try {
+      const result = await supervisionService.submitSupervisedStorePaymentRequest(
+        req.auth.userId,
+        req.params.storeId,
+        req.body
+      );
+      res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Catalogue de plans pour "Payer pour toutes" — pas de :storeId (le
+// catalogue n'est pas une donnée propre à une boutique, voir
+// getBulkSubscriptionOptions).
+router.get('/subscription-payments/options', async (req, res, next) => {
+  try {
+    const result = await supervisionService.getBulkSubscriptionOptions();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// "Payer pour toutes" (§52_lot_paiement_abonnement.sql, décidé en
+// conversation) — un plan + une durée choisis une fois, appliqués à
+// plusieurs boutiques d'un coup. Même validation que la route individuelle
+// ci-dessus, plus `storeIds` (tableau non vide d'identifiants).
+router.post(
+  '/subscription-payments/bulk',
+  [
+    body('storeIds').isArray({ min: 1 }).withMessage('Au moins une boutique doit être sélectionnée.'),
+    body('storeIds.*').isInt().withMessage('Identifiant de boutique invalide.'),
+    body('planId').isInt().withMessage('Plan invalide.'),
+    body('months').optional().isInt({ min: 1 }).withMessage('Le nombre de mois doit être un entier positif.'),
+    body('paymentMethod')
+      .isIn(['ORANGE_MONEY', 'MOBILE_MONEY', 'PAYCARD'])
+      .withMessage('Méthode de paiement invalide.'),
+    body('transactionReference').trim().notEmpty().withMessage('La référence de transaction est requise.'),
+    body('payerPhone').optional({ checkFalsy: true }).trim(),
+  ],
+  checkValidation,
+  async (req, res, next) => {
+    try {
+      const { storeIds, ...payload } = req.body;
+      const result = await supervisionService.submitBulkSupervisedStorePaymentRequest(
+        req.auth.userId,
+        storeIds,
+        payload
+      );
+      res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 module.exports = router;

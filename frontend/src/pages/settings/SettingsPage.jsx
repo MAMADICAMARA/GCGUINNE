@@ -1,304 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
+import SettingsEntryCard from './SettingsEntryCard';
+import SettingsModal from './SettingsModal';
+import ShareCodesModal from './ShareCodesModal';
+import BillingModal from './BillingModal';
 import ReceiptSettingsSection from './ReceiptSettingsSection';
-import BillingSettingsSection from './BillingSettingsSection';
-import OrdersExportSection from './OrdersExportSection';
 import AuthorizationCard from './AuthorizationCard';
 import SubscriptionSection from './SubscriptionSection';
 import StoreLogoSection from './StoreLogoSection';
 import StoreInfoSection from './StoreInfoSection';
+import StoreTypeSection from './StoreTypeSection';
 import {
   SlidersHorizontal,
   Crown,
+  Image,
   Store,
-  Share2,
-  ShoppingBag,
-  FileText,
-  KeyRound,
   Tag,
-  Copy,
-  RefreshCw,
-  CheckCircle2,
+  Share2,
+  Receipt,
+  FileText,
   AlertCircle,
+  PowerOff,
 } from 'lucide-react';
-
-// Une teinte par groupe (au lieu d'un bleu unique partout) — repère visuel
-// rapide entre Abonnement / Boutique / Partage / Ventes, cohérent avec la
-// palette déjà utilisée ailleurs dans l'app (ProfilePage.jsx notamment).
-const ACCENTS = {
-  amber: { icon: 'bg-amber-50 text-amber-600', ring: 'focus:ring-amber-500 focus:border-amber-500', chip: 'bg-amber-50 text-amber-700', solidBtn: 'bg-amber-500 hover:bg-amber-600' },
-  sky: { icon: 'bg-sky-50 text-sky-600', ring: 'focus:ring-sky-500 focus:border-sky-500', chip: 'bg-sky-50 text-sky-700', solidBtn: 'bg-sky-500 hover:bg-sky-600' },
-  violet: { icon: 'bg-violet-50 text-violet-600', ring: 'focus:ring-violet-500 focus:border-violet-500', chip: 'bg-violet-50 text-violet-700', solidBtn: 'bg-violet-500 hover:bg-violet-600' },
-  emerald: { icon: 'bg-emerald-50 text-emerald-600', ring: 'focus:ring-emerald-500 focus:border-emerald-500', chip: 'bg-emerald-50 text-emerald-700', solidBtn: 'bg-emerald-500 hover:bg-emerald-600' },
-  slate: { icon: 'bg-slate-100 text-slate-500', ring: 'focus:ring-slate-400 focus:border-slate-400', chip: 'bg-slate-100 text-slate-600', solidBtn: 'bg-slate-500 hover:bg-slate-600' },
-};
-
-function SectionHeader({ icon: Icon, title, description, accent = 'sky' }) {
-  return (
-    <div className="flex items-start gap-3 mb-4">
-      <div className={`rounded-xl p-2.5 shrink-0 ${ACCENTS[accent].icon}`}>
-        <Icon className="h-5 w-5" strokeWidth={1.75} />
-      </div>
-      <div>
-        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
-        {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
-      </div>
-    </div>
-  );
-}
-
-// Les codes de supervision et fournisseur partagent exactement la même
-// mécanique (afficher, copier, régénérer avec confirmation) — un seul
-// composant paramétré plutôt que deux blocs JSX dupliqués.
-function ShareCodeCard({ title, description, code, loading, error, copied, regenerating, onCopy, onRegenerate, accent = 'violet' }) {
-  return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
-      <div className="flex items-center gap-2 mb-1">
-        <KeyRound className={`h-4 w-4 ${ACCENTS[accent].icon.split(' ')[1]}`} strokeWidth={1.75} />
-        <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
-      </div>
-      <p className="text-xs text-slate-500 mb-4">{description}</p>
-
-      {error && (
-        <div className="flex items-center gap-1.5 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <p className="text-sm text-slate-400">Chargement…</p>
-      ) : (
-        <>
-          <div className="flex items-center gap-2 mb-3">
-            <code className="flex-1 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm font-mono text-slate-800 truncate">
-              {code}
-            </code>
-            <button
-              onClick={onCopy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium px-3 py-2 hover:bg-slate-200 transition"
-            >
-              <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />
-              {copied ? 'Copié !' : 'Copier'}
-            </button>
-          </div>
-          <button
-            onClick={onRegenerate}
-            disabled={regenerating}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50 transition"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${regenerating ? 'animate-spin' : ''}`} strokeWidth={1.75} />
-            {regenerating ? 'Régénération…' : 'Régénérer le code'}
-          </button>
-        </>
-      )}
-    </section>
-  );
-}
 
 /**
  * Paramètres de la boutique active (§8 du cahier des charges).
- * Statut de l'abonnement (§20_plans_abonnement.sql, lecture seule — seul le
- * Super Admin active/renouvelle/désactive), code de supervision
- * (§12_supervision.sql, lecture seule sur toute la boutique) et code
- * fournisseur (§18_fournisseurs_inter_boutiques.sql, lecture seule du
- * catalogue produit uniquement — deux codes volontairement distincts, deux
- * niveaux de confiance différents).
  *
- * Groupée en sections thématiques, chacune avec sa propre teinte d'accent
- * (voir ACCENTS ci-dessus) plutôt qu'une liste plate de cartes bleu uniforme.
+ * Restructurée en cartes cliquables (§ décidé en conversation, "cette page
+ * est trop longue") — chaque section s'ouvre dans un modal à la demande,
+ * exactement comme "Autorisation" le faisait déjà (AuthorizationCard.jsx),
+ * plutôt que de tout afficher en clair sur une page interminable. La "Zone
+ * dangereuse" reste volontairement à part et toujours visible (décision
+ * explicite de l'utilisateur), pas cachée derrière un clic.
  */
 export default function SettingsPage() {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
+  const navigate = useNavigate();
+  const [openModal, setOpenModal] = useState(null); // 'subscription' | 'logo' | 'info' | 'type' | 'share' | 'receipt' | 'billing'
 
-  const [supplierCode, setSupplierCode] = useState('');
-  const [supplierCodeLoading, setSupplierCodeLoading] = useState(true);
-  const [supplierCodeError, setSupplierCodeError] = useState('');
-  const [supplierCodeCopied, setSupplierCodeCopied] = useState(false);
-  const [supplierCodeRegenerating, setSupplierCodeRegenerating] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState('');
 
-  const [transferCode, setTransferCode] = useState('');
-  const [transferCodeLoading, setTransferCodeLoading] = useState(true);
-  const [transferCodeError, setTransferCodeError] = useState('');
-  const [transferCodeCopied, setTransferCodeCopied] = useState(false);
-  const [transferCodeRegenerating, setTransferCodeRegenerating] = useState(false);
-
-  const [storeType, setStoreType] = useState(null);
-  const [storeTypeLoading, setStoreTypeLoading] = useState(true);
-  const [storeTypeError, setStoreTypeError] = useState('');
-  const [storeTypeSuccess, setStoreTypeSuccess] = useState('');
-  const [allStoreTypes, setAllStoreTypes] = useState([]);
-  const [selectedStoreTypeId, setSelectedStoreTypeId] = useState('');
-  const [savingStoreType, setSavingStoreType] = useState(false);
-
-  async function loadCode() {
-    setLoading(true);
-    setError('');
-    try {
-      const { data } = await apiClient.get('/stores/supervision-code');
-      setCode(data.supervisionCode);
-    } catch (err) {
-      setError(err.response?.data?.error?.message || 'Impossible de charger le code.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadSupplierCode() {
-    setSupplierCodeLoading(true);
-    setSupplierCodeError('');
-    try {
-      const { data } = await apiClient.get('/stores/supplier-code');
-      setSupplierCode(data.supplierCode);
-    } catch (err) {
-      setSupplierCodeError(err.response?.data?.error?.message || 'Impossible de charger le code.');
-    } finally {
-      setSupplierCodeLoading(false);
-    }
-  }
-
-  async function loadTransferCode() {
-    setTransferCodeLoading(true);
-    setTransferCodeError('');
-    try {
-      const { data } = await apiClient.get('/stores/transfer-code');
-      setTransferCode(data.transferCode);
-    } catch (err) {
-      setTransferCodeError(err.response?.data?.error?.message || 'Impossible de charger le code.');
-    } finally {
-      setTransferCodeLoading(false);
-    }
-  }
-
-  async function loadStoreType() {
-    setStoreTypeLoading(true);
-    setStoreTypeError('');
-    try {
-      const [typeRes, allTypesRes] = await Promise.all([
-        apiClient.get('/stores/type'),
-        apiClient.get('/stores/types'),
-      ]);
-      setStoreType(typeRes.data);
-      setAllStoreTypes(allTypesRes.data.storeTypes);
-    } catch (err) {
-      setStoreTypeError(err.response?.data?.error?.message || 'Impossible de charger le type de boutique.');
-    } finally {
-      setStoreTypeLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadCode();
-    loadSupplierCode();
-    loadTransferCode();
-    loadStoreType();
-  }, []);
-
-  async function handleSaveStoreType(e) {
-    e.preventDefault();
-    setStoreTypeError('');
-    setSavingStoreType(true);
-    try {
-      const { data } = await apiClient.put('/stores/type', { storeTypeId: Number(selectedStoreTypeId) });
-      setStoreType({ storeTypeId: data.storeTypeId, storeTypeLabel: data.storeTypeLabel });
-      setSelectedStoreTypeId('');
-      setStoreTypeSuccess(
-        data.categoriesAdded > 0
-          ? `Type "${data.storeTypeLabel}" enregistré — ${data.categoriesAdded} catégorie(s) de produits ajoutée(s).`
-          : `Type "${data.storeTypeLabel}" enregistré — aucune nouvelle catégorie à ajouter, tout existait déjà.`
-      );
-      setTimeout(() => setStoreTypeSuccess(''), 8000);
-    } catch (err) {
-      setStoreTypeError(err.response?.data?.error?.message || 'Enregistrement impossible.');
-    } finally {
-      setSavingStoreType(false);
-    }
-  }
-
-  async function handleRegenerate() {
+  async function handleDeactivateStore() {
     if (
       !window.confirm(
-        "Régénérer le code ? L'ancien ne pourra plus être utilisé pour ajouter de nouveaux superviseurs (ceux déjà ajoutés gardent leur accès)."
+        'Désactiver votre boutique ? Elle deviendra inaccessible (à vous et à votre équipe) jusqu\'à ce que vous la réactiviez depuis "Mes boutiques". Aucune donnée ne sera supprimée.'
       )
     ) {
       return;
     }
-    setRegenerating(true);
+    setDeactivateError('');
+    setDeactivating(true);
     try {
-      const { data } = await apiClient.post('/stores/supervision-code/regenerate');
-      setCode(data.supervisionCode);
+      await apiClient.post('/stores/deactivate');
+      navigate('/account/store');
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Régénération impossible.');
-    } finally {
-      setRegenerating(false);
+      setDeactivateError(err.response?.data?.error?.message || 'Désactivation impossible.');
+      setDeactivating(false);
     }
-  }
-
-  async function handleRegenerateSupplierCode() {
-    if (
-      !window.confirm(
-        "Régénérer le code ? L'ancien ne pourra plus être utilisé pour ajouter de nouveaux clients (ceux déjà ajoutés gardent leur accès à votre catalogue)."
-      )
-    ) {
-      return;
-    }
-    setSupplierCodeRegenerating(true);
-    try {
-      const { data } = await apiClient.post('/stores/supplier-code/regenerate');
-      setSupplierCode(data.supplierCode);
-    } catch (err) {
-      setSupplierCodeError(err.response?.data?.error?.message || 'Régénération impossible.');
-    } finally {
-      setSupplierCodeRegenerating(false);
-    }
-  }
-
-  async function handleRegenerateTransferCode() {
-    if (
-      !window.confirm(
-        "Régénérer le code ? L'ancien ne pourra plus être utilisé pour recevoir de nouveaux transferts de stock."
-      )
-    ) {
-      return;
-    }
-    setTransferCodeRegenerating(true);
-    try {
-      const { data } = await apiClient.post('/stores/transfer-code/regenerate');
-      setTransferCode(data.transferCode);
-    } catch (err) {
-      setTransferCodeError(err.response?.data?.error?.message || 'Régénération impossible.');
-    } finally {
-      setTransferCodeRegenerating(false);
-    }
-  }
-
-  function handleCopyTransferCode() {
-    navigator.clipboard.writeText(transferCode);
-    setTransferCodeCopied(true);
-    setTimeout(() => setTransferCodeCopied(false), 2000);
-  }
-
-  function handleCopy() {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  function handleCopySupplierCode() {
-    navigator.clipboard.writeText(supplierCode);
-    setSupplierCodeCopied(true);
-    setTimeout(() => setSupplierCodeCopied(false), 2000);
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-10">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       {/* En-tête général */}
       <div className="flex items-center gap-3">
-        <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-700 p-3 text-white shadow-sm">
+        <div className="rounded-2xl bg-linear-to-br from-slate-800 to-slate-700 p-3 text-white shadow-sm">
           <SlidersHorizontal className="h-6 w-6" strokeWidth={1.75} />
         </div>
         <div>
@@ -307,156 +73,121 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Abonnement */}
-      <div className="space-y-4">
-        <SectionHeader icon={Crown} title="Abonnement" description="Gérez votre plan et vos factures." accent="amber" />
-        <SubscriptionSection />
-      </div>
-
-      {/* Boutique */}
-      <div className="space-y-4">
-        <SectionHeader icon={Store} title="Boutique" description="Identité visuelle et catégorisation de votre activité." accent="sky" />
-        <div className="grid gap-6">
-          <StoreLogoSection />
-          <StoreInfoSection />
-
-          {/* Type de boutique */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
-            <div className="flex items-center gap-2 mb-1">
-              <Tag className="h-4 w-4 text-sky-500" strokeWidth={1.75} />
-              <h3 className="text-sm font-semibold text-slate-800">Type de boutique</h3>
-            </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Détermine les catégories de produits suggérées. Une boutique ne peut avoir qu'un seul type — le choix est définitif une fois enregistré.
-            </p>
-
-            {storeTypeError && (
-              <div className="flex items-center gap-1.5 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {storeTypeError}
-              </div>
-            )}
-            {storeTypeSuccess && (
-              <div className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-3">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                {storeTypeSuccess}
-              </div>
-            )}
-
-            {storeTypeLoading ? (
-              <p className="text-sm text-slate-400">Chargement…</p>
-            ) : storeType?.storeTypeId ? (
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span>Type actuel :</span>
-                <span className="font-medium text-sky-700 bg-sky-50 px-3 py-1 rounded-full">
-                  {storeType.storeTypeLabel}
-                </span>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveStoreType} className="space-y-3">
-                <p className="text-sm text-slate-600">Aucun type défini pour l'instant.</p>
-                <select
-                  required
-                  value={selectedStoreTypeId}
-                  onChange={(e) => setSelectedStoreTypeId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
-                >
-                  <option value="" disabled>Choisir un type…</option>
-                  {allStoreTypes.map((t) => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  disabled={savingStoreType || !selectedStoreTypeId}
-                  className="inline-flex items-center gap-2 rounded-lg bg-sky-500 text-white text-sm font-medium px-5 py-2.5 hover:bg-sky-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {savingStoreType ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Enregistrement…
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Définir le type
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-          </section>
-        </div>
-      </div>
-
-      {/* Partage & accès */}
-      <div className="space-y-4">
-        <SectionHeader
+      <div className="space-y-3">
+        <SettingsEntryCard
+          icon={Crown}
+          accentClass="bg-amber-50 text-amber-600"
+          title="Abonnement"
+          description="Statut de votre plan, et déclaration de paiement."
+          onClick={() => setOpenModal('subscription')}
+        />
+        <SettingsEntryCard
+          icon={Image}
+          accentClass="bg-sky-50 text-sky-600"
+          title="Logo de la boutique"
+          description="L'image affichée sur vos reçus et dans l'application."
+          onClick={() => setOpenModal('logo')}
+        />
+        <SettingsEntryCard
+          icon={Store}
+          accentClass="bg-sky-50 text-sky-600"
+          title="Informations générales"
+          description="Nom, coordonnées et localisation de votre boutique."
+          onClick={() => setOpenModal('info')}
+        />
+        <SettingsEntryCard
+          icon={Tag}
+          accentClass="bg-sky-50 text-sky-600"
+          title="Type de boutique"
+          description="Détermine les catégories de produits suggérées."
+          onClick={() => setOpenModal('type')}
+        />
+        <SettingsEntryCard
           icon={Share2}
+          accentClass="bg-violet-50 text-violet-600"
           title="Partage & accès"
-          description="Trois codes distincts, trois niveaux de confiance différents."
-          accent="violet"
+          description="Codes de supervision, fournisseur et transfert de stock."
+          onClick={() => setOpenModal('share')}
         />
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <ShareCodeCard
-            title="Code de supervision"
-            description="Donne une vue en lecture seule à un propriétaire multi-boutiques — aucun droit d'action."
-            code={code}
-            loading={loading}
-            error={error}
-            copied={copied}
-            regenerating={regenerating}
-            onCopy={handleCopy}
-            onRegenerate={handleRegenerate}
-          />
-          <ShareCodeCard
-            title="Code fournisseur"
-            description="Permet à une autre boutique de vous ajouter comme fournisseur — elle voit uniquement votre catalogue."
-            code={supplierCode}
-            loading={supplierCodeLoading}
-            error={supplierCodeError}
-            copied={supplierCodeCopied}
-            regenerating={supplierCodeRegenerating}
-            onCopy={handleCopySupplierCode}
-            onRegenerate={handleRegenerateSupplierCode}
-          />
-          <ShareCodeCard
-            title="Code de transfert de stock"
-            description="À transmettre à une boutique du même type pour qu'elle puisse vous envoyer du stock."
-            code={transferCode}
-            loading={transferCodeLoading}
-            error={transferCodeError}
-            copied={transferCodeCopied}
-            regenerating={transferCodeRegenerating}
-            onCopy={handleCopyTransferCode}
-            onRegenerate={handleRegenerateTransferCode}
-            accent="amber"
-          />
-        </div>
+        <AuthorizationCard />
+        <SettingsEntryCard
+          icon={Receipt}
+          accentClass="bg-emerald-50 text-emerald-600"
+          title="Personnaliser le reçu"
+          description="Message d'en-tête/pied de page et informations affichées."
+          onClick={() => setOpenModal('receipt')}
+        />
+        <SettingsEntryCard
+          icon={FileText}
+          accentClass="bg-slate-100 text-slate-500"
+          title="Facturation"
+          description="Taxe par défaut, informations légales, export comptable."
+          onClick={() => setOpenModal('billing')}
+        />
       </div>
 
-      {/* Ventes */}
-      <div className="space-y-4">
-        <SectionHeader
-          icon={ShoppingBag}
-          title="Ventes"
-          description="Règles applicables à la caisse et aux reçus."
-          accent="emerald"
-        />
-        <div className="grid gap-6">
-          <AuthorizationCard />
-          <ReceiptSettingsSection />
+      {/* Zone dangereuse — désactivation volontaire de la boutique
+          (§53_desactivation_boutique.sql, décidé en conversation). Reste à
+          part et toujours visible (décision explicite de l'utilisateur),
+          jamais cachée derrière un clic. Réactivable plus tard depuis "Mes
+          boutiques" (MyStorePage.jsx), tant qu'on n'a pas pris un autre
+          poste (Owner/Vendeur) entre-temps. */}
+      <div className="pt-4 space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <PowerOff className="h-4 w-4 text-red-500" strokeWidth={1.75} />
+          <h2 className="text-sm font-semibold text-slate-800">Zone dangereuse</h2>
         </div>
+        <section className="rounded-xl border border-red-200 bg-red-50/40 p-5">
+          <h3 className="text-sm font-semibold text-slate-800">Désactiver ma boutique</h3>
+          <p className="text-xs text-slate-500 mt-1 mb-4">
+            Rend votre boutique inaccessible (à vous et à votre équipe) jusqu'à réactivation. Aucune
+            donnée n'est supprimée. Utile si vous souhaitez, par exemple, rejoindre une autre boutique
+            en tant que Vendeur — un même compte ne peut pas occuper les deux rôles à la fois.
+          </p>
+          {deactivateError && (
+            <div className="flex items-center gap-1.5 text-sm text-red-600 bg-white border border-red-100 rounded-lg px-3 py-2 mb-3">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {deactivateError}
+            </div>
+          )}
+          <button
+            onClick={handleDeactivateStore}
+            disabled={deactivating}
+            className="inline-flex items-center gap-2 rounded-lg bg-white border border-red-300 text-red-600 text-sm font-medium px-5 py-2.5 hover:bg-red-500 hover:text-white hover:border-red-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <PowerOff className="h-4 w-4" strokeWidth={1.75} />
+            {deactivating ? 'Désactivation…' : 'Désactiver ma boutique'}
+          </button>
+        </section>
       </div>
 
-      {/* Facturation */}
-      <div className="space-y-4">
-        <SectionHeader icon={FileText} title="Facturation" description="Gestion des factures et documents." accent="slate" />
-        <div className="grid gap-6">
-          <BillingSettingsSection />
-          <OrdersExportSection />
-        </div>
-      </div>
+      {openModal === 'subscription' && (
+        <SettingsModal title="Abonnement" onClose={() => setOpenModal(null)}>
+          <SubscriptionSection bare />
+        </SettingsModal>
+      )}
+      {openModal === 'logo' && (
+        <SettingsModal title="Logo de la boutique" onClose={() => setOpenModal(null)}>
+          <StoreLogoSection bare />
+        </SettingsModal>
+      )}
+      {openModal === 'info' && (
+        <SettingsModal title="Informations générales" onClose={() => setOpenModal(null)}>
+          <StoreInfoSection bare />
+        </SettingsModal>
+      )}
+      {openModal === 'type' && (
+        <SettingsModal title="Type de boutique" onClose={() => setOpenModal(null)}>
+          <StoreTypeSection bare />
+        </SettingsModal>
+      )}
+      {openModal === 'share' && <ShareCodesModal onClose={() => setOpenModal(null)} />}
+      {openModal === 'receipt' && (
+        <SettingsModal title="Personnaliser le reçu" onClose={() => setOpenModal(null)}>
+          <ReceiptSettingsSection bare />
+        </SettingsModal>
+      )}
+      {openModal === 'billing' && <BillingModal onClose={() => setOpenModal(null)} />}
     </div>
   );
 }

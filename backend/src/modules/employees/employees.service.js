@@ -1,6 +1,7 @@
 const pool = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { getEffectivePlan } = require('../../utils/planContext');
+const { findConflictingOccupation } = require('../../utils/userOccupancy');
 const mailer = require('../mailer/mailer.service');
 const emailTemplates = require('../mailer/templates');
 
@@ -130,16 +131,21 @@ async function addEmployee(storeId, actingUserId, { email }) {
 
     // Vérification préalable (message clair) — le trigger reste le
     // garde-fou final en cas de course entre deux requêtes concurrentes.
-    const conflict = await pool.query(
-      `SELECT s.name FROM user_store us
-       JOIN roles r ON r.id = us.role_id
-       JOIN stores s ON s.id = us.store_id
-       WHERE us.user_id = $1 AND r.code = 'SELLER'`,
-      [userId]
-    );
-    if (conflict.rows.length > 0) {
+    // Un seul poste par utilisateur (§53_desactivation_boutique.sql,
+    // décidé en conversation) : bloque aussi bien "déjà Vendeur ailleurs"
+    // que "déjà Owner ailleurs" (auparavant seul le premier cas était
+    // vérifié, laissant un Owner se faire ajouter comme Vendeur ailleurs).
+    const conflict = await findConflictingOccupation(userId);
+    if (conflict) {
+      if (conflict.type === 'OWNER') {
+        throw new AppError(
+          `Cet e-mail est déjà propriétaire de la boutique "${conflict.name}". Veuillez lui demander de désactiver sa boutique avant de pouvoir l'ajouter ici.`,
+          409,
+          'ALREADY_OWNS_STORE_ELSEWHERE'
+        );
+      }
       throw new AppError(
-        `Cette personne est déjà Vendeur dans la boutique "${conflict.rows[0].name}". Elle doit d'abord en être retirée.`,
+        `Cette personne est déjà Vendeur dans la boutique "${conflict.name}". Elle doit d'abord en être retirée.`,
         409,
         'ALREADY_RESELLER_ELSEWHERE'
       );

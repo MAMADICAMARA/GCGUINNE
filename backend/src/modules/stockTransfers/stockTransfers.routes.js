@@ -24,6 +24,10 @@ function checkValidation(req, res, next) {
   next();
 }
 
+// Boutiques destinataires déjà utilisées (§ décidé en conversation) — voir
+// stockTransfers.service.js#listRecentDestinations.
+router.get('/recent-destinations', controller.listRecentDestinations);
+
 // Aperçu avant confirmation — voir stockTransfers.service.js#resolveTransferCode.
 router.get(
   '/resolve-code',

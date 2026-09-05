@@ -16,7 +16,7 @@ const PAYMENT_METHOD_LABELS = {
  * ajoute simplement une manière pour le Owner de déclarer un paiement
  * lui-même plutôt que d'attendre une action manuelle du Super Admin.
  */
-export default function SubscriptionSection() {
+export default function SubscriptionSection({ bare = false }) {
   const navigate = useNavigate();
   const [plan, setPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(true);
@@ -58,14 +58,18 @@ export default function SubscriptionSection() {
 
   const hasPendingRequest = latestRequest?.status === 'PENDING';
 
-  return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">
-      <h2 className="text-sm font-semibold text-slate-700 mb-1">Abonnement</h2>
-      <p className="text-xs text-slate-500 mb-3">
-        Activation/renouvellement manuel possible en contactant le support, ou déclarez vous-même
-        un paiement ci-dessous (Orange Money, Mobile Money, PayCard) — vérifié par la plateforme
-        avant activation.
-      </p>
+  const content = (
+    <>
+      {!bare && (
+        <>
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">Abonnement</h2>
+          <p className="text-xs text-slate-500 mb-3">
+            Activation/renouvellement manuel possible en contactant le support, ou déclarez vous-même
+            un paiement ci-dessous (Orange Money, Mobile Money, PayCard) — vérifié par la plateforme
+            avant activation.
+          </p>
+        </>
+      )}
 
       {planError && <p className="text-sm text-red-600 mb-3">{planError}</p>}
 
@@ -139,6 +143,12 @@ export default function SubscriptionSection() {
           </div>
         </div>
       ) : null}
-    </section>
+    </>
+  );
+
+  return bare ? (
+    content
+  ) : (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 max-w-md mb-6">{content}</section>
   );
 }

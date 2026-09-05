@@ -14,9 +14,11 @@ class ReceiptSettings {
     required this.invoiceTitle,
   });
 
-  factory ReceiptSettings.fromJson(Map<String, dynamic> json) => ReceiptSettings(
+  factory ReceiptSettings.fromJson(Map<String, dynamic> json) =>
+      ReceiptSettings(
         headerMessage: json['headerMessage'] as String? ?? '',
-        footerMessage: json['footerMessage'] as String? ?? 'Merci de votre visite !',
+        footerMessage:
+            json['footerMessage'] as String? ?? 'Merci de votre visite !',
         showAddress: json['showAddress'] as bool? ?? false,
         showPhone: json['showPhone'] as bool? ?? false,
         showSellerName: json['showSellerName'] as bool? ?? false,
@@ -81,12 +83,14 @@ class BillingSettings {
     required this.invoicePrefix,
   });
 
-  factory BillingSettings.fromJson(Map<String, dynamic> json) => BillingSettings(
+  factory BillingSettings.fromJson(Map<String, dynamic> json) =>
+      BillingSettings(
         defaultTaxPercent: (json['defaultTaxPercent'] as num?) ?? 0,
         legalRccm: json['legalRccm'] as String? ?? '',
         legalNif: json['legalNif'] as String? ?? '',
         legalTaxRegime: json['legalTaxRegime'] as String? ?? '',
-        invoiceNumberingEnabled: json['invoiceNumberingEnabled'] as bool? ?? false,
+        invoiceNumberingEnabled:
+            json['invoiceNumberingEnabled'] as bool? ?? false,
         invoicePrefix: json['invoicePrefix'] as String? ?? 'FACT-',
       );
 
@@ -110,7 +114,8 @@ class BillingSettings {
         legalRccm: legalRccm ?? this.legalRccm,
         legalNif: legalNif ?? this.legalNif,
         legalTaxRegime: legalTaxRegime ?? this.legalTaxRegime,
-        invoiceNumberingEnabled: invoiceNumberingEnabled ?? this.invoiceNumberingEnabled,
+        invoiceNumberingEnabled:
+            invoiceNumberingEnabled ?? this.invoiceNumberingEnabled,
         invoicePrefix: invoicePrefix ?? this.invoicePrefix,
       );
 
@@ -164,7 +169,13 @@ class StoreInfo {
         'country': country,
       };
 
-  StoreInfo copyWith({String? name, String? address, String? phone, String? region, String? city, String? country}) =>
+  StoreInfo copyWith(
+          {String? name,
+          String? address,
+          String? phone,
+          String? region,
+          String? city,
+          String? country}) =>
       StoreInfo(
         name: name ?? this.name,
         address: address ?? this.address,
@@ -176,9 +187,11 @@ class StoreInfo {
 }
 
 class StoreContactInfo {
-  const StoreContactInfo({required this.name, required this.address, required this.phone});
+  const StoreContactInfo(
+      {required this.name, required this.address, required this.phone});
 
-  factory StoreContactInfo.fromJson(Map<String, dynamic> json) => StoreContactInfo(
+  factory StoreContactInfo.fromJson(Map<String, dynamic> json) =>
+      StoreContactInfo(
         name: json['name'] as String? ?? '',
         address: json['address'] as String?,
         phone: json['phone'] as String?,
@@ -190,9 +203,11 @@ class StoreContactInfo {
 }
 
 class StoreTypeOption {
-  const StoreTypeOption({required this.id, required this.label, required this.categories});
+  const StoreTypeOption(
+      {required this.id, required this.label, required this.categories});
 
-  factory StoreTypeOption.fromJson(Map<String, dynamic> json) => StoreTypeOption(
+  factory StoreTypeOption.fromJson(Map<String, dynamic> json) =>
+      StoreTypeOption(
         id: json['id'] as int,
         label: json['label'] as String,
         categories: (json['categories'] as List<dynamic>? ?? [])
@@ -203,6 +218,22 @@ class StoreTypeOption {
   final int id;
   final String label;
   final List<String> categories;
+}
+
+/// Palier de durée d'abonnement (§51_paliers_duree_abonnement.sql, décidé en
+/// conversation) — miroir de SubscriptionPlanOption.durationTiers côté web.
+class SubscriptionDurationTier {
+  const SubscriptionDurationTier(
+      {required this.minMonths, required this.unitPrice});
+
+  factory SubscriptionDurationTier.fromJson(Map<String, dynamic> json) =>
+      SubscriptionDurationTier(
+        minMonths: json['minMonths'] as int,
+        unitPrice: (json['unitPrice'] as num?) ?? 0,
+      );
+
+  final int minMonths;
+  final num unitPrice;
 }
 
 class SubscriptionPlanOption {
@@ -217,9 +248,11 @@ class SubscriptionPlanOption {
     required this.allowsPurchaseOrders,
     required this.allowsMarketplace,
     required this.allowsStockTransfer,
+    required this.durationTiers,
   });
 
-  factory SubscriptionPlanOption.fromJson(Map<String, dynamic> json) => SubscriptionPlanOption(
+  factory SubscriptionPlanOption.fromJson(Map<String, dynamic> json) =>
+      SubscriptionPlanOption(
         id: json['id'] as int,
         name: json['name'] as String,
         price: (json['price'] as num?) ?? 0,
@@ -230,6 +263,10 @@ class SubscriptionPlanOption {
         allowsPurchaseOrders: json['allowsPurchaseOrders'] as bool? ?? false,
         allowsMarketplace: json['allowsMarketplace'] as bool? ?? false,
         allowsStockTransfer: json['allowsStockTransfer'] as bool? ?? false,
+        durationTiers: (json['durationTiers'] as List<dynamic>? ?? [])
+            .map((e) =>
+                SubscriptionDurationTier.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   final int id;
@@ -242,6 +279,55 @@ class SubscriptionPlanOption {
   final bool allowsPurchaseOrders;
   final bool allowsMarketplace;
   final bool allowsStockTransfer;
+  final List<SubscriptionDurationTier> durationTiers;
+}
+
+/// Prix effectif par mois pour une durée donnée — miroir exact de
+/// getEffectivePricePerMonth (admin.service.js) / subscriptionPricing.js
+/// (web) : purement indicatif, le serveur reste seul décisionnaire du
+/// montant réel à la soumission.
+num effectivePricePerMonth(
+    num basePrice, List<SubscriptionDurationTier> tiers, int months) {
+  if (tiers.isEmpty) return basePrice;
+  num applicable = basePrice;
+  for (final tier in tiers) {
+    if (months >= tier.minMonths) applicable = tier.unitPrice;
+  }
+  return applicable;
+}
+
+class SubscriptionDurationOption {
+  const SubscriptionDurationOption({
+    required this.months,
+    required this.pricePerMonth,
+    required this.totalPrice,
+    required this.savingsPercent,
+  });
+
+  final int months;
+  final num pricePerMonth;
+  final num totalPrice;
+  final int savingsPercent;
+}
+
+/// Options de durée sélectionnables pour un plan — toujours "1 mois" (le
+/// tarif de base) puis une option par palier configuré.
+List<SubscriptionDurationOption> durationOptionsFor(
+    SubscriptionPlanOption plan) {
+  final months = [1, ...plan.durationTiers.map((t) => t.minMonths)];
+  return months.map((m) {
+    final pricePerMonth =
+        effectivePricePerMonth(plan.price, plan.durationTiers, m);
+    final totalPrice = m * pricePerMonth;
+    final savingsPercent =
+        plan.price > 0 ? (100 * (1 - pricePerMonth / plan.price)).round() : 0;
+    return SubscriptionDurationOption(
+      months: m,
+      pricePerMonth: pricePerMonth,
+      totalPrice: totalPrice,
+      savingsPercent: savingsPercent,
+    );
+  }).toList();
 }
 
 class PaymentSettings {
@@ -254,7 +340,8 @@ class PaymentSettings {
     required this.contactEmail,
   });
 
-  factory PaymentSettings.fromJson(Map<String, dynamic> json) => PaymentSettings(
+  factory PaymentSettings.fromJson(Map<String, dynamic> json) =>
+      PaymentSettings(
         orangeMoneyNumber: json['orangeMoneyNumber'] as String?,
         mobileMoneyNumber: json['mobileMoneyNumber'] as String?,
         paycardInfo: json['paycardInfo'] as String?,
@@ -272,11 +359,19 @@ class PaymentSettings {
 }
 
 class SubscriptionOptions {
-  const SubscriptionOptions({required this.plans, required this.paymentSettings, required this.renewalDays});
+  const SubscriptionOptions(
+      {required this.plans,
+      required this.paymentSettings,
+      required this.renewalDays});
 
-  factory SubscriptionOptions.fromJson(Map<String, dynamic> json) => SubscriptionOptions(
-        plans: (json['plans'] as List<dynamic>? ?? []).map((e) => SubscriptionPlanOption.fromJson(e as Map<String, dynamic>)).toList(),
-        paymentSettings: PaymentSettings.fromJson(json['paymentSettings'] as Map<String, dynamic>? ?? {}),
+  factory SubscriptionOptions.fromJson(Map<String, dynamic> json) =>
+      SubscriptionOptions(
+        plans: (json['plans'] as List<dynamic>? ?? [])
+            .map((e) =>
+                SubscriptionPlanOption.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        paymentSettings: PaymentSettings.fromJson(
+            json['paymentSettings'] as Map<String, dynamic>? ?? {}),
         renewalDays: json['renewalDays'] as int? ?? 30,
       );
 
@@ -285,7 +380,11 @@ class SubscriptionOptions {
   final int renewalDays;
 }
 
-const kPaymentMethodLabels = {'ORANGE_MONEY': 'Orange Money', 'MOBILE_MONEY': 'Mobile Money', 'PAYCARD': 'PayCard'};
+const kPaymentMethodLabels = {
+  'ORANGE_MONEY': 'Orange Money',
+  'MOBILE_MONEY': 'Mobile Money',
+  'PAYCARD': 'PayCard'
+};
 
 class SubscriptionRequest {
   const SubscriptionRequest({
@@ -295,17 +394,20 @@ class SubscriptionRequest {
     required this.paymentMethod,
     required this.transactionReference,
     required this.amountDeclared,
+    required this.months,
     required this.rejectionReason,
     required this.createdAt,
   });
 
-  factory SubscriptionRequest.fromJson(Map<String, dynamic> json) => SubscriptionRequest(
+  factory SubscriptionRequest.fromJson(Map<String, dynamic> json) =>
+      SubscriptionRequest(
         id: json['id'] as int,
         status: json['status'] as String,
         planName: json['planName'] as String? ?? '',
         paymentMethod: json['paymentMethod'] as String? ?? '',
         transactionReference: json['transactionReference'] as String?,
         amountDeclared: (json['amountDeclared'] as num?) ?? 0,
+        months: json['months'] as int? ?? 1,
         rejectionReason: json['rejectionReason'] as String?,
         createdAt: json['createdAt'] as String?,
       );
@@ -316,6 +418,7 @@ class SubscriptionRequest {
   final String paymentMethod;
   final String? transactionReference;
   final num amountDeclared;
+  final int months;
   final String? rejectionReason;
   final String? createdAt;
 }

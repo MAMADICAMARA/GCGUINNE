@@ -34,7 +34,7 @@ export default function UpgradePlanModal({ planName, maxProductsPerStore, produc
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 px-6 pt-8 pb-10 text-center">
+        <div className="relative bg-linear-to-br from-slate-800 to-slate-900 px-6 pt-8 pb-10 text-center">
           <button
             onClick={onClose}
             aria-label="Fermer"
@@ -63,7 +63,7 @@ export default function UpgradePlanModal({ planName, maxProductsPerStore, produc
           {isOwner && (
             <button
               onClick={handleUpgrade}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-semibold py-3 shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40 hover:-translate-y-0.5 transition-all"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-brand-500 to-brand-600 text-white text-sm font-semibold py-3 shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40 hover:-translate-y-0.5 transition-all"
             >
               <Sparkles size={16} />
               Voir les plans disponibles

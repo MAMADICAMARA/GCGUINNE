@@ -3,6 +3,7 @@ const { AppError } = require('../../middlewares/errorHandler');
 const mailer = require('../mailer/mailer.service');
 const emailTemplates = require('../mailer/templates');
 const verificationCodes = require('../auth/verificationCodes.service');
+const { findConflictingOccupation } = require('../../utils/userOccupancy');
 
 /**
  * E-mail de confirmation au propriétaire d'une boutique après une action
@@ -228,19 +229,114 @@ async function getStoreDetail(storeId) {
   };
 }
 
+// Miroir exact de PRICE_TIERS_SUBQUERY (products.service.js) — paliers de
+// durée d'un plan, triés par durée minimum croissante.
+const DURATION_TIERS_SUBQUERY = `
+  COALESCE(
+    (SELECT json_agg(json_build_object('id', dt.id, 'minMonths', dt.min_months, 'unitPrice', dt.unit_price) ORDER BY dt.min_months)
+     FROM subscription_plan_duration_tiers dt WHERE dt.plan_id = sp.id),
+    '[]'::json
+  ) AS "durationTiers"
+`;
+
 async function listPlans() {
   const { rows } = await pool.query(
-    `SELECT id, name, max_users_per_store AS "maxUsersPerStore",
-            max_products_per_store AS "maxProductsPerStore",
-            allows_supervision AS "allowsSupervision", allows_suppliers AS "allowsSuppliers",
-            allows_purchase_orders AS "allowsPurchaseOrders",
-            allows_marketplace AS "allowsMarketplace",
-            allows_stock_transfer AS "allowsStockTransfer",
-            price, created_at AS "createdAt"
-     FROM subscription_plans
-     ORDER BY price ASC`
+    `SELECT sp.id, sp.name, sp.max_users_per_store AS "maxUsersPerStore",
+            sp.max_products_per_store AS "maxProductsPerStore",
+            sp.allows_supervision AS "allowsSupervision", sp.allows_suppliers AS "allowsSuppliers",
+            sp.allows_purchase_orders AS "allowsPurchaseOrders",
+            sp.allows_marketplace AS "allowsMarketplace",
+            sp.allows_stock_transfer AS "allowsStockTransfer",
+            sp.price, sp.created_at AS "createdAt",
+            ${DURATION_TIERS_SUBQUERY}
+     FROM subscription_plans sp
+     ORDER BY sp.price ASC`
   );
   return rows;
+}
+
+/**
+ * Paliers de durée d'abonnement (§51_paliers_duree_abonnement.sql, décidé
+ * en conversation) — miroir exact de validateAndNormalizeTiers /
+ * replaceProductPriceTiers (products.service.js), appliqué à la durée
+ * plutôt qu'à la quantité. `basePrice` = subscription_plans.price (le tarif
+ * "1 mois", jamais dépassé par un palier).
+ */
+function validateAndNormalizeDurationTiers(tiers, basePrice) {
+  if (tiers == null) return [];
+  if (!Array.isArray(tiers)) {
+    throw new AppError('Les paliers de durée sont invalides.', 400, 'VALIDATION_ERROR');
+  }
+  if (tiers.length === 0) return [];
+
+  const seenMonths = new Set();
+  const normalized = tiers.map((t) => {
+    const minMonths = parseInt(t.minMonths, 10);
+    const unitPrice = Number(t.unitPrice);
+    if (!Number.isInteger(minMonths) || minMonths <= 1) {
+      throw new AppError(
+        "La durée minimum d'un palier doit être un entier supérieur à 1 (en mois).",
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+    if (typeof unitPrice !== 'number' || Number.isNaN(unitPrice) || unitPrice < 0) {
+      throw new AppError("Le prix d'un palier est invalide.", 400, 'VALIDATION_ERROR');
+    }
+    if (unitPrice > basePrice) {
+      throw new AppError(
+        "Le prix par mois d'un palier ne peut pas dépasser le tarif normal du plan.",
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+    if (seenMonths.has(minMonths)) {
+      throw new AppError('Deux paliers ne peuvent pas avoir la même durée minimum.', 400, 'VALIDATION_ERROR');
+    }
+    seenMonths.add(minMonths);
+    return { minMonths, unitPrice };
+  });
+
+  normalized.sort((a, b) => a.minMonths - b.minMonths);
+  for (let i = 1; i < normalized.length; i++) {
+    if (normalized[i].unitPrice >= normalized[i - 1].unitPrice) {
+      throw new AppError(
+        'Le prix par mois doit diminuer à chaque palier de durée supérieure.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+  }
+
+  return normalized;
+}
+
+async function replaceDurationTiers(client, planId, tiers) {
+  await client.query('DELETE FROM subscription_plan_duration_tiers WHERE plan_id = $1', [planId]);
+  for (const tier of tiers) {
+    await client.query(
+      `INSERT INTO subscription_plan_duration_tiers (plan_id, min_months, unit_price) VALUES ($1, $2, $3)`,
+      [planId, tier.minMonths, tier.unitPrice]
+    );
+  }
+}
+
+/**
+ * Prix effectif par mois pour une durée donnée — miroir exact de
+ * getEffectiveUnitPrice (products.service.js) : parcourt les paliers
+ * (triés par durée minimum croissante) et retient le dernier applicable.
+ * Utilisé à la fois pour calculer le montant réel d'une demande de paiement
+ * (subscriptionPayments.service.js) et pour l'aperçu affiché au Owner.
+ */
+function getEffectivePricePerMonth(basePrice, tiers, months) {
+  if (!tiers || tiers.length === 0) return basePrice;
+  let applicable = basePrice;
+  for (const tier of tiers) {
+    if (months >= tier.minMonths) {
+      applicable = tier.unitPrice;
+    }
+  }
+  return applicable;
 }
 
 /**
@@ -531,8 +627,11 @@ async function transferStoreOwnership(storeId, newOwnerUserId, adminUserId) {
     throw new AppError('Un Super Admin ne peut pas devenir propriétaire de boutique.', 400, 'RECIPIENT_IS_ADMIN');
   }
 
-  const alreadyOwns = await pool.query('SELECT id FROM stores WHERE owner_id = $1', [newOwnerUserId]);
-  if (alreadyOwns.rows.length > 0) {
+  // Une boutique DÉSACTIVÉE par son ancien Owner ne compte pas comme
+  // occupation (§53_desactivation_boutique.sql, décidé en conversation) —
+  // le destinataire doit pouvoir recevoir un transfert dans ce cas.
+  const conflict = await findConflictingOccupation(newOwnerUserId);
+  if (conflict) {
     throw new AppError(
       'Cette personne possède déjà une boutique — elle ne peut pas en recevoir une deuxième.',
       409,
@@ -716,6 +815,7 @@ async function updatePlan(
     allowsPurchaseOrders,
     allowsMarketplace,
     allowsStockTransfer,
+    durationTiers,
   },
   adminUserId
 ) {
@@ -731,9 +831,13 @@ async function updatePlan(
   if (!Number.isInteger(maxProductsPerStore) || maxProductsPerStore < 1) {
     throw new AppError('Le nombre de produits doit être un entier positif.', 400, 'VALIDATION_ERROR');
   }
+  const normalizedTiers = validateAndNormalizeDurationTiers(durationTiers, Number(price));
 
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
       `UPDATE subscription_plans
        SET name = $2, price = $3, max_users_per_store = $4, max_products_per_store = $5,
            allows_supervision = $6, allows_suppliers = $7, allows_purchase_orders = $8,
@@ -762,19 +866,27 @@ async function updatePlan(
     if (rows.length === 0) {
       throw new AppError('Plan introuvable.', 404, 'PLAN_NOT_FOUND');
     }
+    const plan = rows[0];
 
-    await pool.query(
+    await replaceDurationTiers(client, planId, normalizedTiers);
+    plan.durationTiers = normalizedTiers;
+
+    await client.query(
       `INSERT INTO system_logs (user_id, store_id, action, details)
        VALUES ($1, NULL, 'ADMIN_UPDATE_PLAN', $2::jsonb)`,
-      [adminUserId, JSON.stringify({ planId: rows[0].id, planName: rows[0].name })]
+      [adminUserId, JSON.stringify({ planId: plan.id, planName: plan.name })]
     );
 
-    return rows[0];
+    await client.query('COMMIT');
+    return plan;
   } catch (err) {
+    await client.query('ROLLBACK');
     if (err.code === '23505') {
       throw new AppError('Un plan porte déjà ce nom.', 409, 'DUPLICATE_NAME');
     }
     throw err;
+  } finally {
+    client.release();
   }
 }
 
@@ -1109,6 +1221,8 @@ module.exports = {
   reactivateStore,
   listPlans,
   updatePlan,
+  getEffectivePricePerMonth,
+  DURATION_TIERS_SUBQUERY,
   getPlatformSettings,
   updatePlatformSettings,
   activateStorePlan,

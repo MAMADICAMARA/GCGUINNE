@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/plan_status_badge.dart';
+import '../../store_workspace/presentation/settings/subscription_payment_sheet.dart';
 import '../data/supervision_api.dart';
 import '../data/supervision_models.dart';
 
@@ -89,8 +91,12 @@ class _SupervisePageState extends State<SupervisePage> {
         title: const Text('Retirer cette boutique ?'),
         content: Text('Retirer "${store.name}" de votre supervision ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Retirer')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Retirer')),
         ],
       ),
     );
@@ -107,6 +113,53 @@ class _SupervisePageState extends State<SupervisePage> {
     }
   }
 
+  /// Paiement d'une boutique précise (§ décidé en conversation, "le
+  /// superviseur peut payer") — même feuille que le Owner sur sa propre
+  /// boutique, scopée à `store.id` via SupervisionApi.
+  Future<void> _payStore(SupervisableStore store) async {
+    final submitted = await showSubscriptionPaymentSheet(context,
+        supervisedStoreId: store.id);
+    if (submitted == true) {
+      setState(() => _success =
+          'Demande de paiement envoyée pour "${store.name}" — en attente de vérification.');
+      Future.delayed(const Duration(seconds: 6), () {
+        if (mounted) setState(() => _success = null);
+      });
+      _load();
+    }
+  }
+
+  /// "Payer pour toutes" (§52_lot_paiement_abonnement.sql, décidé en
+  /// conversation) — un seul plan + une seule durée choisis une fois,
+  /// appliqués à TOUTES les boutiques supervisées d'un coup (un seul
+  /// virement réel du superviseur). Le montant affiché est multiplié par
+  /// le nombre de boutiques — purement visuel, chaque boutique garde sa
+  /// propre demande avec son propre montant individuel côté serveur.
+  Future<void> _payAll(List<SupervisableStore> stores) async {
+    BulkPaymentSubmitResult? result;
+    final submitted = await showSubscriptionPaymentSheet(
+      context,
+      bulkStoreIds: stores.map((s) => s.id).toList(),
+      priceMultiplier: stores.length,
+      subjectLabel:
+          '${stores.length} boutique${stores.length > 1 ? 's' : ''} sélectionnée${stores.length > 1 ? 's' : ''} : ${stores.map((s) => s.name).join(', ')}',
+      onBulkSubmitted: (r) => result = r,
+    );
+    if (submitted == true && result != null) {
+      final successCount = result!.results.where((r) => r.success).length;
+      final failCount = result!.results.length - successCount;
+      setState(() {
+        _success = failCount == 0
+            ? 'Demande de paiement envoyée pour $successCount boutique(s) — en attente de vérification.'
+            : '$successCount boutique(s) envoyée(s), $failCount déjà en attente d\'une autre demande.';
+      });
+      Future.delayed(const Duration(seconds: 8), () {
+        if (mounted) setState(() => _success = null);
+      });
+      _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final stores = _stores;
@@ -115,17 +168,36 @@ class _SupervisePageState extends State<SupervisePage> {
       children: [
         Row(
           children: [
-            Icon(Icons.visibility_outlined, color: Theme.of(context).colorScheme.primary, size: 22),
+            Icon(Icons.visibility_outlined,
+                color: Theme.of(context).colorScheme.primary, size: 22),
             const SizedBox(width: 10),
-            const Expanded(child: Text('Superviser', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
-            FilledButton.tonalIcon(
+            const Expanded(
+                child: Text('Superviser',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
+            OutlinedButton.icon(
               onPressed: () => setState(() => _showAddForm = true),
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Ajouter', style: TextStyle(fontSize: 12)),
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+              style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
             ),
           ],
         ),
+        if (stores != null && stores.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _payAll(stores),
+              icon: const Icon(Icons.credit_card, size: 16),
+              label: Text('Payer pour toutes (${stores.length})'),
+              style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12)),
+            ),
+          ),
+        ],
         const SizedBox(height: 6),
         Text(
           "Boutiques d'autres personnes que vous supervisez en lecture seule.",
@@ -136,15 +208,21 @@ class _SupervisePageState extends State<SupervisePage> {
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
-            child: Text(_success!, style: TextStyle(color: Colors.green.shade800, fontSize: 12.5)),
+            decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(10)),
+            child: Text(_success!,
+                style: TextStyle(color: Colors.green.shade800, fontSize: 12.5)),
           ),
         if (_error != null)
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-            child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(10)),
+            child: Text(_error!,
+                style: const TextStyle(color: Colors.red, fontSize: 13)),
           ),
         if (_showAddForm)
           Container(
@@ -158,7 +236,9 @@ class _SupervisePageState extends State<SupervisePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Code de supervision', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const Text('Code de supervision',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 4),
                 Text(
                   'Demandez ce code à la personne qui gère la boutique — il se trouve dans ses Paramètres.',
@@ -192,28 +272,34 @@ class _SupervisePageState extends State<SupervisePage> {
             ),
           ),
         if (stores == null)
-          const Padding(padding: EdgeInsets.symmetric(vertical: 30), child: Center(child: CircularProgressIndicator()))
+          const Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Center(child: CircularProgressIndicator()))
         else if (stores.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 40),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+              border: Border.all(
+                  color: Colors.grey.shade300, style: BorderStyle.solid),
             ),
             child: Center(
-              child: Text('Aucune boutique supervisée pour l\'instant.', style: TextStyle(color: Colors.grey.shade400)),
+              child: Text('Aucune boutique supervisée pour l\'instant.',
+                  style: TextStyle(color: Colors.grey.shade400)),
             ),
           )
         else
-          for (final store in stores) _SupervisedStoreCard(
-            store: store,
-            removing: _removingId == store.id,
-            onViewDetail: store.supervisionAllowed
-                ? () => context.push('/account/supervise/${store.id}')
-                : null,
-            onRemove: () => _remove(store),
-          ),
+          for (final store in stores)
+            _SupervisedStoreCard(
+              store: store,
+              removing: _removingId == store.id,
+              onViewDetail: store.supervisionAllowed
+                  ? () => context.push('/account/supervise/${store.id}')
+                  : null,
+              onPay: () => _payStore(store),
+              onRemove: () => _remove(store),
+            ),
       ],
     );
   }
@@ -224,12 +310,14 @@ class _SupervisedStoreCard extends StatelessWidget {
     required this.store,
     required this.removing,
     required this.onViewDetail,
+    required this.onPay,
     required this.onRemove,
   });
 
   final SupervisableStore store;
   final bool removing;
   final VoidCallback? onViewDetail;
+  final VoidCallback onPay;
   final VoidCallback onRemove;
 
   @override
@@ -245,12 +333,28 @@ class _SupervisedStoreCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(store.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(store.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14.5)),
+              ),
+              const SizedBox(width: 8),
+              PlanStatusBadge(
+                  supervisionAllowed: store.supervisionAllowed,
+                  planExpiresAt: store.planExpiresAt),
+            ],
+          ),
           const SizedBox(height: 10),
           if (store.supervisionAllowed)
             Row(
               children: [
-                Expanded(child: _MiniStat(label: 'CA du jour', value: formatGNF(store.todayRevenue))),
+                Expanded(
+                    child: _MiniStat(
+                        label: 'CA du jour',
+                        value: formatGNF(store.todayRevenue))),
                 Expanded(
                   child: _MiniStat(
                     label: 'Bénéfice',
@@ -262,7 +366,9 @@ class _SupervisedStoreCard extends StatelessWidget {
                   child: _MiniStat(
                     label: 'Ruptures',
                     value: '${store.lowStockCount ?? 0}',
-                    color: (store.lowStockCount ?? 0) > 0 ? Colors.red.shade600 : null,
+                    color: (store.lowStockCount ?? 0) > 0
+                        ? Colors.red.shade600
+                        : null,
                   ),
                 ),
               ],
@@ -270,7 +376,9 @@ class _SupervisedStoreCard extends StatelessWidget {
           else
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8)),
               child: Text(
                 "L'abonnement actuel de cette boutique n'autorise plus la supervision — vous restez lié(e), mais ses données ne sont plus accessibles pour l'instant.",
                 style: TextStyle(fontSize: 11.5, color: Colors.amber.shade900),
@@ -281,10 +389,20 @@ class _SupervisedStoreCard extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: onViewDetail,
-                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 32)),
-                child: const Text('Voir le détail', style: TextStyle(fontSize: 12.5)),
+                style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero, minimumSize: const Size(0, 32)),
+                child: const Text('Voir le détail',
+                    style: TextStyle(fontSize: 12.5)),
               ),
               const SizedBox(width: 16),
+              TextButton(
+                onPressed: onPay,
+                style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero, minimumSize: const Size(0, 32)),
+                child: const Text('Payer l\'abonnement',
+                    style: TextStyle(fontSize: 12.5)),
+              ),
+              const Spacer(),
               TextButton(
                 onPressed: removing ? null : onRemove,
                 style: TextButton.styleFrom(
@@ -292,7 +410,8 @@ class _SupervisedStoreCard extends StatelessWidget {
                   minimumSize: const Size(0, 32),
                   foregroundColor: Colors.grey.shade500,
                 ),
-                child: Text(removing ? 'Retrait...' : 'Retirer', style: const TextStyle(fontSize: 12.5)),
+                child: Text(removing ? 'Retrait...' : 'Retirer',
+                    style: const TextStyle(fontSize: 12.5)),
               ),
             ],
           ),
@@ -313,9 +432,14 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label.toUpperCase(), style: TextStyle(fontSize: 9.5, color: Colors.grey.shade400)),
+        Text(label.toUpperCase(),
+            style: TextStyle(fontSize: 9.5, color: Colors.grey.shade400)),
         const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color ?? Colors.grey.shade800)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color ?? Colors.grey.shade800)),
       ],
     );
   }

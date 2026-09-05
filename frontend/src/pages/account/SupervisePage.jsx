@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CreditCard } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF } from '@/utils/format';
+import PlanStatusBadge from '@/components/PlanStatusBadge';
+import SubscriptionPaymentModal from '@/pages/settings/SubscriptionPaymentModal';
 
 /**
  * Page Superviser (espace Compte) — vue d'ensemble sur les boutiques de
@@ -23,6 +26,11 @@ export default function SupervisePage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [removingId, setRemovingId] = useState(null);
+
+  // Paiement d'abonnement (§ décidé en conversation) — une boutique précise,
+  // ou la file "payer pour toutes" ci-dessous.
+  const [payingStore, setPayingStore] = useState(null);
+  const [showBulkPayment, setShowBulkPayment] = useState(false);
 
   async function loadStores() {
     setLoading(true);
@@ -81,12 +89,23 @@ export default function SupervisePage() {
             Boutiques d'autres personnes que vous supervisez en lecture seule.
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="rounded-lg bg-brand-500 text-white text-sm font-medium px-4 py-2 hover:bg-brand-600 transition self-start sm:self-auto"
-        >
-          + Ajouter via un code
-        </button>
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          {stores.length > 0 && (
+            <button
+              onClick={() => setShowBulkPayment(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-linear-to-r from-brand-500 to-brand-600 text-white text-sm font-medium px-4 py-2 shadow-md shadow-brand-500/25 hover:shadow-lg hover:shadow-brand-500/35 hover:-translate-y-0.5 transition-all"
+            >
+              <CreditCard size={16} />
+              Payer pour toutes ({stores.length})
+            </button>
+          )}
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="rounded-lg border border-slate-300 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-50 transition"
+          >
+            + Ajouter via un code
+          </button>
+        </div>
       </div>
 
       {successMessage && (
@@ -148,8 +167,9 @@ export default function SupervisePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {stores.map((store) => (
             <div key={store.id} className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start justify-between gap-2 mb-3">
                 <p className="font-medium text-slate-800">{store.name}</p>
+                <PlanStatusBadge supervisionAllowed={store.supervisionAllowed} planExpiresAt={store.planExpiresAt} />
               </div>
 
               {store.supervisionAllowed ? (
@@ -184,7 +204,7 @@ export default function SupervisePage() {
                 </p>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => navigate(`/account/supervise/${store.id}`)}
                   disabled={!store.supervisionAllowed}
@@ -193,9 +213,15 @@ export default function SupervisePage() {
                   Voir le détail
                 </button>
                 <button
+                  onClick={() => setPayingStore(store)}
+                  className="text-xs font-medium text-brand-500 hover:text-brand-600"
+                >
+                  Payer l'abonnement
+                </button>
+                <button
                   onClick={() => handleRemove(store)}
                   disabled={removingId === store.id}
-                  className="text-xs font-medium text-slate-400 hover:text-red-600 disabled:opacity-50"
+                  className="text-xs font-medium text-slate-400 hover:text-red-600 disabled:opacity-50 ml-auto"
                 >
                   Retirer
                 </button>
@@ -204,6 +230,62 @@ export default function SupervisePage() {
           ))}
         </div>
       )}
+
+      {payingStore && (
+        <SubscriptionPaymentModal
+          optionsEndpoint={`/supervision/stores/${payingStore.id}/subscription-options`}
+          submitEndpoint={`/supervision/stores/${payingStore.id}/subscription-payments`}
+          onClose={() => setPayingStore(null)}
+          onSuccess={() => {
+            setPayingStore(null);
+            setSuccessMessage(`Demande de paiement envoyée pour "${payingStore.name}" — en attente de vérification.`);
+            setTimeout(() => setSuccessMessage(''), 6000);
+            loadStores();
+          }}
+        />
+      )}
+
+      {showBulkPayment && (
+        <BulkPaymentModal
+          stores={stores}
+          onClose={() => setShowBulkPayment(false)}
+          onSuccess={(result) => {
+            setShowBulkPayment(false);
+            const successCount = result.results.filter((r) => r.success).length;
+            const failCount = result.results.length - successCount;
+            setSuccessMessage(
+              failCount === 0
+                ? `Demande de paiement envoyée pour ${successCount} boutique(s) — en attente de vérification.`
+                : `${successCount} boutique(s) envoyée(s), ${failCount} déjà en attente d'une autre demande (voir le détail de chaque boutique).`
+            );
+            setTimeout(() => setSuccessMessage(''), 8000);
+            loadStores();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * "Payer pour toutes" (§52_lot_paiement_abonnement.sql, décidé en
+ * conversation) — un seul plan + une seule durée choisis une fois,
+ * appliqués à TOUTES les boutiques supervisées d'un coup (un seul virement
+ * réel du superviseur). Le montant affiché est multiplié par le nombre de
+ * boutiques (priceMultiplier) — purement visuel, chaque boutique garde sa
+ * propre demande avec son propre montant individuel côté serveur (voir
+ * submitBulkSupervisedStorePaymentRequest, supervision.service.js).
+ */
+function BulkPaymentModal({ stores, onClose, onSuccess }) {
+  return (
+    <SubscriptionPaymentModal
+      optionsEndpoint="/supervision/subscription-payments/options"
+      submitEndpoint="/supervision/subscription-payments/bulk"
+      priceMultiplier={stores.length}
+      extraSubmitPayload={{ storeIds: stores.map((s) => s.id) }}
+      subjectLabel={`${stores.length} boutique${stores.length > 1 ? 's' : ''} sélectionnée${stores.length > 1 ? 's' : ''} : ${stores.map((s) => s.name).join(', ')}`}
+      onClose={onClose}
+      onSuccess={onSuccess}
+    />
   );
 }

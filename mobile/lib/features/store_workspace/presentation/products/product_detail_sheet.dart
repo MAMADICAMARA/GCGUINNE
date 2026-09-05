@@ -41,7 +41,8 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
 
   Future<void> _loadHistory() async {
     try {
-      final movements = await context.read<ProductsApi>().getStockHistory(widget.product.id);
+      final movements =
+          await context.read<ProductsApi>().getStockHistory(widget.product.id);
       if (!mounted) return;
       setState(() => _movements = movements);
     } on ApiException catch (err) {
@@ -55,13 +56,18 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isActive ? 'Désactiver ce produit ?' : 'Réactiver ce produit ?'),
+        title: Text(
+            isActive ? 'Désactiver ce produit ?' : 'Réactiver ce produit ?'),
         content: Text(isActive
             ? '"${widget.product.name}" n\'apparaîtra plus en caisse.'
             : '"${widget.product.name}" redeviendra disponible en caisse.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Confirmer')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Confirmer')),
         ],
       ),
     );
@@ -87,7 +93,9 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
   Widget build(BuildContext context) {
     final product = widget.product;
     final margin = product.sellingPrice - product.purchasePrice;
-    final marginPercent = product.purchasePrice > 0 ? (margin / product.purchasePrice * 100).round() : null;
+    final marginPercent = product.purchasePrice > 0
+        ? (margin / product.purchasePrice * 100).round()
+        : null;
     final isActive = product.status == 'ACTIVE';
     // Un Vendeur autorisé à créer des produits (§40_autorisation_ajout_produit.sql)
     // peut atteindre cette feuille, mais modifier/désactiver/réactiver un
@@ -99,34 +107,49 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
-      builder: (context, scrollController) => ListView(
+      // SafeArea(top: false) — § décidé en conversation, même correctif
+      // que pos_page.dart#_showCartSheet.
+      builder: (context, scrollController) => SafeArea(
+        top: false,
+        child: ListView(
           controller: scrollController,
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
             Row(
               children: [
                 Expanded(
-                  child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                  child: Text(product.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 17)),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: isActive ? Colors.green.shade50 : Colors.grey.shade200,
+                    color:
+                        isActive ? Colors.green.shade50 : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     isActive ? 'Actif' : 'Inactif',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isActive ? Colors.green.shade700 : Colors.grey.shade600),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isActive
+                            ? Colors.green.shade700
+                            : Colors.grey.shade600),
                   ),
                 ),
               ],
             ),
-            Text('Référence : ${product.reference ?? '—'}', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500)),
+            Text('Référence : ${product.reference ?? '—'}',
+                style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500)),
             const SizedBox(height: 16),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                child: Text(_error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 13)),
               ),
             GridView.count(
               shrinkWrap: true,
@@ -136,41 +159,67 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
               crossAxisSpacing: 10,
               childAspectRatio: 2.2,
               children: [
-                _InfoTile(label: "Prix d'achat", value: formatGNF(product.purchasePrice)),
-                _InfoTile(label: 'Prix de vente', value: formatGNF(product.sellingPrice)),
-                _InfoTile(label: 'Marge', value: marginPercent != null ? '${formatGNF(margin)} · $marginPercent%' : formatGNF(margin)),
+                _InfoTile(
+                    label: "Prix d'achat",
+                    value: formatGNF(product.purchasePrice)),
+                _InfoTile(
+                    label: 'Prix de vente',
+                    value: formatGNF(product.sellingPrice)),
+                _InfoTile(
+                    label: 'Marge',
+                    value: marginPercent != null
+                        ? '${formatGNF(margin)} · $marginPercent%'
+                        : formatGNF(margin)),
                 _InfoTile(label: 'Stock actuel', value: '${product.quantity}'),
-                _InfoTile(label: "Seuil d'alerte", value: '${product.lowStockThreshold}'),
-                if (product.categoryId != null) _InfoTile(label: 'Catégorie', value: '#${product.categoryId}'),
+                _InfoTile(
+                    label: "Seuil d'alerte",
+                    value: '${product.lowStockThreshold}'),
+                if (product.categoryId != null)
+                  _InfoTile(
+                      label: 'Catégorie', value: '#${product.categoryId}'),
               ],
             ),
-            if (product.description != null && product.description!.isNotEmpty) ...[
+            if (product.description != null &&
+                product.description!.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Text('Description', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Text('Description',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
               const SizedBox(height: 4),
               Text(product.description!, style: const TextStyle(fontSize: 13)),
             ],
             const SizedBox(height: 20),
-            const Text('Historique de stock', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            const Text('Mouvements immuables', style: TextStyle(fontSize: 11, color: Colors.grey)),
+            const Text('Historique de stock',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            const Text('Mouvements immuables',
+                style: TextStyle(fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 8),
             if (_movements == null)
-              const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()))
+              const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator()))
             else if (_movements!.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text('Aucun mouvement de stock.', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                child: Text('Aucun mouvement de stock.',
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 13)),
               )
             else
               Container(
-                decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Column(
                   children: [
                     for (var i = 0; i < _movements!.length; i++)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          border: i == 0 ? null : Border(top: BorderSide(color: Colors.grey.shade100)),
+                          border: i == 0
+                              ? null
+                              : Border(
+                                  top: BorderSide(color: Colors.grey.shade100)),
                         ),
                         child: Row(
                           children: [
@@ -179,19 +228,30 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
-                                    child: Text(_movements![i].label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius:
+                                            BorderRadius.circular(20)),
+                                    child: Text(_movements![i].label,
+                                        style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w600)),
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
                                     '${formatDateTime(_movements![i].createdAt)}${_movements![i].note != null ? ' · ${_movements![i].note}' : ''}',
-                                    style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                                    style: TextStyle(
+                                        fontSize: 10.5,
+                                        color: Colors.grey.shade500),
                                   ),
                                 ],
                               ),
                             ),
-                            Text('${_movements![i].quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                            Text('${_movements![i].quantity}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 13)),
                           ],
                         ),
                       ),
@@ -204,7 +264,8 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+                      onPressed:
+                          _busy ? null : () => Navigator.of(context).pop(false),
                       icon: const Icon(Icons.edit_outlined, size: 17),
                       label: const Text('Modifier'),
                     ),
@@ -213,8 +274,15 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: _busy ? null : _toggleStatus,
-                      style: FilledButton.styleFrom(backgroundColor: isActive ? Colors.red.shade600 : Colors.green.shade600),
-                      icon: Icon(isActive ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 17),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: isActive
+                              ? Colors.red.shade600
+                              : Colors.green.shade600),
+                      icon: Icon(
+                          isActive
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 17),
                       label: Text(isActive ? 'Désactiver' : 'Réactiver'),
                     ),
                   ),
@@ -223,7 +291,8 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
             ],
           ],
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -237,14 +306,26 @@ class _InfoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(10)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500, letterSpacing: 0.3), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.grey.shade500,
+                  letterSpacing: 0.3),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );

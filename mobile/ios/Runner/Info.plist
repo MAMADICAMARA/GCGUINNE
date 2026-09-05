@@ -30,6 +30,8 @@
 	<string>Utilisée pour photographier un produit lors de son ajout au catalogue.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Utilisée pour choisir une photo de produit depuis votre galerie.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Utilisée pour vous reconnecter rapidement sans retaper votre mot de passe.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

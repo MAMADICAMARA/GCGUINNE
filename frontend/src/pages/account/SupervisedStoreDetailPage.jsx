@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Coins, Wallet, ShoppingBag, AlertCircle, TrendingUp } from 'lucide-react';
+import { ChevronLeft, Coins, Wallet, ShoppingBag, AlertCircle, TrendingUp, CreditCard } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { formatGNF, formatDate, formatDateTime } from '@/utils/format';
 import AuditLogPanel from '@/components/AuditLogPanel';
+import PlanStatusBadge from '@/components/PlanStatusBadge';
+import SubscriptionPaymentModal from '@/pages/settings/SubscriptionPaymentModal';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -26,29 +28,42 @@ const PAYMENT_STATUS_LABELS = { PAID: 'Total', PARTIALLY_PAID: 'Partiel', PENDIN
  * conversation) — remplace l'ancienne fenêtre modale (SuperviseStoreDetailModal,
  * supprimée) par une vraie page à onglets, la quantité d'information
  * demandée (produits/stock, ventes avec sélecteur de date, journal
- * d'activité) ne tenant plus dans une modale. Aucune action possible nulle
- * part sur cette page — uniquement des données déjà exposées en lecture
- * par les routes /supervision/stores/:storeId/*.
+ * d'activité) ne tenant plus dans une modale. Chaque onglet reste
+ * strictement en lecture (données déjà exposées par les routes
+ * /supervision/stores/:storeId/*) — seule exception (§ décidé en
+ * conversation, "le superviseur peut payer l'abonnement") : le bouton
+ * "Payer l'abonnement" dans l'en-tête ci-dessous, qui ne fait que déclarer
+ * un paiement (jamais d'activation automatique, vérifié par un Super Admin).
  */
 export default function SupervisedStoreDetailPage() {
   const { storeId } = useParams();
   const [tab, setTab] = useState('apercu');
-  const [storeName, setStoreName] = useState('');
+  // Vient de la liste (GET /supervision/stores), PAS de /stats : ce dernier
+  // est bloqué par verifyAccess quand le plan de la boutique n'autorise
+  // plus la supervision — exactement le cas où on a le plus besoin
+  // d'afficher le nom + le bouton "Payer" pour débloquer l'accès.
+  const [storeInfo, setStoreInfo] = useState(null);
+  const [payingStore, setPayingStore] = useState(false);
+
+  async function loadStoreInfo(cancelledRef) {
+    try {
+      const { data } = await apiClient.get('/supervision/stores');
+      if (cancelledRef?.current) return;
+      const match = data.stores.find((s) => String(s.id) === String(storeId));
+      if (match) setStoreInfo(match);
+    } catch {
+      // Le nom reste vide si la requête échoue — chaque onglet affiche
+      // de toute façon sa propre erreur d'accès le cas échéant.
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await apiClient.get(`/supervision/stores/${storeId}/stats`);
-        if (!cancelled) setStoreName(data.store.name);
-      } catch {
-        // Le nom reste vide si la requête échoue — chaque onglet affiche
-        // de toute façon sa propre erreur d'accès le cas échéant.
-      }
-    })();
+    const cancelledRef = { current: false };
+    loadStoreInfo(cancelledRef);
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId]);
 
   return (
@@ -59,10 +74,37 @@ export default function SupervisedStoreDetailPage() {
       >
         <ChevronLeft size={16} /> Superviser
       </Link>
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">{storeName || 'Boutique supervisée'}</h1>
+
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
+        <h1 className="text-xl font-semibold text-slate-800">{storeInfo?.name || 'Boutique supervisée'}</h1>
+        {storeInfo && (
+          <div className="flex items-center gap-2">
+            <PlanStatusBadge supervisionAllowed={storeInfo.supervisionAllowed} planExpiresAt={storeInfo.planExpiresAt} />
+            <button
+              onClick={() => setPayingStore(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-linear-to-r from-brand-500 to-brand-600 text-white text-xs font-semibold px-3 py-1.5 shadow-md shadow-brand-500/25 hover:shadow-lg hover:shadow-brand-500/35 hover:-translate-y-0.5 transition-all"
+            >
+              <CreditCard size={13} />
+              Payer l'abonnement
+            </button>
+          </div>
+        )}
+      </div>
       <p className="text-sm text-slate-500 mb-6">
-        Vue en lecture seule stricte — aucune action possible depuis cette page.
+        Vue en lecture seule stricte — seule exception : payer l'abonnement de cette boutique.
       </p>
+
+      {payingStore && (
+        <SubscriptionPaymentModal
+          optionsEndpoint={`/supervision/stores/${storeId}/subscription-options`}
+          submitEndpoint={`/supervision/stores/${storeId}/subscription-payments`}
+          onClose={() => setPayingStore(false)}
+          onSuccess={() => {
+            setPayingStore(false);
+            loadStoreInfo();
+          }}
+        />
+      )}
 
       <div className="flex gap-1 border-b border-slate-200 mb-6 overflow-x-auto">
         {TABS.map((t) => (

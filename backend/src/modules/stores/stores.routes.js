@@ -35,6 +35,25 @@ router.get('/types', async (req, res, next) => {
   }
 });
 
+// Réactivation d'une boutique désactivée par son propre Owner
+// (§53_desactivation_boutique.sql, décidé en conversation). Doit rester
+// hors de requireActiveStore, comme /mine et POST / ci-dessus : une
+// boutique désactivée n'est jamais sélectionnable comme boutique active,
+// donc cette action ne peut pas en dépendre. L'appartenance est vérifiée
+// dans le service via owner_id = userId, pas via un rôle de boutique active.
+router.post('/:storeId/reactivate', async (req, res, next) => {
+  try {
+    const storeId = parseInt(req.params.storeId, 10);
+    if (!Number.isInteger(storeId)) {
+      throw new AppError('Boutique invalide.', 400, 'VALIDATION_ERROR');
+    }
+    const result = await storesService.reactivateOwnStore(storeId, req.auth.userId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post(
   '/',
   [
@@ -341,8 +360,10 @@ router.get('/plan-banner', requireActiveStore, async (req, res, next) => {
 
 // --- Statut de l'abonnement de la boutique ACTIVE (§20_plans_abonnement.sql) ---
 // Réservé au Owner : visibilité en lecture seule du plan effectif et de sa
-// date d'expiration — la gestion (activer/renouveler/désactiver) reste
-// exclusivement manuelle et réservée au Super Admin (cf. admin.routes.js).
+// date d'expiration — l'activation/le renouvellement/la suspension
+// restent exclusivement manuels et réservés au Super Admin (cf.
+// admin.routes.js), à l'exception de la désactivation VOLONTAIRE par
+// l'Owner lui-même ci-dessous (§53_desactivation_boutique.sql).
 router.get(
   '/plan-status',
   requireActiveStore,
@@ -351,6 +372,25 @@ router.get(
     try {
       const plan = await getEffectivePlan(req.auth.storeId);
       res.json(plan);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// --- Désactivation volontaire de la boutique ACTIVE par son Owner
+// (§53_desactivation_boutique.sql, décidé en conversation) — le seul
+// moyen de libérer son "poste" d'Owner (par ex. pour rejoindre une autre
+// boutique comme Vendeur). Voir POST /:storeId/reactivate plus haut pour
+// le chemin inverse.
+router.post(
+  '/deactivate',
+  requireActiveStore,
+  requireRole('OWNER'),
+  async (req, res, next) => {
+    try {
+      const result = await storesService.deactivateOwnStore(req.auth.storeId, req.auth.userId);
+      res.json(result);
     } catch (err) {
       next(err);
     }

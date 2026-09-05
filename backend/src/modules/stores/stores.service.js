@@ -4,6 +4,7 @@ const pool = require('../../config/db');
 const env = require('../../config/env');
 const { AppError } = require('../../middlewares/errorHandler');
 const { getEffectivePlan } = require('../../utils/planContext');
+const { findConflictingOccupation } = require('../../utils/userOccupancy');
 
 function signToken(payload) {
   return jwt.sign(payload, env.jwt.secret, { expiresIn: env.jwt.expiresIn });
@@ -110,13 +111,23 @@ async function createStore(
     );
   }
 
-  // Un utilisateur ne peut posséder qu'une seule boutique (cf.
-  // §13_un_seul_owner_par_boutique.sql) — pour suivre d'autres boutiques,
-  // il passe par "Superviser", pas par une nouvelle création. Vérification
-  // préalable pour un message clair ; la contrainte UNIQUE en base reste
-  // le filet de sécurité final en cas de requêtes concurrentes.
-  const existingStore = await pool.query('SELECT id FROM stores WHERE owner_id = $1', [userId]);
-  if (existingStore.rows.length > 0) {
+  // Un seul poste par utilisateur (§53_desactivation_boutique.sql, décidé
+  // en conversation) : "déjà Owner ailleurs" (cf. uq_stores_owner_id) pour
+  // suivre d'autres boutiques, il passe par "Superviser", pas par une
+  // nouvelle création ; "déjà Vendeur ailleurs" doit d'abord en être
+  // retiré. Vérification préalable pour un message clair ; la contrainte
+  // UNIQUE en base reste le filet de sécurité final en cas de requêtes
+  // concurrentes. Une boutique DÉSACTIVÉE ne compte pas comme occupation :
+  // c'est précisément ce qui permet à un Owner de repartir de zéro.
+  const conflict = await findConflictingOccupation(userId);
+  if (conflict) {
+    if (conflict.type === 'SELLER') {
+      throw new AppError(
+        `Vous êtes déjà Vendeur dans la boutique "${conflict.name}". Demandez à son propriétaire de vous en retirer avant de créer votre propre boutique.`,
+        409,
+        'ALREADY_RESELLER_ELSEWHERE'
+      );
+    }
     throw new AppError(
       'Vous possédez déjà une boutique. Pour suivre d\'autres boutiques, utilisez "Superviser".',
       409,
@@ -233,6 +244,66 @@ async function createStore(
   });
 
   return { token, activeStore, stores };
+}
+
+/**
+ * Désactivation volontaire de sa propre boutique par l'Owner
+ * (§53_desactivation_boutique.sql, décidé en conversation) — le seul moyen
+ * de libérer son "poste" d'Owner pour, par exemple, rejoindre une autre
+ * boutique comme Vendeur. Contrairement à suspendStore (Super Admin,
+ * punitif), ce statut DEACTIVATED libère réellement owner_id (cf. l'index
+ * unique partiel sur stores.owner_id) — voir findConflictingOccupation.
+ * Aucune donnée supprimée ni modifiée à part le statut.
+ */
+async function deactivateOwnStore(storeId, userId) {
+  const { rows } = await pool.query(
+    `UPDATE stores SET status = 'DEACTIVATED' WHERE id = $1 AND owner_id = $2 AND status = 'ACTIVE'
+     RETURNING id, name, status`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable ou déjà inactive.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'OWNER_DEACTIVATE_STORE', '{}'::jsonb)`,
+    [userId, storeId]
+  );
+  return rows[0];
+}
+
+/**
+ * Réactivation, par l'Owner lui-même, d'une boutique qu'il avait
+ * désactivée (§53_desactivation_boutique.sql, décidé en conversation) —
+ * refusée s'il occupe entre-temps un autre poste (Owner ou Vendeur)
+ * ailleurs, pour ne jamais violer la règle "un seul poste à la fois".
+ * Volontairement hors de requireActiveStore (comme POST /stores et
+ * GET /stores/mine) : une boutique désactivée n'est pas sélectionnable
+ * comme boutique active, donc cette action ne peut pas en dépendre.
+ */
+async function reactivateOwnStore(storeId, userId) {
+  const conflict = await findConflictingOccupation(userId, { excludeStoreId: storeId });
+  if (conflict) {
+    throw new AppError(
+      `Vous êtes actuellement ${conflict.type === 'OWNER' ? 'propriétaire' : 'Vendeur'} de la boutique "${conflict.name}". Réglez cette situation avant de réactiver celle-ci.`,
+      409,
+      'ALREADY_OCCUPIED_ELSEWHERE'
+    );
+  }
+  const { rows } = await pool.query(
+    `UPDATE stores SET status = 'ACTIVE' WHERE id = $1 AND owner_id = $2 AND status = 'DEACTIVATED'
+     RETURNING id, name, status`,
+    [storeId, userId]
+  );
+  if (rows.length === 0) {
+    throw new AppError('Boutique introuvable ou non désactivée.', 404, 'STORE_NOT_FOUND');
+  }
+  await pool.query(
+    `INSERT INTO system_logs (user_id, store_id, action, details)
+     VALUES ($1, $2, 'OWNER_REACTIVATE_STORE', '{}'::jsonb)`,
+    [userId, storeId]
+  );
+  return rows[0];
 }
 
 /**
@@ -991,6 +1062,8 @@ async function canUserManagePurchases(storeId, userId, roleCode) {
 module.exports = {
   listMyStores,
   createStore,
+  deactivateOwnStore,
+  reactivateOwnStore,
   getSupervisionCode,
   regenerateSupervisionCode,
   getSupplierCode,

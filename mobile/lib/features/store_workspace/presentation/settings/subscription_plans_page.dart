@@ -39,7 +39,8 @@ class _SubscriptionPlansPageState extends State<SubscriptionPlansPage> {
       _error = null;
     });
     try {
-      final optionsFuture = context.read<SubscriptionPaymentsApi>().getOptions();
+      final optionsFuture =
+          context.read<SubscriptionPaymentsApi>().getOptions();
       final planFuture = context.read<StoresApi>().getPlanStatus();
       final options = await optionsFuture;
       final plan = await planFuture;
@@ -59,7 +60,8 @@ class _SubscriptionPlansPageState extends State<SubscriptionPlansPage> {
   }
 
   Future<void> _choosePlan(SubscriptionPlanOption plan) async {
-    final submitted = await showSubscriptionPaymentSheet(context, initialPlan: plan);
+    final submitted =
+        await showSubscriptionPaymentSheet(context, initialPlan: plan);
     if (submitted == true) await _load();
   }
 
@@ -97,46 +99,69 @@ class _SubscriptionPlansPageState extends State<SubscriptionPlansPage> {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.primary.withValues(alpha: 0.8)],
+                          colors: [
+                            Theme.of(context).colorScheme.primary,
+                            Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.8)
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
-                          BoxShadow(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6)),
+                          BoxShadow(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6)),
                         ],
                       ),
-                      child: const Icon(Icons.workspace_premium_outlined, color: Colors.white, size: 26),
+                      child: const Icon(Icons.workspace_premium_outlined,
+                          color: Colors.white, size: 26),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Choisissez votre plan',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Des offres pensées pour accompagner la croissance de votre boutique — changez ou renouvelez à tout moment.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13.5, height: 1.4),
+                    style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 13.5,
+                        height: 1.4),
                   ),
                   if (_currentPlan != null) ...[
                     const SizedBox(height: 12),
                     Center(
                       child: Text.rich(
                         TextSpan(
-                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey.shade600),
                           children: [
                             const TextSpan(text: 'Plan actuel : '),
                             TextSpan(
                               text: _currentPlan!.planName,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: _currentPlan!.isEffectivelyFreemium ? Colors.amber.shade800 : Theme.of(context).colorScheme.primary,
+                                color: _currentPlan!.isEffectivelyFreemium
+                                    ? Colors.amber.shade800
+                                    : Theme.of(context).colorScheme.primary,
                               ),
                             ),
                             if (_currentPlan!.planExpiresAt != null)
                               TextSpan(
-                                text: ' — ${_currentPlan!.isEffectivelyFreemium ? "expiré le" : "expire le"} ${formatDateTime(_currentPlan!.planExpiresAt)}',
+                                text:
+                                    ' — ${_currentPlan!.isEffectivelyFreemium ? "expiré le" : "expire le"} ${formatDateTime(_currentPlan!.planExpiresAt)}',
                               ),
                           ],
                         ),
@@ -146,17 +171,23 @@ class _SubscriptionPlansPageState extends State<SubscriptionPlansPage> {
                   const SizedBox(height: 28),
                   if (_error != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-                      child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                      decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Text(_error!,
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 13)),
                     ),
                   for (final plan in plans) ...[
                     _PlanCard(
                       plan: plan,
                       renewalDays: _options!.renewalDays,
                       isCurrent: _currentPlan?.planName == plan.name,
-                      isHighlighted: plan.id == highestPriceId && plan.price > 0,
+                      isHighlighted:
+                          plan.id == highestPriceId && plan.price > 0,
                       onChoose: () => _choosePlan(plan),
                     ),
                     const SizedBox(height: 16),
@@ -186,10 +217,24 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isFree = plan.price == 0;
+    // Meilleur prix/mois parmi les paliers de durée configurés (§ décidé en
+    // conversation) — un repère de "bonne affaire" immédiat, même logique
+    // exacte que PlanCard côté web.
+    final durationOptions = !isFree
+        ? durationOptionsFor(plan)
+        : const <SubscriptionDurationOption>[];
+    final cheapestPerMonth = durationOptions.length > 1
+        ? durationOptions
+            .map((d) => d.pricePerMonth)
+            .reduce((a, b) => a < b ? a : b)
+        : null;
     // Un simple Check/X par ligne (pas d'icône propre à chaque avantage) —
     // même choix exact que PlanCard côté web.
     final features = <(String, bool)>[
-      ('${plan.maxUsersPerStore} utilisateur${plan.maxUsersPerStore > 1 ? 's' : ''} / boutique', true),
+      (
+        '${plan.maxUsersPerStore} utilisateur${plan.maxUsersPerStore > 1 ? 's' : ''} / boutique',
+        true
+      ),
       ('${plan.maxProductsPerStore} produits actifs / boutique', true),
       ("Superviser d'autres boutiques", plan.allowsSupervision),
       ('Fournisseurs inter-boutiques', plan.allowsSuppliers),
@@ -199,11 +244,16 @@ class _PlanCard extends StatelessWidget {
     ];
 
     final bgColor = isHighlighted ? const Color(0xFF0F172A) : Colors.white;
-    final titleColor = isHighlighted ? Colors.amber.shade300 : Theme.of(context).colorScheme.primary;
+    final titleColor = isHighlighted
+        ? Colors.amber.shade300
+        : Theme.of(context).colorScheme.primary;
     final priceColor = isHighlighted ? Colors.white : Colors.grey.shade900;
-    final subColor = isHighlighted ? Colors.grey.shade400 : Colors.grey.shade500;
-    final featureTextColor = isHighlighted ? Colors.grey.shade300 : Colors.grey.shade800;
-    final featureMutedColor = isHighlighted ? Colors.grey.shade600 : Colors.grey.shade400;
+    final subColor =
+        isHighlighted ? Colors.grey.shade400 : Colors.grey.shade500;
+    final featureTextColor =
+        isHighlighted ? Colors.grey.shade300 : Colors.grey.shade800;
+    final featureMutedColor =
+        isHighlighted ? Colors.grey.shade600 : Colors.grey.shade400;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -213,10 +263,21 @@ class _PlanCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(24),
-            border: isHighlighted ? null : Border.all(color: Colors.grey.shade200),
+            border:
+                isHighlighted ? null : Border.all(color: Colors.grey.shade200),
             boxShadow: isHighlighted
-                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 10))]
-                : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+                ? [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10))
+                  ]
+                : [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +285,11 @@ class _PlanCard extends StatelessWidget {
               if (isHighlighted) const SizedBox(height: 10),
               Text(
                 plan.name,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: titleColor),
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    color: titleColor),
               ),
               const SizedBox(height: 6),
               Row(
@@ -233,17 +298,46 @@ class _PlanCard extends StatelessWidget {
                 children: [
                   Text(
                     isFree ? 'Gratuit' : formatGNF(plan.price),
-                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: priceColor, letterSpacing: -0.5),
+                    style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        color: priceColor,
+                        letterSpacing: -0.5),
                   ),
                   if (!isFree) ...[
                     const SizedBox(width: 4),
-                    Text('/ $renewalDays j', style: TextStyle(fontSize: 13, color: subColor)),
+                    Text('/ $renewalDays j',
+                        style: TextStyle(fontSize: 13, color: subColor)),
                   ],
                 ],
               ),
+              if (cheapestPerMonth != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isHighlighted
+                        ? Colors.green.withValues(alpha: 0.18)
+                        : Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'à partir de ${formatGNF(cheapestPerMonth)} / mois',
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: isHighlighted
+                            ? Colors.green.shade300
+                            : Colors.green.shade700),
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               Text(
-                isFree ? 'Pour démarrer sans engagement' : 'Facturation manuelle, renouvelable à tout moment',
+                isFree
+                    ? 'Pour démarrer sans engagement'
+                    : 'Facturation manuelle, renouvelable à tout moment',
                 style: TextStyle(fontSize: 12.5, color: subColor),
               ),
               const SizedBox(height: 18),
@@ -256,13 +350,21 @@ class _PlanCard extends StatelessWidget {
                       Icon(
                         included ? Icons.check_circle : Icons.cancel_outlined,
                         size: 16,
-                        color: included ? (isHighlighted ? Colors.green.shade300 : Colors.green.shade600) : featureMutedColor,
+                        color: included
+                            ? (isHighlighted
+                                ? Colors.green.shade300
+                                : Colors.green.shade600)
+                            : featureMutedColor,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           label,
-                          style: TextStyle(fontSize: 13, color: included ? featureTextColor : featureMutedColor),
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: included
+                                  ? featureTextColor
+                                  : featureMutedColor),
                         ),
                       ),
                     ],
@@ -275,17 +377,28 @@ class _PlanCard extends StatelessWidget {
                     ? Container(
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         decoration: BoxDecoration(
-                          color: isHighlighted ? Colors.white.withValues(alpha: 0.1) : Colors.green.shade50,
+                          color: isHighlighted
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.green.shade50,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.verified_outlined, size: 17, color: isHighlighted ? Colors.white : Colors.green.shade700),
+                            Icon(Icons.verified_outlined,
+                                size: 17,
+                                color: isHighlighted
+                                    ? Colors.white
+                                    : Colors.green.shade700),
                             const SizedBox(width: 6),
                             Text(
                               'Votre plan actuel',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: isHighlighted ? Colors.white : Colors.green.shade700),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13.5,
+                                  color: isHighlighted
+                                      ? Colors.white
+                                      : Colors.green.shade700),
                             ),
                           ],
                         ),
@@ -293,12 +406,20 @@ class _PlanCard extends StatelessWidget {
                     : FilledButton(
                         onPressed: onChoose,
                         style: FilledButton.styleFrom(
-                          backgroundColor: isHighlighted ? Colors.white : const Color(0xFF0F172A),
-                          foregroundColor: isHighlighted ? const Color(0xFF0F172A) : Colors.white,
+                          backgroundColor: isHighlighted
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
+                          foregroundColor: isHighlighted
+                              ? const Color(0xFF0F172A)
+                              : Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: Text(isFree ? 'Choisir ce plan' : 'Passer à ce plan', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                        child: Text(
+                            isFree ? 'Choisir ce plan' : 'Passer à ce plan',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 13.5)),
                       ),
               ),
             ],
@@ -311,18 +432,30 @@ class _PlanCard extends StatelessWidget {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [Colors.amber.shade300, Colors.amber.shade500]),
+                  gradient: LinearGradient(
+                      colors: [Colors.amber.shade300, Colors.amber.shade500]),
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.amber.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ],
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome, size: 13, color: Color(0xFF0F172A)),
+                    Icon(Icons.auto_awesome,
+                        size: 13, color: Color(0xFF0F172A)),
                     SizedBox(width: 5),
-                    Text('Le plus complet', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                    Text('Le plus complet',
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A))),
                   ],
                 ),
               ),
