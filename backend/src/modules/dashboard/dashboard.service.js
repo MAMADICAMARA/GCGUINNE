@@ -116,9 +116,18 @@ async function getDashboardStats(storeId, roleCode, userId, date) {
        ORDER BY day`,
       sellerParams
     ),
+    // COALESCE(oi.purchase_price, p.purchase_price) (§54_prix_achat_fige_
+    // vente.sql, décidé en conversation) : oi.purchase_price est le prix
+    // d'achat figé au moment de la vente (comme oi.unit_price déjà figé) —
+    // sans lui, une hausse ultérieure du prix d'achat du produit rendait
+    // rétroactivement négatives des ventes passées pourtant bénéficiaires.
+    // Le repli sur p.purchase_price (prix ACTUEL) ne concerne que les
+    // ventes antérieures à ce correctif, dont le coût historique réel n'a
+    // jamais été enregistré — limite connue et inévitable pour ces
+    // anciennes lignes uniquement.
     includeProfit
       ? pool.query(
-          `SELECT COALESCE(SUM((oi.unit_price - p.purchase_price) * (oi.quantity - oi.returned_quantity)), 0) AS profit
+          `SELECT COALESCE(SUM((oi.unit_price - COALESCE(oi.purchase_price, p.purchase_price)) * (oi.quantity - oi.returned_quantity)), 0) AS profit
            FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
            JOIN products p ON p.id = oi.product_id

@@ -208,9 +208,16 @@ async function listSupervisableStores(userId) {
        GROUP BY store_id`,
       [storeIds]
     ),
+    // COALESCE(oi.purchase_price, p.purchase_price) : prix d'achat figé au
+    // moment de la vente (§54_prix_achat_fige_vente.sql, décidé en
+    // conversation), même correctif que dashboard.service.js — sinon une
+    // hausse ultérieure du prix d'achat rendait rétroactivement négatives
+    // des ventes pourtant bénéficiaires. (oi.quantity - oi.returned_quantity)
+    // exclut aussi les articles retournés du bénéfice, comme le tableau de
+    // bord Owner le fait déjà (un retour ne doit pas compter ici non plus).
     pool.query(
       `SELECT o.store_id AS "storeId",
-              COALESCE(SUM((oi.unit_price - p.purchase_price) * oi.quantity), 0) AS profit
+              COALESCE(SUM((oi.unit_price - COALESCE(oi.purchase_price, p.purchase_price)) * (oi.quantity - oi.returned_quantity)), 0) AS profit
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        JOIN products p ON p.id = oi.product_id

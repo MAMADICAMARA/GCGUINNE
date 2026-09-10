@@ -158,7 +158,10 @@ async function listProducts(storeId, options = {}) {
     // La recherche porte aussi sur les attributs (attributes::text) — ex:
     // un modèle de téléphone comme "BG6" partagé entre plusieurs pièces
     // différentes (écran, plaquette, batterie...), stocké en attribut
-    // plutôt qu'en référence (qui, elle, doit rester unique par produit).
+    // plutôt qu'en référence (qui, elle, ne doit rester unique QUE par
+    // catégorie — §55_reference_unique_par_categorie.sql, décidé en
+    // conversation : deux pièces de catégories différentes peuvent
+    // partager la même référence constructeur).
     conditions.push(`(name ILIKE $${idx} OR reference ILIKE $${idx} OR attributes::text ILIKE $${idx})`);
     params.push(`%${options.search}%`);
     idx++;
@@ -335,6 +338,16 @@ async function createProduct(storeId, userId, data) {
     return product;
   } catch (err) {
     await client.query('ROLLBACK');
+    // Référence en double DANS LA MÊME catégorie (§55_reference_unique_
+    // par_categorie.sql, décidé en conversation) — message clair plutôt
+    // que de laisser fuir l'erreur Postgres brute.
+    if (err.code === '23505' && err.constraint === 'uq_products_store_category_reference') {
+      throw new AppError(
+        'Cette référence est déjà utilisée par un autre produit de cette catégorie.',
+        409,
+        'DUPLICATE_REFERENCE'
+      );
+    }
     throw err;
   } finally {
     client.release();
@@ -396,6 +409,16 @@ async function updateProduct(storeId, productId, data) {
     return product;
   } catch (err) {
     await client.query('ROLLBACK');
+    // Référence en double DANS LA MÊME catégorie (§55_reference_unique_
+    // par_categorie.sql, décidé en conversation) — message clair plutôt
+    // que de laisser fuir l'erreur Postgres brute.
+    if (err.code === '23505' && err.constraint === 'uq_products_store_category_reference') {
+      throw new AppError(
+        'Cette référence est déjà utilisée par un autre produit de cette catégorie.',
+        409,
+        'DUPLICATE_REFERENCE'
+      );
+    }
     throw err;
   } finally {
     client.release();

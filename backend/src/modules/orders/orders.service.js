@@ -75,7 +75,7 @@ async function createOrder(storeId, userId, roleCode, orderData) {
     // du UPDATE atomique — cf. cahier des charges §9.2 / §11.1).
     const productIds = orderData.items.map((i) => i.productId);
     const productsResult = await client.query(
-      `SELECT id, name, selling_price, quantity FROM products
+      `SELECT id, name, selling_price, purchase_price, quantity FROM products
        WHERE store_id = $1 AND id = ANY($2::int[])
        ORDER BY id`,
       [storeId, productIds]
@@ -156,6 +156,11 @@ async function createOrder(storeId, userId, roleCode, orderData) {
         productId: item.productId,
         quantity: item.quantity,
         unitPrice,
+        // Prix d'achat figé au moment de la vente (§54_prix_achat_fige_
+        // vente.sql, décidé en conversation) — comme unitPrice ci-dessus,
+        // pour que le bénéfice affiché ne soit jamais recalculé
+        // rétroactivement avec un prix d'achat modifié depuis.
+        purchasePrice: product.purchase_price,
         productName: product.name,
       });
     }
@@ -322,10 +327,10 @@ async function createOrder(storeId, userId, roleCode, orderData) {
         }
 
         const itemResult = await client.query(
-          `INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO order_items (order_id, product_id, quantity, unit_price, purchase_price)
+           VALUES ($1, $2, $3, $4, $5)
            RETURNING id, product_id, quantity, unit_price`,
-          [order.id, item.productId, item.quantity, item.unitPrice]
+          [order.id, item.productId, item.quantity, item.unitPrice, item.purchasePrice]
         );
         itemsResult.push(itemResult.rows[0]);
 
