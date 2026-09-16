@@ -97,7 +97,10 @@ export default function StorePlanModal({ store, onClose, onChanged }) {
             <h2 className="font-semibold text-slate-800">Abonnement — {store.name}</h2>
             <p className="text-xs text-slate-400">
               Plan actuel : {store.planName || freePlanName || '—'}
-              {store.planExpiresAt && ` (expire le ${formatDateTime(store.planExpiresAt)})`}
+              {store.planExpiresAt &&
+                (store.planExpired
+                  ? ` (expiré le ${formatDateTime(store.planExpiresAt)})`
+                  : ` (expire le ${formatDateTime(store.planExpiresAt)})`)}
             </p>
           </div>
           <button

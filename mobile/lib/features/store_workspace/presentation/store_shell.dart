@@ -57,7 +57,8 @@ class _StoreShellState extends State<StoreShell> {
 
   Future<void> _loadVoidReturnPermission() async {
     try {
-      final allowed = await context.read<StoresApi>().getMyVoidReturnPermission();
+      final allowed =
+          await context.read<StoresApi>().getMyVoidReturnPermission();
       if (!mounted) return;
       context.read<AuthState>().setCanVoidReturn(allowed);
     } on ApiException catch (_) {
@@ -68,7 +69,8 @@ class _StoreShellState extends State<StoreShell> {
   // Miroir de EditPricePermissionSync.jsx (§39_prix_editable_vente.sql).
   Future<void> _loadEditPricePermission() async {
     try {
-      final allowed = await context.read<StoresApi>().getMyEditPricePermission();
+      final allowed =
+          await context.read<StoresApi>().getMyEditPricePermission();
       if (!mounted) return;
       context.read<AuthState>().setCanEditPrice(allowed);
     } on ApiException catch (_) {
@@ -79,7 +81,8 @@ class _StoreShellState extends State<StoreShell> {
   // Miroir de AddProductPermissionSync.jsx (§40_autorisation_ajout_produit.sql).
   Future<void> _loadAddProductPermission() async {
     try {
-      final allowed = await context.read<StoresApi>().getMyAddProductPermission();
+      final allowed =
+          await context.read<StoresApi>().getMyAddProductPermission();
       if (!mounted) return;
       context.read<AuthState>().setCanAddProduct(allowed);
     } on ApiException catch (_) {
@@ -103,7 +106,8 @@ class _StoreShellState extends State<StoreShell> {
   // fournisseurs_achats.sql).
   Future<void> _loadSuppliersPermission() async {
     try {
-      final allowed = await context.read<StoresApi>().getMySuppliersPermission();
+      final allowed =
+          await context.read<StoresApi>().getMySuppliersPermission();
       if (!mounted) return;
       context.read<AuthState>().setCanManageSuppliers(allowed);
     } on ApiException catch (_) {
@@ -115,7 +119,8 @@ class _StoreShellState extends State<StoreShell> {
   // fournisseurs_achats.sql).
   Future<void> _loadPurchasesPermission() async {
     try {
-      final allowed = await context.read<StoresApi>().getMyPurchasesPermission();
+      final allowed =
+          await context.read<StoresApi>().getMyPurchasesPermission();
       if (!mounted) return;
       context.read<AuthState>().setCanManagePurchases(allowed);
     } on ApiException catch (_) {
@@ -154,11 +159,13 @@ class _StoreShellState extends State<StoreShell> {
                   children: [
                     Text(
                       'Boutique active',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      style:
+                          TextStyle(color: Colors.grey.shade500, fontSize: 12),
                     ),
                     Text(
                       activeStore?.name ?? '—',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     if (authState.stores.length > 1)
                       TextButton(
@@ -211,7 +218,8 @@ class _StoreShellState extends State<StoreShell> {
       ),
       body: Column(
         children: [
-          _PlanStatusBanner(roleCode: activeStore?.roleCode, banner: authState.planBanner),
+          _PlanStatusBanner(
+              roleCode: activeStore?.roleCode, banner: authState.planBanner),
           const UpdateBanner(),
           Expanded(child: widget.child),
         ],
@@ -221,10 +229,11 @@ class _StoreShellState extends State<StoreShell> {
 }
 
 /// Miroir de PlanStatusBanner.jsx — ne s'affiche que si la boutique est
-/// effectivement en FREEMIUM ET qu'elle a au moins un employé (calculé
-/// côté serveur). Message différent selon le rôle courant : l'Owner voit
-/// un bouton pour agir, le reste de l'équipe comprend juste pourquoi elle
-/// ne peut plus écrire (elle ne peut rien faire sur la facturation).
+/// effectivement en FREEMIUM (calculé côté serveur), y compris pour un
+/// Owner seul, sans aucun employé (bug corrigé, décidé en conversation).
+/// Message différent selon le rôle courant : l'Owner voit un bouton pour
+/// agir, le reste de l'équipe comprend juste pourquoi elle ne peut plus
+/// écrire (elle ne peut rien faire sur la facturation).
 class _PlanStatusBanner extends StatelessWidget {
   const _PlanStatusBanner({required this.roleCode, required this.banner});
 
@@ -249,19 +258,23 @@ class _PlanStatusBanner extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Votre abonnement est en ${banner!.planName} — votre équipe est actuellement en lecture seule.',
-                    style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                    'Votre abonnement est en ${banner!.planName} — passez à un plan supérieur pour débloquer toutes les fonctionnalités.',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.amber.shade900),
                   ),
                 ),
                 const SizedBox(width: 10),
                 SizedBox(
                   height: 30,
                   child: FilledButton(
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPlansPage())),
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const SubscriptionPlansPage())),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.amber.shade600,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      textStyle: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                     child: const Text('Passer au plan supérieur'),
                   ),

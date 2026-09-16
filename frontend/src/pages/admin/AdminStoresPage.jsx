@@ -123,7 +123,15 @@ export default function AdminStoresPage() {
                   <p className="text-xs text-slate-400 truncate">{store.ownerEmail}</p>
                   <div className="flex items-center justify-between mt-3">
                     <span className="text-sm text-slate-600">
-                      {store.planName || '—'}{' '}
+                      {store.effectivePlanName || '—'}
+                      {store.planExpired && (
+                        <span
+                          title={store.previousPlanName ? `Était ${store.previousPlanName}, abonnement expiré` : 'Abonnement expiré'}
+                          className="ml-1.5 inline-block rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-xs font-medium"
+                        >
+                          Expiré
+                        </span>
+                      )}{' '}
                       <button
                         onClick={() => setManagingPlanStore(store)}
                         className="text-xs font-medium text-brand-500"
@@ -178,7 +186,17 @@ export default function AdminStoresPage() {
                       <p className="text-xs text-slate-400">{store.ownerEmail}</p>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      <p>{store.planName || '—'}</p>
+                      <p className="flex items-center gap-1.5">
+                        {store.effectivePlanName || '—'}
+                        {store.planExpired && (
+                          <span
+                            title={store.previousPlanName ? `Était ${store.previousPlanName}, abonnement expiré` : 'Abonnement expiré'}
+                            className="inline-block rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-xs font-medium"
+                          >
+                            Expiré
+                          </span>
+                        )}
+                      </p>
                       <button
                         onClick={() => setManagingPlanStore(store)}
                         className="text-xs font-medium text-brand-500 hover:text-brand-600"

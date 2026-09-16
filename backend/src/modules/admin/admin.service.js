@@ -4,6 +4,7 @@ const mailer = require('../mailer/mailer.service');
 const emailTemplates = require('../mailer/templates');
 const verificationCodes = require('../auth/verificationCodes.service');
 const { findConflictingOccupation } = require('../../utils/userOccupancy');
+const { getEffectivePlan } = require('../../utils/planContext');
 
 /**
  * E-mail de confirmation au propriétaire d'une boutique après une action
@@ -47,24 +48,31 @@ function notifyStoreOwnerOfPlanChange(storeId, { action, planName, expiresAt }) 
  */
 
 async function getPlatformStats() {
-  const [storesCount, usersCount, byStatus, byPlan] = await Promise.all([
+  const [storesCount, usersCount, byStatus, allStoreIds] = await Promise.all([
     pool.query('SELECT COUNT(*) AS count FROM stores'),
     pool.query('SELECT COUNT(*) AS count FROM users'),
     pool.query('SELECT status, COUNT(*) AS count FROM stores GROUP BY status'),
-    pool.query(
-      `SELECT sp.name AS "planName", COUNT(s.id) AS count
-       FROM subscription_plans sp
-       LEFT JOIN stores s ON s.plan_id = sp.id
-       GROUP BY sp.name
-       ORDER BY sp.name`
-    ),
+    pool.query('SELECT id FROM stores'),
   ]);
+
+  // Plan EFFECTIF de chaque boutique (pas plan_id brut) — réutilise
+  // getEffectivePlan, jamais dupliqué (même principe que
+  // supervision.service.js#listSupervisableStores), pour que la
+  // répartition ne compte jamais une boutique expirée sous son ancien
+  // plan payant indéfiniment (bug corrigé, décidé en conversation).
+  const plans = await Promise.all(allStoreIds.rows.map((s) => getEffectivePlan(s.id)));
+  const countByPlanName = new Map();
+  for (const plan of plans) {
+    countByPlanName.set(plan.planName, (countByPlanName.get(plan.planName) || 0) + 1);
+  }
 
   return {
     totalStores: parseInt(storesCount.rows[0].count, 10),
     totalUsers: parseInt(usersCount.rows[0].count, 10),
     storesByStatus: byStatus.rows.map((r) => ({ status: r.status, count: parseInt(r.count, 10) })),
-    storesByPlan: byPlan.rows.map((r) => ({ planName: r.planName, count: parseInt(r.count, 10) })),
+    storesByPlan: [...countByPlanName.entries()]
+      .map(([planName, count]) => ({ planName, count }))
+      .sort((a, b) => a.planName.localeCompare(b.planName)),
   };
 }
 
@@ -118,8 +126,26 @@ async function listAllStores({ page, limit, status, search } = {}) {
     dataParams
   );
 
+  // `planName`/`planPrice` ci-dessus restent le plan BRUT assigné
+  // (plan_id) — StorePlanModal.jsx en dépend pour décider Activer/
+  // Renouveler (renouveler reste possible sur un plan payant expiré, le
+  // plan_id ne change pas). `effectivePlanName`/`planExpired`/
+  // `previousPlanName` ci-dessous sont des champs ADDITIFS pour
+  // l'AFFICHAGE (AdminStoresPage.jsx), calculés via getEffectivePlan
+  // (jamais dupliqué) — sinon une boutique expirée s'affichait sous son
+  // ancien plan payant indéfiniment (bug corrigé, décidé en conversation).
+  // La page étant déjà paginée (LIMIT/OFFSET ci-dessus), ce Promise.all
+  // reste léger.
+  const plans = await Promise.all(result.rows.map((s) => getEffectivePlan(s.id)));
+  const stores = result.rows.map((s, i) => ({
+    ...s,
+    effectivePlanName: plans[i].planName,
+    planExpired: plans[i].expired,
+    previousPlanName: plans[i].previousPlanName,
+  }));
+
   return {
-    stores: result.rows,
+    stores,
     total,
     page: pageNum,
     pages: Math.max(1, Math.ceil(total / limitNum)),

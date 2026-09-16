@@ -395,26 +395,16 @@ async function regenerateTransferCode(storeId) {
  * accessible à TOUS les rôles de la boutique (pas seulement l'Owner),
  * contrairement au reste des routes de ce fichier : l'équipe gelée doit
  * elle aussi comprendre pourquoi. Ne s'affiche que si la boutique est
- * effectivement en FREEMIUM ET qu'elle a au moins un employé
- * (Vendeur) — c'est le seul cas où quelque chose est réellement
- * gelé pour quelqu'un ; une boutique FREEMIUM sans employé n'a rien à
- * signaler.
+ * effectivement en FREEMIUM — plus de condition "au moins un employé"
+ * (bug corrigé, décidé en conversation) : un Owner qui gère sa boutique
+ * seul doit être notifié de l'expiration de son propre abonnement tout
+ * autant qu'un Owner avec équipe, PlanStatusBanner.jsx/store_shell.dart
+ * ayant déjà un message dédié à l'Owner, jamais atteignable avant ce
+ * correctif tant qu'aucun employé n'existait.
  */
 async function getPlanBanner(storeId) {
   const plan = await getEffectivePlan(storeId);
-  if (!plan.isEffectivelyFreemium) {
-    return { show: false };
-  }
-
-  const { rows } = await pool.query(
-    `SELECT 1 FROM user_store us
-     JOIN roles r ON r.id = us.role_id
-     WHERE us.store_id = $1 AND r.code != 'OWNER'
-     LIMIT 1`,
-    [storeId]
-  );
-
-  return { show: rows.length > 0, planName: plan.planName };
+  return { show: plan.isEffectivelyFreemium, planName: plan.planName };
 }
 
 /**

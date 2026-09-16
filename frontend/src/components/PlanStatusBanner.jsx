@@ -6,11 +6,11 @@ import { useAuthStore } from '@/store/authStore';
 /**
  * Bandeau d'alerte "boutique en mode gratuit" (§20_plans_abonnement.sql,
  * décidé en conversation) — ne s'affiche que si la boutique est
- * effectivement en FREEMIUM ET qu'elle a au moins un employé
- * (Vendeur), calculé côté serveur (GET /stores/plan-banner,
- * accessible à toute l'équipe). Message différent selon le rôle courant :
- * l'Owner voit qu'il doit agir, le reste de l'équipe comprend juste
- * pourquoi elle ne peut plus écrire.
+ * effectivement en FREEMIUM, calculé côté serveur (GET /stores/plan-banner,
+ * accessible à toute l'équipe) — y compris pour un Owner seul, sans aucun
+ * employé (bug corrigé, décidé en conversation). Message différent selon
+ * le rôle courant : l'Owner voit qu'il doit agir, le reste de l'équipe
+ * comprend juste pourquoi elle ne peut plus écrire.
  *
  * Peuple aussi `authStore.planBanner` (une seule requête par session
  * boutique, au montage de DashboardLayout) — consommé ailleurs par
@@ -46,7 +46,8 @@ export default function PlanStatusBanner({ roleCode }) {
       {roleCode === 'OWNER' ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span>
-            Votre abonnement est en {banner.planName} — votre équipe est actuellement en lecture seule.
+            Votre abonnement est en {banner.planName} — passez à un plan supérieur pour débloquer toutes
+            les fonctionnalités.
           </span>
           <button
             onClick={() => navigate('/settings/plans')}
