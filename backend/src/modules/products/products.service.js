@@ -135,7 +135,7 @@ const PRICE_TIERS_SUBQUERY = `
  */
 async function listProducts(storeId, options = {}) {
   const page = Math.max(1, parseInt(options.page, 10) || 1);
-  const limit = Math.min(10000, parseInt(options.limit, 10) || 20);
+  const limit = Math.min(200, parseInt(options.limit, 10) || 20);
   const offset = (page - 1) * limit;
 
   const conditions = ['store_id = $1'];
