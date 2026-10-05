@@ -120,7 +120,7 @@ export default function PosPage() {
     setLoadingProducts(true);
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        apiClient.get('/products', { params: { limit: 100, status: 'ACTIVE' } }),
+        apiClient.get('/products', { params: { status: 'ACTIVE' } }),
         apiClient.get('/categories'),
       ]);
       setProducts(productsRes.data.products || []);

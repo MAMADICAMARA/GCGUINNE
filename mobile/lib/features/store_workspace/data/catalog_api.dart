@@ -9,7 +9,7 @@ class CatalogApi {
   final ApiClient _client;
 
   Future<CatalogResult> listActiveProducts() async {
-    final data = await _client.get('/products', query: {'limit': 100, 'status': 'ACTIVE'});
+    final data = await _client.get('/products', query: {'status': 'ACTIVE'});
     final raw = data['products'] as List<dynamic>? ?? [];
     return CatalogResult(
       products: raw.map((e) => Product.fromJson(e as Map<String, dynamic>)).toList(),
